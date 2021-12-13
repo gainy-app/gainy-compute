@@ -15,8 +15,9 @@ def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
     sum_ap = 0.0
     batch_size = 100
     offset = 0
+    # TODO: is this batch_iter still needed?
     for batch in batch_iter(X_test.to_numpy(), batch_size):
-        labels, distances = model.classify(pd.DataFrame(data=batch), 2, include_distances=True)
+        labels, distances = model.classify(pd.DataFrame(data=batch), 1, include_distances=True)
 
         for index, labels_with_distances in enumerate(zip(labels, distances)):
             expected_labels = [l == y_test.iloc[offset + index][label_col] for l in label_list]

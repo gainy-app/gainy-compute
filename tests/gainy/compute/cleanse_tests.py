@@ -1,12 +1,16 @@
+from collections import OrderedDict
 
 import pandas as pd
 
 from gainy.compute.collection_utils import batch_iter
-from gainy.compute.industries.cleanse import textclean_createtextstoremove, textclean_all, tokenize_gettf, tfidfcossim, \
-    generate_industrytokenstfidf_vocabs
+from gainy.compute.industries import tfidf_model
 
-from gainy.compute.industries.idf_model import TfIdfIndustryAssigmentModel
 from gainy.compute.industries.lifecycle import cross_validation
+from gainy.compute.industries.prototype import prototype_model
+from gainy.compute.industries.prototype.ahocorasick import textclean_ahocorasick_createnode, \
+    textclean_ahocorasick_processtext
+from gainy.compute.industries.prototype.prototype_model import IndustryAssigmentPrototypeModel
+from gainy.compute.industries.tfidf_model import textclean_createtextstoremove
 
 
 def test_batch_iter():
@@ -24,7 +28,7 @@ def test_process_2():
     tickers_with_industries["symbol"] = tickers_with_industries["symbol"].astype(str)
     tickers_with_industries["description"] = tickers_with_industries["description"].astype(str)
 
-    model = TfIdfIndustryAssigmentModel()
+    model = IndustryAssigmentPrototypeModel()
     model.fit(tickers_with_industries[["description"]], tickers_with_industries[["ind_name"]])
 
     industries = model.classify("Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide. It also sells various related services. The company offers iPhone, a line of smartphones; Mac, a line of personal computers; iPad, a line of multi-purpose tablets; and wearables, home, and accessories comprising AirPods, Apple TV, Apple Watch, Beats products, HomePod, iPod touch, and other Apple-branded and third-party accessories. It also provides AppleCare support services; cloud services store services; and operates various platforms, including the App Store, that allow customers to discover and download applications and digital content, such as books, music, video, games, and podcasts. In addition, the company offers various services, such as Apple Arcade, a game subscription service; Apple Music, which offers users a curated listening experience with on-demand radio stations; Apple News+, a subscription news and magazine service; Apple TV+, which offers exclusive original content; Apple Card, a co-branded credit card; and Apple Pay, a cashless payment service, as well as licenses its intellectual property. The company serves consumers, and small and mid-sized businesses; and the education, enterprise, and government markets. It sells and delivers third-party applications for its products through the App Store. The company also sells its products through its retail and online stores, and direct sales force; and third-party cellular network carriers, wholesalers, retailers, and resellers. Apple Inc. was founded in 1977 and is headquartered in Cupertino, California.", n=2)
@@ -44,10 +48,45 @@ def test_cross_validation():
     X = tickers_with_industries[["description"]]
     y = tickers_with_industries[["ind_name"]]
 
-    model = TfIdfIndustryAssigmentModel()
+    model = IndustryAssigmentPrototypeModel()
     res = cross_validation(model, X, y)
 
     print(res)
+
+
+def test_cleanse_7():
+    tickers = pd.read_csv("/Users/vasilii/dev/data/industries/ds1/tickers.csv")[["symbol", "description"]]
+    tickers = tickers[tickers["description"] == tickers["description"]]
+
+    descr_list = [descr[0] for descr in tickers[["description"]].to_numpy()]
+
+    d = textclean_createtextstoremove()
+
+    res1 = tfidf_model.textclean_all(descr_list, d)
+
+
+
+    # res2 = tfidf_model.textclean_all(descr_list, d)
+    #
+    # for index, comparison in enumerate(zip(res1, res2)):
+    #     if comparison[0] != comparison[1]:
+    #         print(f"{index}:\nNEXT: {comparison[0]}\nPREV: {comparison[1]}\n\n")
+
+
+def test_aho():
+    # tickers = pd.read_csv("/Users/vasilii/dev/data/industries/ds1/tickers.csv")[["symbol", "description"]]
+    # tickers = tickers[tickers["description"] == tickers["description"]]
+
+    # descr_list = [descr[0] for descr in tickers[["description"]].to_numpy()]
+
+    d = textclean_createtextstoremove()
+
+    ahc_rootnode = textclean_ahocorasick_createnode(d)
+
+    text = "MVB Financial Corp., together with its subsidiaries, provides banking and mortgage products and services to individuals and corporate clients in the United States. The company operates through three segments: Commercial and Retail Banking; Mortgage Banking; and Financial Holding Company. It offers various demand deposit accounts, savings accounts, money market accounts, and certificates of deposit; and grants various types of loans, including commercial and commercial real estate loans, residential real estate loans, home equity lines of credit, and consumer loans. The company also provides debit cards; cashier's checks; safe deposit rental facilities; and non-deposit investment services, as well as automated teller machines, and internet and telephone banking services. The company operates 13 full-service banking branches; ten offices in West Virginia; and three in Virginia. MVB Financial Corp. was founded in 1997 and is headquartered in Fairmont, West Virginia."
+
+    print(textclean_ahocorasick_processtext(text, ahc_rootnode))
+
 
 
 # def process(df: pd.DataFrame):

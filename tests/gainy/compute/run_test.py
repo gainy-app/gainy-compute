@@ -1,20 +1,23 @@
 import pandas as pd
 
-from gainy.compute.industries.bert_model import BertModel
-from gainy.compute.industries.idf_model import TfIdfIndustryAssigmentModel
+import time
+from numpy import mean
+
 from gainy.compute.industries.lifecycle import cross_validation
 from gainy.compute.industries.model import IndustryAssignmentModel
+from gainy.compute.industries.prototype.prototype_model import IndustryAssigmentPrototypeModel
+from gainy.compute.industries.tfidf_model import TfIdfIndustryAssignmentModel
 
 
 def run_cross_validation(model: IndustryAssignmentModel, n_splits: int = 3):
     industry_tickers = pd.read_csv("/Users/vasilii/dev/data/industries/ds1/industry_tickers.csv")
     industry_tickers = industry_tickers.rename(columns={"Industry Name": "ind_name", "Code": "symbol"})
 
-    tickers = pd.read_csv("/Users/vasilii/dev/data/industries/ds1/tickers.csv")[["symbol", "description"]]
+    tickers = pd.read_csv("/Users/vasilii/dev/data/industries/ds1/tickers_full.csv")[["symbol", "description"]]
 
     # TMP - only consider tickets with features
-    tickers_with_features_df = pd.read_csv("/Users/vasilii/dev/features/distil-bert-tickers.csv")
-    tickers = tickers.merge(tickers_with_features_df[["symbol"]], how="inner", on=["symbol"])
+    # tickers_with_features_df = pd.read_csv("/Users/vasilii/dev/features/distil-bert-tickers.csv")
+    # tickers = tickers.merge(tickers_with_features_df[["symbol"]], how="inner", on=["symbol"])
 
     tickers_with_industries = tickers.merge(industry_tickers, how="inner", on=["symbol"])
     tickers_with_industries["symbol"] = tickers_with_industries["symbol"].astype(str)
@@ -31,9 +34,11 @@ def run_cross_validation(model: IndustryAssignmentModel, n_splits: int = 3):
     X = tickers_with_industries[["description"]]
     y = tickers_with_industries[["ind_name"]]
 
-    res = cross_validation(model, X, y, n_splits=n_splits)
-
-    print(res)
+    return cross_validation(model, X, y, n_splits=n_splits)
 
 
-run_cross_validation(TfIdfIndustryAssigmentModel())
+start_time = time.time()
+results = run_cross_validation(TfIdfIndustryAssignmentModel())
+print(results)
+print("AVG: %s" % mean(results))
+print("TIME: %s" % (time.time() - start_time))

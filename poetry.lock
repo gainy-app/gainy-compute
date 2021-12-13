@@ -162,6 +162,14 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
+name = "pyahocorasick"
+version = "1.4.2"
+description = "pyahocorasick is a fast and memory efficient library for exact or approximate multi-pattern string search.  With the ahocorasick.Automaton class, you can find multiple key strings occurrences at once in some input text.  You can use it as a plain dict-like Trie or convert a Trie to an automaton for efficient Aho-Corasick search.  Implemented in C and tested on Python 2.7 and 3.4+.  Works on Linux, Mac and Windows. BSD-3-clause license."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyparsing"
 version = "3.0.6"
 description = "Python parsing module"
@@ -271,6 +279,14 @@ python-versions = "*"
 scikit-learn = "*"
 
 [[package]]
+name = "stop-words"
+version = "2018.7.23"
+description = "Get list of common stop words in various languages in Python"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "threadpoolctl"
 version = "3.0.0"
 description = "threadpoolctl"
@@ -305,7 +321,7 @@ telegram = ["requests"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "90a2f10d13dd74943d11faf5e261b629c6623330baef60d7f397f0af2562c415"
+content-hash = "01e98e54402abb88a56f75ebe155c91b60c6413e0fc639c6296e594ac6759657"
 
 [metadata.files]
 annoy = [
@@ -417,6 +433,9 @@ pluggy = [
 py = [
     {file = "py-1.11.0-py2.py3-none-any.whl", hash = "sha256:607c53218732647dff4acdfcd50cb62615cedf612e72d1724fb1a0cc6405b378"},
     {file = "py-1.11.0.tar.gz", hash = "sha256:51c75c4126074b472f746a24399ad32f6053d1b34b68d2fa41e558e6f4a98719"},
+]
+pyahocorasick = [
+    {file = "pyahocorasick-1.4.2.tar.gz", hash = "sha256:88f79307c74ae6a84f8d88c2522a082f1d21c425762aba7f7e4d14dd431d2fb7"},
 ]
 pyparsing = [
     {file = "pyparsing-3.0.6-py3-none-any.whl", hash = "sha256:04ff808a5b90911829c55c4e26f75fa5ca8a2f5f36aa3a51f68e27033341d3e4"},
@@ -564,6 +583,9 @@ six = [
 ]
 sklearn = [
     {file = "sklearn-0.0.tar.gz", hash = "sha256:e23001573aa194b834122d2b9562459bf5ae494a2d59ca6b8aa22c85a44c0e31"},
+]
+stop-words = [
+    {file = "stop-words-2018.7.23.tar.gz", hash = "sha256:6df3ad5f5de697daa437e4445c86c73604e6bc138dd0dc0fac55664aa4e6b03e"},
 ]
 threadpoolctl = [
     {file = "threadpoolctl-3.0.0-py3-none-any.whl", hash = "sha256:4fade5b3b48ae4b1c30f200b28f39180371104fccc642e039e0f2435ec8cc211"},

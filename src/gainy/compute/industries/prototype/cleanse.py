@@ -1,9 +1,3 @@
-import logging
-
-
-
-
-import functools
 import string
 import re    # for simple regulars
 import regex # for diacritics characters processing with \p{Mn} (sorry re)
@@ -16,9 +10,10 @@ from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 
 from collections import Counter
-import numpy as np
 import math
 
+from gainy.compute.industries.prototype.ahocorasick import textclean_ahocorasick_createnode, \
+    textclean_ahocorasick_processtext
 
 nltk.download('stopwords')
 
@@ -325,119 +320,6 @@ def textclean_remove_accent_chars(x: str):
     # D = Decomposition : "é"->['e', '́'] we want this one
     return regex.sub(r'\p{Mn}', '', unicodedata.normalize('NFD', x)) # NFD, not NFKD
 
-def textclean_ahocorasick_createnode(stop_phrs_list):
-    class Node:
-        def __init__(self, word, is_final):
-            self.word = word
-            self.is_final = is_final
-            self.subnodes = {}
-            self.__go = {}
-            self.__link = None
-            self.parent = None
-            self.length = 0
-            self.__max_final_suffix = None
-            self.substitution = None
-        def subnode_exists(self, word):
-            return word in self.subnodes
-        def get_subnode(self, word):
-            return self.subnodes[word]
-        def add_subnode(self, node):
-            self.subnodes[node.word] = node
-            node.parent = self
-            node.length = self.length + 1
-        def print(self, prefix=""):
-            for word, subnode in self.subnodes.items():
-                print("%s%s%s:" % (prefix, word, "(F)" if subnode.is_final else ""))
-                subnode.print(prefix + "  ")
-        def get_link(self):
-            if self.__link is None:
-                if self.parent is None:
-                    self.__link = self
-                elif self.parent.parent is None:
-                    self.__link = self.parent
-                else:
-                    self.__link = self.parent.get_link().go(self.word)
-            return self.__link
-        def go(self, word):
-            if word not in self.__go:
-                if word in self.subnodes:
-                    self.__go[word] = self.subnodes[word]
-                elif self.parent is None:
-                    self.__go[word] = self
-                else:
-                    self.__go[word] = self.get_link().go(word)
-            return self.__go[word]
-        def get_max_final_suffix(self):
-            if self.__max_final_suffix is None:
-                if self.is_final or self.parent is None:
-                    self.__max_final_suffix = self.length, self.substitution
-                else:
-                    self.__max_final_suffix = self.get_link().get_max_final_suffix()
-            return self.__max_final_suffix
-
-    def split_words(line):
-        return list(filter(lambda l: len(l) > 0, re.split(r'([\W])', line)))
-
-    def add_line(root_node, line, substitution):
-        words = split_words(line)
-        node = root_node
-        for word in words:
-            if node.subnode_exists(word):
-                node = node.get_subnode(word)
-            else:
-                new_node = Node(word, False)
-                node.add_subnode(new_node)
-                node = new_node
-        node.is_final = True
-        node.substitution = substitution
-
-    #charge! (load the AhiCorasick root_node)
-    root_node = Node("", False)
-    for stop_phrase, substitution in stop_phrs_list.items():
-        if (len(stop_phrase)<1): continue
-        add_line(root_node, stop_phrase, substitution)
-    return root_node
-
-
-def textclean_ahocorasick_processtext(input_text, root_node):
-    def split_words(line):
-        return list(filter(lambda l: len(l) > 0, re.split(r'([\W])', line)))
-    def remove_stop_words(line, root_node):
-        words = split_words(line.rstrip())
-        start_pos = 0
-        blacklisted_intervals = []
-        node = root_node
-        for (k,word) in enumerate(words):
-            node = node.go(word)
-            max_final_suffix_len, substitution = node.get_max_final_suffix()
-            if max_final_suffix_len > 0:
-                blacklisted_intervals.append((k - max_final_suffix_len + 1, k, substitution))
-        def compare(interval1, interval2):
-            if interval1[0] != interval2[0]:
-                return interval1[0] - interval2[0]
-            return interval2[1] - interval1[1]
-        blacklisted_intervals.sort(key=functools.cmp_to_key(compare))
-        result = []
-        l = k = 0
-        while k < len(words):
-            while l < len(blacklisted_intervals) and blacklisted_intervals[l][1] < k:
-                l += 1
-            if l >= len(blacklisted_intervals) or blacklisted_intervals[l][0] > k:
-                result += words[k]
-                k += 1
-            elif blacklisted_intervals[l][0] == k:
-                result += blacklisted_intervals[l][2]
-                k = blacklisted_intervals[l][1] + 1
-            else:
-                k += 1
-        return re.sub(r"\s+", " ", "".join(result)).strip()
-
-    #fire!
-    if len(input_text)<1:
-        return input_text
-
-    return remove_stop_words(input_text, root_node)
-
 
 def textclean_all(texts:list,
                   textclean_phrases_dict_1:OrderedDict,           #case-sensitive: (replacings to whitespaces) continents,countries,us-states-long,us-states-iso,us-states-iso3,cities, special cases phrases/words (founded and formulated manually)
@@ -561,49 +443,3 @@ def tokenize_gettf(texts:list)->list: #returns list of TF dicts (order of list p
                                                                  text.split(" ",maxsplit=-1))])),
                     texts))
 
-
-def tfidfcossim(d_all:dict,   #token -> idf (N=count of all  industries, n=count of industries that have this token. Overal vocab. )
-                d_ind:dict,   #industry->token-> tfidf L2-normalized (where tf was averaged from companies in that industry (averaged tf is a "average portrait of companies in that industry in TF spector"))
-                l_tictf:list, #ticker->token->tf (just freq countings)
-                ntop=2)->(list,list):
-    #d_all struct:
-    #vocab_all_tokens_idf{'token':idf, ...}
-    #d_ind struct:
-    #vocab_industry_tokens_tfidfnorm{'ind':{'token':tfidfnorm,
-    #                                       ...},
-    #                                ...}
-    #l_tictf struct:
-    #[{'token':tf, ...},
-    # ...]
-
-    # d_all & d_ind are generated once upon a time as ethalon basis from descriptions of tickers with wich we sure about chosen industry
-
-    #unpack d_ind to sparse transposed 2D: row=token, col=industry, cell=tfidfnormalizedL2
-    #any order of industry in the dictionary d_ind will be reflected in the numpy coll indices (1st np dim) (til we don't trigger dict rehash..)
-    #any order of tokens in the dictionary d_all will be reflected in the numpy row indices (0st np dim) (til we don't trigger dict rehash..)
-    #r:token c:industry tfidfnorm_transposed
-    tokind_tfidfnrm = np.array([[i_v.get(a_k, 0.) for i_v in d_ind.values()] for a_k in d_all.keys()])
-
-    #unpack l_n to sparse 2D: row=company, col=token, cell=tf
-    #drop any token not in vocab d_all (we work in the space of only known tokens)
-    #mult by idf from d_all
-    #any order again is inherited (rows from l_tictf, cols from d_all)
-    #r:ticker, c:token
-    tictok_tfidfnrm = np.array([[t_d.get(a_k, 0.)*a_v for a_k, a_v in d_all.items()] for t_d in l_tictf]) #tfidf, need to normalize row-wise
-    tictok_tfidfnrm = tictok_tfidfnrm / (np.sum(tictok_tfidfnrm**2, axis=-1, keepdims=True, initial=1e-30))**0.5 #now tfidfnrm (1e-30 is epsilon for sake of esc ezd)
-
-    # tictok_tfidfnrm matmul tokind_tfidfnrmt, shapes aligned: (tic,tok)@(tok,ind)->(tic,ind)
-    # and coz both are normalized (divided) by L2-norm -> we will get "cosine similarity"
-    ticind = np.matmul(tictok_tfidfnrm, tokind_tfidfnrm)
-    tictok_tfidfnrm = None
-    tokind_tfidfnrm = None
-
-    #returning back 2 lists for tickers:
-    #tic_topn_industries_names
-    #tic_topn_industries_similarity
-    ind_names = list(d_ind.keys())
-    topindex = ticind.argsort(axis=-1)[:,::-1][:,:max(1,ntop)] #ascending->reverse_index(axis 1)->cut_topn (highest cos_sim)
-    tic_topn_industries_names = np.array(ind_names)[topindex].tolist()
-    tic_topn_industries_similarity = np.take_along_axis(ticind,topindex,-1).tolist()
-
-    return (tic_topn_industries_names, tic_topn_industries_similarity)
