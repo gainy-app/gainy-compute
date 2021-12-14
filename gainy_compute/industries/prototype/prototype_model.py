@@ -1,6 +1,6 @@
-from gainy.compute.industries.prototype.cleanse import textclean_createtextstoremove, generate_industrytokenstfidf_vocabs, \
+from gainy_compute.industries.prototype.cleanse import textclean_createtextstoremove, generate_industrytokenstfidf_vocabs, \
     textclean_all, tokenize_gettf
-from gainy.compute.industries.model import IndustryAssignmentModel
+from compute.industries.model import IndustryAssignmentModel
 import pandas as pd
 import numpy as np
 

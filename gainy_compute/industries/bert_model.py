@@ -1,13 +1,8 @@
-from math import trunc
-from typing import List
-
-import joblib
 import pandas as pd
 from annoy import AnnoyIndex
-import numpy as np
 
-from gainy.compute.collection_utils import batch_iter
-from gainy.compute.industries.model import IndustryAssignmentModel
+from gainy_compute.collection_utils import batch_iter
+from gainy_compute.industries.model import IndustryAssignmentModel
 
 
 class BertModel(IndustryAssignmentModel):
@@ -66,7 +61,7 @@ class BertModel(IndustryAssignmentModel):
         # TODO: implement me
         return [self.desc_to_features_index[desc] for desc in description_list]
 
-    def classify(self, descriptions, n: int = 2, include_distances: bool = False):
+    def predict(self, descriptions, n: int = 2, include_distances: bool = False):
         features_list = []
         for descriptions_batch in batch_iter(descriptions[descriptions.columns[0]].to_numpy(), self.BATCH_SIZE):
             features_list += self._features(descriptions_batch)

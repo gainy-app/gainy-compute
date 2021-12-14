@@ -12,7 +12,7 @@ from nltk.stem import SnowballStemmer
 from collections import Counter
 import math
 
-from gainy.compute.industries.prototype.ahocorasick import textclean_ahocorasick_createnode, \
+from gainy_compute.industries.prototype.ahocorasick import textclean_ahocorasick_createnode, \
     textclean_ahocorasick_processtext
 
 nltk.download('stopwords')

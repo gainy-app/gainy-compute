@@ -4,8 +4,8 @@ import pandas as pd
 
 from sklearn.model_selection import StratifiedKFold
 
-from gainy.compute.collection_utils import batch_iter
-from gainy.compute.industries.model import IndustryAssignmentModel
+from gainy_compute.utils import batch_iter
+from gainy_compute.industries.model import IndustryAssignmentModel
 
 
 def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
@@ -17,7 +17,7 @@ def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
     offset = 0
     # TODO: is this batch_iter still needed?
     for batch in batch_iter(X_test.to_numpy(), batch_size):
-        labels, distances = model.classify(pd.DataFrame(data=batch), 1, include_distances=True)
+        labels, distances = model.predict(pd.DataFrame(data=batch), 2, include_distances=True)
 
         for index, labels_with_distances in enumerate(zip(labels, distances)):
             expected_labels = [l == y_test.iloc[offset + index][label_col] for l in label_list]
@@ -33,11 +33,10 @@ def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
 
 
 def cross_validation(model: IndustryAssignmentModel, X, y, n_splits: int = 3):
-    # TODO: hard coded random state
     skf = StratifiedKFold(n_splits=n_splits)
     splits = skf.split(X, y)
 
-    res = []
+    scores = []
     for index, split in enumerate(splits):
         logging.info("Processing split: %s" % index)
 
@@ -50,6 +49,6 @@ def cross_validation(model: IndustryAssignmentModel, X, y, n_splits: int = 3):
         y_test = y.iloc[split[1]]
         model_score = test_model(model, X_test, y_test)
 
-        res.append(model_score)
+        scores.append(model_score)
 
-    return res
+    return scores
