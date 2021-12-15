@@ -42,18 +42,10 @@ class DatabaseTickerRepository(TickerRepository):
         )[["symbol", "industry_id"]]
 
     def save_auto_ticker_industries(self,  tickers_with_industries: pd.DataFrame):
-        self._truncate_table(self._public_schema, "ticker_industries")
-
         tickers_with_industries.to_sql(
             "auto_ticker_industries",
             self._db_conn_uri,
             schema=self._raw_schema,
-            if_exists="append",
+            if_exists="replace",
             index=False
         )
-
-    def _truncate_table(self, schema: str, table: str):
-        # TODO: implement atomic updates of the table
-        with psycopg2.connect(self._db_conn_uri) as db_conn:
-            with db_conn.cursor() as cursor:
-                cursor.execute(f"TRUNCATE TABLE {schema}.{table}")

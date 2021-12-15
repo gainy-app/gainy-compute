@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gainy-compute"
-version = "0.1.0"
+version = "0.1.1"
 description = "All stuff related to data computations and ML models in Python"
 authors = ["Vasilii Khomutov <vasilii@gainy.app>"]
 
@@ -22,3 +22,6 @@ pytest = "^6.2.5"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+industry_assignment = "gainy_compute.industries.runner:cli"

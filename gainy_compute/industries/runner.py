@@ -1,17 +1,17 @@
 import os
 
+import sys
 from numpy import mean
 
-from data_access.repository import TickerRepository
-from industries.tfidf_model import TfIdfIndustryAssignmentModel
+from gainy_compute.data_access.repository import TickerRepository, DatabaseTickerRepository
+from gainy_compute.industries.tfidf_model import TfIdfIndustryAssignmentModel
 import logging
-from industries.lifecycle import cross_validation, test_model
+from gainy_compute.industries.lifecycle import cross_validation, test_model
 import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
 
-from utils import env
-import numpy as np
+from gainy_compute.utils import env
 
 
 class IndustryAssignmentRunner:
@@ -131,3 +131,23 @@ class IndustryAssignmentRunner:
         industries_2 = tickers_with_predictions[["symbol", "industry_2"]].rename(columns={"industry_2": "industry_id"})
 
         return industries_1.append(industries_2, ignore_index=True)
+
+
+def cli(args=None):
+    if not args:
+        args = sys.argv[1:]
+
+    repo = DatabaseTickerRepository(
+        db_host=os.environ["PG_ADDRESS"],
+        db_port=os.environ["PG_PORT"],
+        db_user=os.environ["PG_USERNAME"],
+        db_password=os.environ["PG_PASSWORD"],
+        db_name=os.environ["PG_DATABASE"]
+    )
+    runner = IndustryAssignmentRunner(repo)
+
+    command = args[0]
+    if "train" == command:
+        runner.run_train()
+    elif "predict" == command:
+        runner.run_predict()

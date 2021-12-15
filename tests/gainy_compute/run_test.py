@@ -3,18 +3,21 @@ import os
 os.environ["MLFLOW_TRACKING_URI"] = "postgresql://postgres:postgrespassword@localhost:5432/postgres?options=-csearch_path=mlflow"
 os.environ["MLFLOW_ARTIFACT_LOCATION"] = "s3://gainy-mlflow-dev"
 
+os.environ["PG_ADDRESS"] = "localhost"
+os.environ["PG_PORT"] = "5432"
+os.environ["PG_USERNAME"] = "postgres"
+os.environ["PG_PASSWORD"] = "postgrespassword"
+os.environ["PG_DATABASE"] = "postgres"
 
-import mlflow
+
 import pandas as pd
 
 import time
-from numpy import mean
 
 from data_access.repository import DatabaseTickerRepository
 from gainy_compute.industries.lifecycle import cross_validation
 from gainy_compute.industries.lifecycle import IndustryAssignmentModel
-from gainy_compute.industries.tfidf_model import TfIdfIndustryAssignmentModel
-from industries.console import IndustryAssignmentRunner
+from gainy_compute.industries.runner import IndustryAssignmentRunner
 
 
 def run_cross_validation(model: IndustryAssignmentModel, n_splits: int = 3):
