@@ -11,7 +11,7 @@ class TickerRepository(ABC):
     def load_manual_ticker_industries(self) -> pd.DataFrame:
         pass
 
-    def save_auto_ticker_industries(self, tickers_with_industries: pd.DataFrame):
+    def save_auto_ticker_industries(self, tickers_with_predictions: pd.DataFrame):
         pass
 
 
@@ -24,8 +24,10 @@ class DatabaseTickerRepository(TickerRepository):
         self._db_conn_uri = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
     def load_tickers(self) -> pd.DataFrame:
-        # TODO: read FUNDAMENTALS
-        return pd.read_sql_table("tickers", self._db_conn_uri, schema=self._public_schema)
+        stmt = f"""SELECT code AS symbol, general ->> 'Description' AS description 
+        FROM {self._raw_schema}.eod_fundamentals
+        """
+        return pd.read_sql(stmt, self._db_conn_uri)
 
     def load_manual_ticker_industries(self) -> pd.DataFrame:
         ticker_industries = pd.read_sql_table("gainy_ticker_industries", self._db_conn_uri, schema=self._raw_schema)
@@ -41,8 +43,8 @@ class DatabaseTickerRepository(TickerRepository):
             on=["industry_name"]
         )[["symbol", "industry_id"]]
 
-    def save_auto_ticker_industries(self,  tickers_with_industries: pd.DataFrame):
-        tickers_with_industries.to_sql(
+    def save_auto_ticker_industries(self,  tickers_with_predictions: pd.DataFrame):
+        tickers_with_predictions.to_sql(
             "auto_ticker_industries",
             self._db_conn_uri,
             schema=self._raw_schema,

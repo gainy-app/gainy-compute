@@ -13,4 +13,4 @@ def test_repo():
         db_name="postgres"
     )
 
-    print(repo.load_manual_ticker_industries())
+    print(repo.load_tickers())

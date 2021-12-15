@@ -109,10 +109,12 @@ class IndustryAssignmentRunner:
         tickers_with_industries = tickers.merge(manual_ticker_industries, how="left", on=["symbol"])
 
         predictions_list = self.model.predict(tickers[["description"]], n=2, include_distances=False)
-        predictions = pd.DataFrame(data=predictions_list, columns=["industry_1", "industry_2"])
+        predictions = pd.DataFrame(data=predictions_list, columns=["industry_id_1", "industry_id_2"])
 
-        combined_industries = self._combine_with_predictions(tickers_with_industries, predictions)
-        self.repo.save_auto_ticker_industries(combined_industries)
+        tickers_with_predictions = \
+            pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
+
+        self.repo.save_auto_ticker_industries(tickers_with_predictions)
 
     def _load_model(self):
         client = MlflowClient()
@@ -123,14 +125,6 @@ class IndustryAssignmentRunner:
 
         # TODO: A hack to get the original model. Need to handle it in more MLflow'ish way.
         self.model = loaded_model._model_impl.python_model
-
-    def _combine_with_predictions(self, tickers_with_industries, predictions):
-        tickers_with_predictions = pd.concat([tickers_with_industries, predictions], axis=1)
-
-        industries_1 = tickers_with_predictions[["symbol", "industry_1"]].rename(columns={"industry_1": "industry_id"})
-        industries_2 = tickers_with_predictions[["symbol", "industry_2"]].rename(columns={"industry_2": "industry_id"})
-
-        return industries_1.append(industries_2, ignore_index=True)
 
 
 def cli(args=None):
