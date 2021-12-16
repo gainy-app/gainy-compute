@@ -27,7 +27,10 @@ class DatabaseTickerRepository(TickerRepository):
         stmt = f"""SELECT code AS symbol, general ->> 'Description' AS description 
         FROM {self._raw_schema}.eod_fundamentals
         """
-        return pd.read_sql(stmt, self._db_conn_uri)
+        tickers = pd.read_sql(stmt, self._db_conn_uri)
+        desc_filter = (tickers["description"].notnull()) & (tickers["description"].str.len() >= 10)
+
+        return tickers.loc[desc_filter]
 
     def load_manual_ticker_industries(self) -> pd.DataFrame:
         ticker_industries = pd.read_sql_table("gainy_ticker_industries", self._db_conn_uri, schema=self._raw_schema)

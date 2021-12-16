@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import sys
 from numpy import mean
@@ -128,20 +129,23 @@ class IndustryAssignmentRunner:
 
 
 def cli(args=None):
-    if not args:
-        args = sys.argv[1:]
+    try:
+        if not args:
+            args = sys.argv[1:]
 
-    repo = DatabaseTickerRepository(
-        db_host=os.environ["PG_ADDRESS"],
-        db_port=os.environ["PG_PORT"],
-        db_user=os.environ["PG_USERNAME"],
-        db_password=os.environ["PG_PASSWORD"],
-        db_name=os.environ["PG_DATABASE"]
-    )
-    runner = IndustryAssignmentRunner(repo)
+        repo = DatabaseTickerRepository(
+            db_host=os.environ["PG_ADDRESS"],
+            db_port=os.environ["PG_PORT"],
+            db_user=os.environ["PG_USERNAME"],
+            db_password=os.environ["PG_PASSWORD"],
+            db_name=os.environ["PG_DATABASE"]
+        )
+        runner = IndustryAssignmentRunner(repo)
 
-    command = args[0]
-    if "train" == command:
-        runner.run_train()
-    elif "predict" == command:
-        runner.run_predict()
+        command = args[0]
+        if "train" == command:
+            runner.run_train()
+        elif "predict" == command:
+            runner.run_predict()
+    except:
+        traceback.print_exc()
