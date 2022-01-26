@@ -1,2 +1,2 @@
 # gainy-compute
-Everything related to data access and computations in Python 
+Everything related to data computations and ML models in Python 
