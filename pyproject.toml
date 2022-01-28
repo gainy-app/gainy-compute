@@ -27,4 +27,4 @@ requires = ["poetry-core>=1.1.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-gainy_industry_assignment = "gainy_compute.industries.runner:cli"
+gainy_industry_assignment = "gainy.industries.runner:cli"
