@@ -22,7 +22,7 @@ def test_ticker_match_score():
         ticker_industries_v
     )
 
-    assert match_score.match_score() == 90
+    assert match_score.match_score() == 80
 
     explanation = match_score.explain()
     assert explanation.category_level == SimilarityLevel.HIGH
