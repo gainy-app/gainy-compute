@@ -1,5 +1,5 @@
-from gainy_compute.recommendations.core import DimVector
-from gainy_compute.recommendations.match_score import profile_ticker_similarity, SimilarityLevel
+from gainy.recommendations.core import DimVector
+from gainy.recommendations.match_score import profile_ticker_similarity, SimilarityLevel
 
 
 def test_ticker_match_score():
