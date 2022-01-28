@@ -1,15 +1,12 @@
-poetry-build:
-	poetry build
-
-poetry-install:
+install:
 	poetry install
 
-poetry-publish:
-	poetry publish -u aws -p $CODEARTIFACT_AUTH_TOKEN -r gainy-app
+build:
+	poetry build
 
-install: poetry-build poetry-install
-
-install: poetry-build poetry-publish
+publish: build
+	poetry config repositories.gainy $(shell aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text)
+	poetry publish -n -u aws -p $(shell aws codeartifact get-authorization-token --domain gainy-app --query authorizationToken --output text) -r gainy
 
 test:
-	poetry run pytest tests/recommendations/*
+	poetry run pytest tests/*
