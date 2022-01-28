@@ -1,11 +1,10 @@
 from enum import Enum
 from math import sqrt
 from typing import Dict, List
-from collections import Counter
 
 import numpy as np
 
-from recommendations.core import DimVector
+from gainy_compute.recommendations.core import DimVector
 
 
 # INDUSTRY SIMILARITY SCORE
