@@ -23,11 +23,5 @@ runs:
       shell: bash
 
     - name: Run tests
-      id: test
-      run: make test 2>&1
-      shell: bash
-
-    - name: Tests Status
-      if: steps.test.outcome == 'failure'
-      run: exit 1
+      run: make test
       shell: bash

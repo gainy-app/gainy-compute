@@ -1,5 +1,5 @@
 install:
-	- poetry install
+	poetry install
 
 test:
-	- poetry run pytest tests/*
+	poetry run pytest tests/*
