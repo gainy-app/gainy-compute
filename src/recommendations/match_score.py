@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from gainy_compute.recommendations.core import DimVector
+from src.recommendations.core import DimVector
 
 
 # INDUSTRY SIMILARITY SCORE

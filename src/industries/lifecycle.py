@@ -4,8 +4,8 @@ import pandas as pd
 
 from sklearn.model_selection import StratifiedKFold
 
-from gainy_compute.utils import batch_iter
-from gainy_compute.industries.model import IndustryAssignmentModel
+from src.utils import batch_iter
+from src.industries.model import IndustryAssignmentModel
 
 
 def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
