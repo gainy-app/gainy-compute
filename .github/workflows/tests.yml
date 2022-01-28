@@ -27,6 +27,6 @@ jobs:
 
       - name: Run tests
         id: test
-        run: cd .. && make test 2>&1
+        run: make test 2>&1
 
 
