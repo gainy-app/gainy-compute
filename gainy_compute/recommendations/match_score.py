@@ -13,16 +13,16 @@ def get_interest_similarity(
         profile_interest_vs: List[DimVector],
         ticker_industry_v: DimVector) -> (float, List[int]):
 
-    all_industry_list = []
+    all_industry_map = {}
     for profile_interest_v in profile_interest_vs:
-        all_industry_list += profile_interest_v.dims
+        for industry_id, industry_count in zip(profile_interest_v.dims, profile_interest_v.values):
+            all_industry_map[industry_id] = all_industry_map.get(industry_id, 0) + industry_count
 
-    if not ticker_industry_v.dims or not all_industry_list:
+    if not ticker_industry_v.dims or not all_industry_map:
         return 0.0, []
 
     profile_id = profile_interest_vs[0].name
-    counter = Counter(all_industry_list)
-    profile_industry_v = DimVector(profile_id, counter)
+    profile_industry_v = DimVector(profile_id, all_industry_map)
 
     normed_profile_v = normalized_profile_industries_vector(profile_industry_v)
     norm_ticker = DimVector.norm(ticker_industry_v, order=1)
