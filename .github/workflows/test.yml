@@ -15,8 +15,10 @@ jobs:
       matrix:
         python-version: [ 3.9 ]
     steps:
-      - uses: actions/checkout@v2
-      - uses: ./.github/actions/unit_tests
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Unit tests
+        uses: ./.github/actions/unit_tests
         with:
           python-version: ${{ matrix.python-version }}
 
