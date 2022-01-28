@@ -23,7 +23,7 @@ jobs:
 
       - name: Set up
         run: |
-        pip install poetry==${{ matrix.poetry-version }}
+        pip install poetry
         make install
 
       - name: Run tests
