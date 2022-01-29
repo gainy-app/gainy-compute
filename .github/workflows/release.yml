@@ -28,9 +28,9 @@ jobs:
       - name: Publish
         run: |
           export REPO_URL=`aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text`
-          poetry config repositories.gainy $REPO_URL
+          echo $REPO_URL
           export REPO_PWD=`aws codeartifact get-authorization-token --domain gainy-app --query authorizationToken --output text`
-          poetry publish -n -u aws -p $REPO_PWD -r gainy
+          echo $REPO_PWD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
