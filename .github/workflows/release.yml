@@ -24,16 +24,13 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15
-
       - name: Publish
         run: |
           aws codeartifact get-authorization-token --domain gainy-app --query authorizationToken --output text
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PWD }}
+          AWS_DEFAULT_REGION: us-east-1
 
 
 
