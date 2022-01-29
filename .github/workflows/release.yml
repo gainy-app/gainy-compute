@@ -26,7 +26,7 @@ jobs:
 
       - name: Publish
         run: |
-          export REPO_URL=`export AWS_ACCESS_KEY_ID=A && aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text`
+          export AWS_ACCESS_KEY_ID=A && aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text
           echo $?
           echo "REPO_URL: $REPO_URL"
         env:
