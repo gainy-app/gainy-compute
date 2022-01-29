@@ -25,7 +25,9 @@ jobs:
         run: make build
 
       - name: Publish
-        run: aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text 2>&1
+        run: |
+          export REPO_URL=`aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text`
+          echo "REPO_URL: $REPO_URL"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PWD }}
