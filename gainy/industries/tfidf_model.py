@@ -14,7 +14,7 @@ from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from nltk.tokenize import wordpunct_tokenize, PunktSentenceTokenizer
 
-from gainy_compute.industries.model import IndustryAssignmentModel
+from gainy.industries.model import IndustryAssignmentModel
 
 
 class TfIdfIndustryAssignmentModel(IndustryAssignmentModel):
