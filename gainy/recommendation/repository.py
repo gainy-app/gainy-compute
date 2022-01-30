@@ -1,14 +1,12 @@
-import json
 import os
 from operator import itemgetter
 from typing import List, Tuple, Dict
 
 from psycopg2.extras import execute_values
 
-from common.hasura_exception import HasuraActionException
+from data_access.exceptions import ObjectNotFoundException
 from data_access.repository import Repository
 from recommendation.core import DimVector
-from recommendation.match_score import MatchScore
 
 script_dir = os.path.dirname(__file__)
 
@@ -34,7 +32,7 @@ class RecommendationRepository(Repository):
         vectors = self._query_vectors(_profile_category_vector_query,
                                       {"profile_id": profile_id})
         if not vectors:
-            raise HasuraActionException(400, f"Profile {profile_id} not found")
+            raise ObjectNotFoundException(f"Profile {profile_id} not found")
         return vectors[0]
 
     def read_profile_interest_vectors(self, profile_id) -> List[DimVector]:
@@ -46,12 +44,12 @@ class RecommendationRepository(Repository):
         vectors = self._query_vectors(_profile_interest_vectors_query,
                                       {"profile_id": profile_id})
         if not vectors:
-            raise HasuraActionException(400, f"Missing profile `{profile_id}`")
+            raise ObjectNotFoundException(f"Missing profile `{profile_id}`")
 
         return vectors
 
     def read_all_ticker_category_and_industry_vectors(
-            self) -> list[(DimVector, DimVector)]:
+            self) -> List[(DimVector, DimVector)]:
 
         with open(
                 os.path.join(script_dir, "sql/ticker_categories_industries.sql"
