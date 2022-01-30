@@ -1,10 +1,11 @@
 from enum import Enum
 from math import sqrt
 from typing import Dict, List
+from collections import Counter
 
 import numpy as np
 
-from gainy.recommendations.core import DimVector
+from recommendation.core import DimVector
 
 
 # INDUSTRY SIMILARITY SCORE
@@ -12,16 +13,16 @@ def get_interest_similarity(
         profile_interest_vs: List[DimVector],
         ticker_industry_v: DimVector) -> (float, List[int]):
 
-    all_industry_map = {}
+    all_industry_list = []
     for profile_interest_v in profile_interest_vs:
-        for industry_id, industry_count in zip(profile_interest_v.dims, profile_interest_v.values):
-            all_industry_map[industry_id] = all_industry_map.get(industry_id, 0) + industry_count
+        all_industry_list += profile_interest_v.dims
 
-    if not ticker_industry_v.dims or not all_industry_map:
+    if not ticker_industry_v.dims or not all_industry_list:
         return 0.0, []
 
     profile_id = profile_interest_vs[0].name
-    profile_industry_v = DimVector(profile_id, all_industry_map)
+    counter = Counter(all_industry_list)
+    profile_industry_v = DimVector(profile_id, counter)
 
     normed_profile_v = normalized_profile_industries_vector(profile_industry_v)
     norm_ticker = DimVector.norm(ticker_industry_v, order=1)

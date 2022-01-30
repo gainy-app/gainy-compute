@@ -4,7 +4,7 @@ import traceback
 import sys
 from numpy import mean
 
-from gainy.data_access.repository import TickerRepository, DatabaseTickerRepository
+from gainy.industries.repository import TickerRepository, DatabaseTickerRepository
 from gainy.industries.tfidf_model import TfIdfIndustryAssignmentModel
 import logging
 from gainy.industries.lifecycle import cross_validation, test_model

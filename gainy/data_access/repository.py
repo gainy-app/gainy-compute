@@ -1,56 +1,108 @@
-from abc import ABC
-import pandas as pd
-import psycopg2
+from psycopg2 import sql
+from psycopg2.extras import execute_values
+
+from data_access.models import BaseModel
+
+MAX_TRANSACTION_SIZE = 100
 
 
-class TickerRepository(ABC):
+class Repository:
 
-    def load_tickers(self) -> pd.DataFrame:
-        pass
+    def persist(self, db_conn, entities):
+        if isinstance(entities, BaseModel):
+            entities = [entities]
 
-    def load_manual_ticker_industries(self) -> pd.DataFrame:
-        pass
+        entities_grouped = self._group_entities(entities)
 
-    def save_auto_ticker_industries(self, tickers_with_predictions: pd.DataFrame):
-        pass
+        for (schema_name,
+             table_name), group_entities in entities_grouped.items():
 
+            chunks_count = (len(entities) + MAX_TRANSACTION_SIZE -
+                            1) // MAX_TRANSACTION_SIZE
+            for chunk_id in range(chunks_count):
 
-class DatabaseTickerRepository(TickerRepository):
+                l_bound = chunk_id * MAX_TRANSACTION_SIZE
+                r_bound = min(len(group_entities),
+                              (chunk_id + 1) * MAX_TRANSACTION_SIZE)
+                chunk = group_entities[l_bound:r_bound]
 
-    _public_schema = "public"
-    _raw_schema = "raw_data"
+                self._persist_chunk(db_conn, schema_name, table_name, chunk)
 
-    def __init__(self, db_host, db_port, db_name, db_user, db_password):
-        self._db_conn_uri = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    def _persist_chunk(self, db_conn, schema_name, table_name, entities):
+        field_names = [
+            field_name for field_name in entities[0].to_dict().keys()
+            if field_name not in entities[0].db_excluded_fields
+        ]
+        non_persistent_fields = entities[0].non_persistent_fields
 
-    def load_tickers(self) -> pd.DataFrame:
-        stmt = f"""SELECT code AS symbol, general ->> 'Description' AS description 
-        FROM {self._raw_schema}.eod_fundamentals
-        """
-        tickers = pd.read_sql(stmt, self._db_conn_uri)
-        desc_filter = (tickers["description"].notnull()) & (tickers["description"].str.len() >= 10)
+        sql_string = self._get_insert_statement(schema_name, table_name,
+                                                field_names, entities)
 
-        return tickers.loc[desc_filter]
+        entity_dicts = [entity.to_dict() for entity in entities]
+        values = [[entity_dict[field_name] for field_name in field_names]
+                  for entity_dict in entity_dicts]
 
-    def load_manual_ticker_industries(self) -> pd.DataFrame:
-        ticker_industries = pd.read_sql_table("gainy_ticker_industries", self._db_conn_uri, schema=self._raw_schema)
-        ticker_industries = ticker_industries.rename(columns={"industry name": "industry_name", "code": "symbol"})
+        with db_conn.cursor() as cursor:
+            execute_values(cursor, sql_string, values)
 
-        gainy_industries = pd.read_sql_table("gainy_industries", self._db_conn_uri, schema=self._raw_schema)
-        gainy_industries = gainy_industries.rename(columns={"name": "industry_name", "id": "industry_id"})
-        gainy_industries["industry_id"] = gainy_industries["industry_id"].astype(int)
+            if not non_persistent_fields:
+                return
 
-        return ticker_industries.merge(
-            gainy_industries,
-            how="inner",
-            on=["industry_name"]
-        )[["symbol", "industry_id"]]
+            returned = cursor.fetchall()
 
-    def save_auto_ticker_industries(self,  tickers_with_predictions: pd.DataFrame):
-        tickers_with_predictions.to_sql(
-            "auto_ticker_industries",
-            self._db_conn_uri,
-            schema=self._raw_schema,
-            if_exists="replace",
-            index=False
-        )
+        for entity, returned_row in zip(entities, returned):
+            for db_excluded_field, value in zip(non_persistent_fields,
+                                                returned_row):
+                entity.__setattr__(db_excluded_field, value)
+
+    def _get_insert_statement(self, schema_name, table_name, field_names,
+                              entities):
+        field_names_escaped = self._escape_fields(field_names)
+
+        sql_string = sql.SQL(
+            "INSERT INTO {schema_name}.{table_name} ({field_names}) VALUES %s"
+        ).format(schema_name=sql.Identifier(schema_name),
+                 table_name=sql.Identifier(table_name),
+                 field_names=field_names_escaped)
+
+        key_fields = entities[0].key_fields
+        if key_fields:
+            key_field_names_escaped = self._escape_fields(key_fields)
+
+            sql_string = sql_string + sql.SQL(
+                " ON CONFLICT({key_field_names}) DO UPDATE SET {set_clause}"
+            ).format(
+                key_field_names=key_field_names_escaped,
+                set_clause=sql.SQL(',').join([
+                    sql.SQL("{field_name} = excluded.{field_name}").format(
+                        field_name=sql.Identifier(field_name))
+                    for field_name in field_names
+                    if field_name not in key_fields
+                ]))
+
+        non_persistent_fields = entities[0].non_persistent_fields
+        if non_persistent_fields:
+            non_persistent_fields_escaped = self._escape_fields(
+                non_persistent_fields)
+            sql_string = sql_string + sql.SQL(
+                " RETURNING {non_persistent_fields}").format(
+                    non_persistent_fields=non_persistent_fields_escaped)
+        return sql_string
+
+    @staticmethod
+    def _escape_fields(field_names):
+        field_names_escaped = sql.SQL(',').join(
+            map(sql.Identifier, field_names))
+        return field_names_escaped
+
+    def _group_entities(self, entities):
+        entities_grouped = {}
+
+        for entity in entities:
+            key = (entity.schema_name, entity.table_name)
+            if key in entities_grouped:
+                entities_grouped[key].append(entity)
+            else:
+                entities_grouped[key] = [entity]
+
+        return entities_grouped
