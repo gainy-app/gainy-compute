@@ -16,6 +16,13 @@ class RecommendationRepository(Repository):
     def __init__(self, db_conn):
         self.db_conn = db_conn
 
+    def read_all_profile_ids(self) -> List[int]:
+        cursor = self.db_conn.cursor()
+        cursor.execute(
+            "SELECT id::int4 FROM app.profiles;"
+        )
+        return list(map(itemgetter(0), cursor.fetchall()))
+
     def read_categories_risks(self) -> Dict[str, int]:
         cursor = self.db_conn.cursor()
         cursor.execute(
@@ -49,7 +56,7 @@ class RecommendationRepository(Repository):
         return vectors
 
     def read_all_ticker_category_and_industry_vectors(
-            self) -> List[(DimVector, DimVector)]:
+            self) -> List[Tuple[DimVector, DimVector]]:
 
         with open(
                 os.path.join(script_dir, "sql/ticker_categories_industries.sql"
