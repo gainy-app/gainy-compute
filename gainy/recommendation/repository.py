@@ -4,9 +4,9 @@ from typing import List, Tuple, Dict
 
 from psycopg2.extras import execute_values
 
-from data_access.exceptions import ObjectNotFoundException
-from data_access.repository import Repository
-from recommendation.core import DimVector
+from gainy.data_access.exceptions import ObjectNotFoundException
+from gainy.data_access.repository import Repository
+from gainy.recommendation.core import DimVector
 
 script_dir = os.path.dirname(__file__)
 

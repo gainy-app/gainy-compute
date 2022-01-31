@@ -5,7 +5,7 @@ from collections import Counter
 
 import numpy as np
 
-from recommendation.core import DimVector
+from gainy.recommendation.core import DimVector
 
 
 # INDUSTRY SIMILARITY SCORE

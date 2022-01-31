@@ -1,7 +1,7 @@
 from psycopg2 import sql
 from psycopg2.extras import execute_values
 
-from data_access.models import BaseModel
+from gainy.data_access.models import BaseModel
 
 MAX_TRANSACTION_SIZE = 100
 

@@ -1,7 +1,7 @@
 import json
 
-from data_access.models import BaseModel
-from recommendation.match_score import MatchScore
+from gainy.data_access.models import BaseModel
+from gainy.recommendation.match_score import MatchScore
 
 
 class MatchScoreModel(BaseModel):
