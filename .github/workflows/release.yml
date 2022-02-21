@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    uses: ./.github/workflows/test.yml@release
+    uses: ./.github/workflows/test.yml
 
   publish:
     name: "Build & Publish"
