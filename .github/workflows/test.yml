@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Set up
+      - name: Setup Poetry
         run: |
           pip install poetry
           make install
