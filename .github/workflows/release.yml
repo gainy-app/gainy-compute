@@ -34,5 +34,16 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
 
+      - name: Get Version
+        run: poetry version -s >> $RELEASE_VERSION
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.$RELEASE_VERSION }}
+          release_name: Release v${{ env.$RELEASE_VERSION }}
+
 
 
