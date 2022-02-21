@@ -4,15 +4,15 @@ import traceback
 import sys
 from numpy import mean
 
-from gainy_compute.data_access.repository import TickerRepository, DatabaseTickerRepository
-from gainy_compute.industries.tfidf_model import TfIdfIndustryAssignmentModel
+from gainy.industries.repository import TickerRepository, DatabaseTickerRepository
+from gainy.industries.tfidf_model import TfIdfIndustryAssignmentModel
 import logging
-from gainy_compute.industries.lifecycle import cross_validation, test_model
+from gainy.industries.lifecycle import cross_validation, test_model
 import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
 
-from gainy_compute.utils import env
+from gainy.utils import env
 
 
 class IndustryAssignmentRunner:
