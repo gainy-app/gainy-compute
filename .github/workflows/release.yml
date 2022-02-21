@@ -9,6 +9,9 @@ on:
         type: boolean
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml@release
+
   publish:
     name: "Build & Publish"
     runs-on: ubuntu-latest
