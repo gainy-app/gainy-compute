@@ -1,13 +1,10 @@
 import json
 
-from gainy.data_access.models import BaseModel
+from gainy.data_access.models import BaseModel, classproperty
 from gainy.recommendation.match_score import MatchScore
 
 
 class MatchScoreModel(BaseModel):
-
-    schema_name = "app"
-    table_name = "profile_ticker_match_score"
     key_fields = ["profile_id", "symbol"]
 
     db_excluded_fields = ["updated_at"]
@@ -27,3 +24,11 @@ class MatchScoreModel(BaseModel):
         self.interest_matches = json.dumps(explanation.interest_matches)
 
         self.updated_at = None
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "profile_ticker_match_score"
