@@ -1,8 +1,12 @@
 [tool.poetry]
 name = "gainy-compute"
-version = "0.2.3"
+version = "0.2.4-alpha"
 description = "All stuff related to data computations and ML models in Python"
-authors = ["Vasilii Khomutov <vasilii@gainy.app>"]
+authors = [
+    "Vasilii Khomutov <vasilii@gainy.app>",
+    "Mikhail Astashkevich <mikhail@gainy.app>",
+]
+
 packages = [
     { include = "gainy"},
 ]
