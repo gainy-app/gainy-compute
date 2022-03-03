@@ -7,7 +7,7 @@ from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.match_score import MatchScore, profile_ticker_similarity
 from gainy.recommendation.models import MatchScoreModel
 from gainy.recommendation.repository import RecommendationRepository
-from recommendation.models import ProfileRecommendationsMetadata
+from gainy.recommendation.models import ProfileRecommendationsMetadata
 
 
 class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):

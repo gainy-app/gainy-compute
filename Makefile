@@ -22,3 +22,9 @@ test-clean:
 	docker-compose -p gainy_test -f docker-compose.test.yml rm -sv
 
 test: test-build test-python test-clean
+
+style-check:
+	yapf --diff -r .
+
+style-fix:
+	yapf -i -r .
