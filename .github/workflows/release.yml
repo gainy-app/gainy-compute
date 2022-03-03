@@ -25,6 +25,10 @@ jobs:
           pip install poetry
           make install
 
+      - name: Bump Version
+        if: github.event.inputs.prerelease
+        run: poetry version $(poetry version -s)-build-$(date '+%s')
+
       - name: Build
         run: make build
 
@@ -45,6 +49,4 @@ jobs:
         with:
           tag_name: v${{ env.RELEASE_VERSION }}
           release_name: Release v${{ env.RELEASE_VERSION }}
-
-
-
+          prerelease: github.event.inputs.prerelease

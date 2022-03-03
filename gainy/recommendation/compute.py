@@ -3,7 +3,7 @@ from typing import Tuple, List
 from psycopg2._psycopg import connection
 
 from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
-from recommendation import TOP_20_FOR_YOU_COLLECTION_ID
+from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.match_score import MatchScore, profile_ticker_similarity
 from gainy.recommendation.models import MatchScoreModel
 from gainy.recommendation.repository import RecommendationRepository
