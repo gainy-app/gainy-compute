@@ -27,7 +27,7 @@ jobs:
 
       - name: Bump Version
         if: github.event.inputs.prerelease
-        run: poetry version $(poetry version -s)-build-$(date '+%s')
+        run: poetry version prerelease
 
       - name: Build
         run: make build
