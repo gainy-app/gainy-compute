@@ -24,12 +24,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup Poetry
-        run: |
-          pip install poetry
-          make install
-        shell: bash
-
       - name: Run tests
-        run: make test
-        shell: bash
+        id: test
+        continue-on-error: true
+        run: make test 2>&1
+
+      - name: Tests Status
+        if: steps.test.outcome == 'failure'
+        run: make test-clean && exit 1

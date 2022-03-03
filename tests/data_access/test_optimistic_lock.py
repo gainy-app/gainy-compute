@@ -15,6 +15,7 @@ from gainy.data_access.models import BaseModel, ResourceVersion
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
 from gainy.data_access.repository import Repository
+from gainy.utils import db_connect
 
 
 class DataClass(BaseModel):
@@ -67,7 +68,7 @@ class MetadataClass(BaseModel, ResourceVersion):
         self.version = self.version + 1 if self.version else 1
 
 
-class TestGetAndPersist(AbstractOptimisticLockingFunction):
+class _TestGetAndPersist(AbstractOptimisticLockingFunction):
 
     def __init__(self,
                  repo: Repository,
@@ -110,26 +111,22 @@ class TestGetAndPersist(AbstractOptimisticLockingFunction):
         return entities
 
 
-class TestThread(threading.Thread):
+class _TestThread(threading.Thread):
 
-    def __init__(self, db_conn_string, profile_id: int, max_iter: int = 5):
+    def __init__(self, profile_id: int, max_iter: int = 5):
         super().__init__()
-        self.db_conn_string = db_conn_string
         self.profile_id = profile_id
         self.max_iter = max_iter
 
     def run(self):
         for iter_index in range(0, self.max_iter):
             try:
-                with psycopg2.connect(self.db_conn_string) as db_conn:
-                    func = TestGetAndPersist(Repository(), self.profile_id)
+                with db_connect() as db_conn:
+                    func = _TestGetAndPersist(Repository(), self.profile_id)
                     func.get_and_persist(db_conn, 50)
             except Exception as e:
                 traceback.print_exc()
                 raise e
-
-
-DB_CONN_STRING = "postgresql://postgres:postgrespassword@localhost:5432/postgres"
 
 
 @pytest.fixture(scope='function')
@@ -137,14 +134,15 @@ def metadata_table(request):
     metadata_table = f"{MetadataClass.schema_name}.{MetadataClass.table_name}"
 
     def table_teardown():
-        with psycopg2.connect(DB_CONN_STRING) as db_conn:
+        with db_connect() as db_conn:
             with db_conn.cursor() as cursor:
                 cursor.execute(f"DROP TABLE IF EXISTS {metadata_table}")
 
     table_teardown()  # Clean from previous executions if needed
 
-    with psycopg2.connect(DB_CONN_STRING) as db_conn:
+    with db_connect() as db_conn:
         with db_conn.cursor() as cursor:
+            cursor.execute("CREATE SCHEMA IF NOT EXISTS app")
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {metadata_table} (
                     profile_id int4 PRIMARY KEY,
@@ -161,13 +159,13 @@ def data_table(request):
     data_table = f"{DataClass.schema_name}.{DataClass.table_name}"
 
     def table_teardown():
-        with psycopg2.connect(DB_CONN_STRING) as db_conn:
+        with db_connect() as db_conn:
             with db_conn.cursor() as cursor:
                 cursor.execute(f"DROP TABLE IF EXISTS {data_table}")
 
     table_teardown()  # Clean from previous executions if needed
 
-    with psycopg2.connect(DB_CONN_STRING) as db_conn:
+    with db_connect() as db_conn:
         with db_conn.cursor() as cursor:
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {data_table} (
@@ -197,14 +195,14 @@ def test_optimistic_locks_multiple_threads(metadata_table, data_table):
 def _test_optimistic_locks(profile_num: int, threads_per_profile: int):
     threads = []
     for thread_id in range(0, threads_per_profile * profile_num):
-        thread = TestThread(DB_CONN_STRING, thread_id % profile_num)
+        thread = _TestThread(thread_id % profile_num)
         thread.start()
         threads.append(thread)
 
     for thread in threads:
         thread.join()
 
-    with psycopg2.connect(DB_CONN_STRING) as db_conn:
+    with db_connect() as db_conn:
         repo = Repository()
         metadata_list = repo.load(db_conn, MetadataClass)
         assert len(metadata_list) == profile_num

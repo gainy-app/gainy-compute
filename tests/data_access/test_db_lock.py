@@ -2,12 +2,9 @@ import random
 import threading
 import time
 import traceback
-
 import psycopg2
-
 from gainy.data_access.db_lock import LockManager, ResourceType, DatabaseLock, LockAcquisitionTimeout
-
-DB_CONN_STRING = "postgresql://postgres:postgrespassword@localhost:5432/postgres"
+from gainy.utils import db_connect
 
 
 class Value:
@@ -20,18 +17,17 @@ class Value:
         self._value = value
 
 
-class TestThread(threading.Thread):
+class _TestThread(threading.Thread):
 
-    def __init__(self, db_conn_string: str, value: Value,
+    def __init__(self, value: Value,
                  resource_type: ResourceType, resource_id: int):
         super().__init__()
-        self.db_conn_string = db_conn_string
         self.value = value
         self.resource_type = resource_type
         self.resource_id = resource_id
 
     def run(self):
-        with psycopg2.connect(self.db_conn_string) as db_conn:
+        with db_connect() as db_conn:
             for _ in range(0, 10):
                 try:
                     with LockManager.database_lock(db_conn,
@@ -50,12 +46,12 @@ class TestThread(threading.Thread):
 def test_db_lock_single_thread():
     value = Value()
 
-    thread = TestThread(DB_CONN_STRING, value, ResourceType.GENERAL, 0)
+    thread = _TestThread(value, ResourceType.GENERAL, 0)
     thread.start()
     thread.join()
 
     assert value.get() == 10
-    _assert_not_locked(DB_CONN_STRING, ResourceType.GENERAL, 0)
+    _assert_not_locked(ResourceType.GENERAL, 0)
 
 
 def test_db_lock_two_threads():
@@ -63,7 +59,7 @@ def test_db_lock_two_threads():
 
     threads = []
     for _ in range(0, 2):
-        thread = TestThread(DB_CONN_STRING, value, ResourceType.GENERAL, 0)
+        thread = _TestThread(value, ResourceType.GENERAL, 0)
         thread.start()
         threads.append(thread)
 
@@ -71,7 +67,7 @@ def test_db_lock_two_threads():
         thread.join()
 
     assert value.get() == 20
-    _assert_not_locked(DB_CONN_STRING, ResourceType.GENERAL, 0)
+    _assert_not_locked(ResourceType.GENERAL, 0)
 
 
 def test_db_lock_multiple_threads():
@@ -79,7 +75,7 @@ def test_db_lock_multiple_threads():
 
     threads = []
     for _ in range(0, 5):
-        thread = TestThread(DB_CONN_STRING, value, ResourceType.GENERAL, 0)
+        thread = _TestThread(value, ResourceType.GENERAL, 0)
         thread.start()
         threads.append(thread)
 
@@ -87,29 +83,29 @@ def test_db_lock_multiple_threads():
         thread.join()
 
     assert value.get() == 50
-    _assert_not_locked(DB_CONN_STRING, ResourceType.GENERAL, 0)
+    _assert_not_locked(ResourceType.GENERAL, 0)
 
 
 def test_lock_acquisition_fails_after_timeout():
     resource_id = 100
     resource_type = ResourceType.GENERAL
 
-    with psycopg2.connect(DB_CONN_STRING) as db_conn_1:
+    with db_connect() as db_conn_1:
         lock_1 = DatabaseLock(db_conn_1, resource_type)
         assert lock_1.try_lock(resource_id)
 
-        with psycopg2.connect(DB_CONN_STRING) as db_conn_2:
+        with db_connect() as db_conn_2:
             _assert_lock_timeout(db_conn_2, resource_type, resource_id, 0)
             _assert_lock_timeout(db_conn_2, resource_type, resource_id, 0.5)
 
         lock_1.unlock(resource_id)
 
-    _assert_not_locked(DB_CONN_STRING, ResourceType.GENERAL, resource_id)
+    _assert_not_locked(ResourceType.GENERAL, resource_id)
 
 
-def _assert_not_locked(db_conn_string, resource_type: ResourceType,
+def _assert_not_locked(resource_type: ResourceType,
                        resource_id: int):
-    with psycopg2.connect(db_conn_string) as db_conn:
+    with db_connect() as db_conn:
         lock = DatabaseLock(db_conn, resource_type)
         assert lock.try_lock(resource_id)
         lock.unlock(resource_id)

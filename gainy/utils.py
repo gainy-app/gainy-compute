@@ -1,6 +1,7 @@
 from math import trunc
 from typing import Iterable, List, Any
-
+import psycopg2
+from psycopg2._psycopg import connection
 import numpy as np
 import logging
 
@@ -25,7 +26,7 @@ def env() -> str:
     return os.environ.get("ENV", "local")
 
 
-def db_connect() -> str:
+def db_connect() -> connection:
     import os
 
     HOST = os.getenv('pg_host') or os.getenv("PG_ADDRESS")
@@ -39,4 +40,4 @@ def db_connect() -> str:
         raise Exception('Missing db connection env variables')
 
     DB_CONN_STRING = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
-    return os.environ.get("ENV", "local")
+    return psycopg2.connect(DB_CONN_STRING)
