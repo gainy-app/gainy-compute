@@ -23,3 +23,20 @@ def current_version() -> str:
 def env() -> str:
     import os
     return os.environ.get("ENV", "local")
+
+
+def db_connect() -> str:
+    import os
+
+    HOST = os.getenv('pg_host') or os.getenv("PG_ADDRESS")
+    PORT = os.getenv('pg_port') or os.getenv("PG_PORT")
+    USERNAME = os.getenv('pg_username') or os.getenv("PG_USERNAME")
+    PASSWORD = os.getenv('pg_password') or os.getenv("PG_PASSWORD")
+    DB_NAME = os.getenv('pg_dbname') or os.getenv("PG_DATABASE")
+    PUBLIC_SCHEMA_NAME = os.getenv('PUBLIC_SCHEMA_NAME') or os.getenv("DBT_TARGET_SCHEMA")
+
+    if not PUBLIC_SCHEMA_NAME or not HOST or not PORT or not DB_NAME or not USERNAME or not PASSWORD:
+        raise Exception('Missing db connection env variables')
+
+    DB_CONN_STRING = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
+    return os.environ.get("ENV", "local")

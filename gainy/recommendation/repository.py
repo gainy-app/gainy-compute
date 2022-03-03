@@ -26,7 +26,7 @@ class RecommendationRepository(Repository):
     def read_categories_risks(self) -> Dict[str, int]:
         cursor = self.db_conn.cursor()
         cursor.execute(
-            "SELECT id::varchar, risk_score from public.categories WHERE risk_score IS NOT NULL;"
+            "SELECT id::varchar, risk_score from categories WHERE risk_score IS NOT NULL;"
         )
         return dict(cursor.fetchall())
 
@@ -39,7 +39,8 @@ class RecommendationRepository(Repository):
         vectors = self._query_vectors(_profile_category_vector_query,
                                       {"profile_id": profile_id})
         if not vectors:
-            raise ObjectNotFoundException(f"Profile {profile_id} not found")
+            return None
+
         return vectors[0]
 
     def read_profile_interest_vectors(self, profile_id) -> List[DimVector]:
@@ -50,8 +51,6 @@ class RecommendationRepository(Repository):
 
         vectors = self._query_vectors(_profile_interest_vectors_query,
                                       {"profile_id": profile_id})
-        if not vectors:
-            raise ObjectNotFoundException(f"Missing profile `{profile_id}`")
 
         return vectors
 
@@ -95,12 +94,25 @@ class RecommendationRepository(Repository):
 
             return list(cursor.fetchall())
 
+    def is_collection_enabled(self, profile_id, collection_id) -> bool:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT enabled FROM profile_collections
+                WHERE (profile_id=%(profile_id)s OR profile_id IS NULL) AND id=%(collection_id)s""",
+                {
+                    "profile_id": profile_id,
+                    "collection_id": collection_id
+                })
+
+            row = cursor.fetchone()
+            return row and int(row[0]) == 1
+
     # Deprecated
     def read_collection_tickers(self, profile_id: str,
                                 collection_id: str) -> List[str]:
         with self.db_conn.cursor() as cursor:
             cursor.execute(
-                """SELECT symbol FROM public.profile_ticker_collections 
+                """SELECT symbol FROM profile_ticker_collections
                 WHERE (profile_id=%(profile_id)s OR profile_id IS NULL) AND collection_id=%(collection_id)s""",
                 {
                     "profile_id": profile_id,
