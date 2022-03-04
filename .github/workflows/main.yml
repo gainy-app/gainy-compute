@@ -21,3 +21,6 @@ jobs:
 
       - name: YAPF
         run: make style-check
+
+  test:
+    uses: ./.github/workflows/test.yml
