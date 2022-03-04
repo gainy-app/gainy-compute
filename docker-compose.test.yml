@@ -1,0 +1,22 @@
+version: '3.6'
+services:
+  test-postgres:
+    image: postgres:12
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+
+  test-python:
+    build:
+      context: ./
+    volumes:
+      - ./:/srv
+    depends_on:
+      - test-postgres
+    environment:
+      pg_host: "test-postgres"
+      pg_port: "5432"
+      pg_dbname: "postgres"
+      pg_username: "postgres"
+      pg_password: "postgrespassword"
+      PUBLIC_SCHEMA_NAME: public_test
