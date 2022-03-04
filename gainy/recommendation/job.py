@@ -10,6 +10,7 @@ from gainy.recommendation.models import MatchScoreModel
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.utils import db_connect
 
+
 class MatchScoreJob:
 
     def __init__(self, db_conn, repo: RecommendationRepository):
@@ -24,6 +25,7 @@ class MatchScoreJob:
             recommendations_func = ComputeRecommendationsAndPersist(
                 self.db_conn, profile_id)
             recommendations_func.get_and_persist(self.db_conn, max_tries=3)
+
 
 def cli(args=None):
     try:

@@ -17,12 +17,17 @@ def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
     offset = 0
     # TODO: is this batch_iter still needed?
     for batch in batch_iter(X_test.to_numpy(), batch_size):
-        labels, distances = model.predict(pd.DataFrame(data=batch), 2, include_distances=True)
+        labels, distances = model.predict(pd.DataFrame(data=batch),
+                                          2,
+                                          include_distances=True)
 
         for index, labels_with_distances in enumerate(zip(labels, distances)):
-            expected_labels = [l == y_test.iloc[offset + index][label_col] for l in label_list]
+            expected_labels = [
+                l == y_test.iloc[offset + index][label_col] for l in label_list
+            ]
 
-            labels_distances = dict(zip(labels_with_distances[0], labels_with_distances[1]))
+            labels_distances = dict(
+                zip(labels_with_distances[0], labels_with_distances[1]))
             actual_labels = [labels_distances.get(l, 0.0) for l in label_list]
 
             sum_ap += average_precision_score(expected_labels, actual_labels)

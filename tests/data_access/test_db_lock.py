@@ -19,8 +19,8 @@ class Value:
 
 class _TestThread(threading.Thread):
 
-    def __init__(self, value: Value,
-                 resource_type: ResourceType, resource_id: int):
+    def __init__(self, value: Value, resource_type: ResourceType,
+                 resource_id: int):
         super().__init__()
         self.value = value
         self.resource_type = resource_type
@@ -103,8 +103,7 @@ def test_lock_acquisition_fails_after_timeout():
     _assert_not_locked(ResourceType.GENERAL, resource_id)
 
 
-def _assert_not_locked(resource_type: ResourceType,
-                       resource_id: int):
+def _assert_not_locked(resource_type: ResourceType, resource_id: int):
     with db_connect() as db_conn:
         lock = DatabaseLock(db_conn, resource_type)
         assert lock.try_lock(resource_id)

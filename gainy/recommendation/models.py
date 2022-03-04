@@ -34,6 +34,7 @@ class MatchScoreModel(BaseModel):
     def table_name(self) -> str:
         return "profile_ticker_match_score"
 
+
 class ProfileRecommendationsMetadata(BaseModel, ResourceVersion):
 
     profile_id = None

@@ -18,9 +18,7 @@ class RecommendationRepository(Repository):
 
     def read_all_profile_ids(self) -> List[int]:
         cursor = self.db_conn.cursor()
-        cursor.execute(
-            "SELECT id::int4 FROM app.profiles;"
-        )
+        cursor.execute("SELECT id::int4 FROM app.profiles;")
         return list(map(itemgetter(0), cursor.fetchall()))
 
     def read_categories_risks(self) -> Dict[str, int]:

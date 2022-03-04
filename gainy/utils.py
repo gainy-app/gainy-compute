@@ -34,7 +34,8 @@ def db_connect() -> connection:
     USERNAME = os.getenv('pg_username') or os.getenv("PG_USERNAME")
     PASSWORD = os.getenv('pg_password') or os.getenv("PG_PASSWORD")
     DB_NAME = os.getenv('pg_dbname') or os.getenv("PG_DATABASE")
-    PUBLIC_SCHEMA_NAME = os.getenv('PUBLIC_SCHEMA_NAME') or os.getenv("DBT_TARGET_SCHEMA")
+    PUBLIC_SCHEMA_NAME = os.getenv('PUBLIC_SCHEMA_NAME') or os.getenv(
+        "DBT_TARGET_SCHEMA")
 
     if not PUBLIC_SCHEMA_NAME or not HOST or not PORT or not DB_NAME or not USERNAME or not PASSWORD:
         raise Exception('Missing db connection env variables')

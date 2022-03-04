@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Any, Dict
 from gainy.data_access.db_lock import ResourceType
 
+
 class classproperty(property):
 
     def __get__(self, cls, owner):
@@ -36,6 +37,7 @@ class BaseModel(ABC):
     @abstractmethod
     def key_fields(self) -> List[str]:
         pass
+
 
 class ResourceVersion(ABC):
 

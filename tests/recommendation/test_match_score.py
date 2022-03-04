@@ -5,7 +5,11 @@ from gainy.recommendation.match_score import profile_ticker_similarity, Similari
 def test_ticker_match_score():
     profile_interests_v = [
         DimVector(10, {"1": 1}),
-        DimVector(20, {"1": 1, "2": 1, "3": 1})
+        DimVector(20, {
+            "1": 1,
+            "2": 1,
+            "3": 1
+        })
     ]
     profile_categories_v = DimVector(1, {"1": 1, "2": 1})
 
@@ -14,13 +18,10 @@ def test_ticker_match_score():
 
     risk_mapping = {"1": 1, "2": 3}
 
-    match_score = profile_ticker_similarity(
-        profile_categories_v,
-        ticker_categories_v,
-        risk_mapping,
-        profile_interests_v,
-        ticker_industries_v
-    )
+    match_score = profile_ticker_similarity(profile_categories_v,
+                                            ticker_categories_v, risk_mapping,
+                                            profile_interests_v,
+                                            ticker_industries_v)
 
     assert match_score.match_score() == 80
 
