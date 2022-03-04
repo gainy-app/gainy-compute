@@ -119,7 +119,7 @@ class IndustryAssignmentRunner:
                           tickers["description"]]  # Remove Nones, NaNs, etc
         tickers.reset_index(inplace=True, drop=True)
 
-        batch_size = 100
+        batch_size = 10
         ticker_descriptions = tickers[["description"]]
         predictions_list = []
         for start in range(0, len(tickers), batch_size):
@@ -129,9 +129,6 @@ class IndustryAssignmentRunner:
                 include_distances=False)
         predictions = pd.DataFrame(data=predictions_list,
                                    columns=["industry_id_1", "industry_id_2"])
-
-        #         predictions_list = self.model.predict(tickers[["description"]], n=2, include_distances=False)
-        #         predictions = pd.DataFrame(data=predictions_list, columns=["industry_id_1", "industry_id_2"])
 
         manual_ticker_industries = self.repo.load_manual_ticker_industries()
         tickers_with_industries = tickers.merge(manual_ticker_industries,
