@@ -1,9 +1,7 @@
 import os
 import traceback
-
 import sys
 from numpy import mean
-
 from gainy.industries.repository import TickerRepository, DatabaseTickerRepository
 from gainy.industries.tfidf_model import TfIdfIndustryAssignmentModel
 import logging
@@ -11,8 +9,11 @@ from gainy.industries.lifecycle import cross_validation, test_model
 import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
-
 from gainy.utils import env
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class IndustryAssignmentRunner:
@@ -40,7 +41,7 @@ class IndustryAssignmentRunner:
         self._set_mlflow_experiment()
         with mlflow.start_run() as run:
             x_score = mean(self._cross_validation(tickers_with_industries))
-            logging.info(
+            logger.info(
                 f"Model cross validation score (average MAP) is {x_score}")
             mlflow.log_metric("Cross-validation MAP", x_score)
 
@@ -49,7 +50,7 @@ class IndustryAssignmentRunner:
             self.model.fit(X, y)
 
             train_score = test_model(self.model, X, y)
-            logging.info(
+            logger.info(
                 f"Model train score (MAP on training data) is {train_score}")
             mlflow.log_metric("Train MAP", train_score)
 
@@ -57,7 +58,7 @@ class IndustryAssignmentRunner:
                                     python_model=self.model)
 
             if x_score < self.MIN_X_SCORE:
-                logging.error(
+                logger.error(
                     f"The cross-validation score is too low, expected={self.MIN_X_SCORE}, actual={x_score}"
                 )
                 raise Exception(
@@ -85,7 +86,7 @@ class IndustryAssignmentRunner:
         return cross_validation(self.model, X, y, n_splits)
 
     def _register_model(self, run):
-        logging.info(
+        logger.info(
             f"Register model `{self._registered_name}` with run_id `{run.info.run_id}`"
         )
         model_version = mlflow.register_model(f"runs:/{run.info.run_id}",
@@ -113,11 +114,15 @@ class IndustryAssignmentRunner:
 
     def run_predict(self):
         self._load_model()
+        logger.info("_load_model")
 
         tickers = self.repo.load_tickers()[["symbol", "description"]]
+        logger.info("load_tickers 0")
         tickers = tickers[tickers["description"] ==
                           tickers["description"]]  # Remove Nones, NaNs, etc
+        logger.info("load_tickers 1")
         tickers.reset_index(inplace=True, drop=True)
+        logger.info("load_tickers 2")
 
         batch_size = 1
         ticker_descriptions = tickers[["description"]]
@@ -127,16 +132,21 @@ class IndustryAssignmentRunner:
                 ticker_descriptions.iloc[start:start + batch_size],
                 n=2,
                 include_distances=False)
+        logger.info("predict 0")
         predictions = pd.DataFrame(data=predictions_list,
                                    columns=["industry_id_1", "industry_id_2"])
+        logger.info("predict 1")
 
         manual_ticker_industries = self.repo.load_manual_ticker_industries()
+        logger.info("combine 0")
         tickers_with_industries = tickers.merge(manual_ticker_industries,
                                                 how="left",
                                                 on=["symbol"])
+        logger.info("combine 1")
 
         tickers_with_predictions = \
             pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
+        logger.info("combine 2")
 
         self.repo.save_auto_ticker_industries(tickers_with_predictions)
 
