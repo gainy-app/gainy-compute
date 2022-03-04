@@ -119,7 +119,7 @@ class IndustryAssignmentRunner:
                           tickers["description"]]  # Remove Nones, NaNs, etc
         tickers.reset_index(inplace=True, drop=True)
 
-        batch_size = 10
+        batch_size = 1
         ticker_descriptions = tickers[["description"]]
         predictions_list = []
         for start in range(0, len(tickers), batch_size):
