@@ -1,4 +1,4 @@
-name: "Style Check"
+name: "Main"
 
 on:
   push:
@@ -23,4 +23,25 @@ jobs:
         run: make style-check
 
   test:
-    uses: ./.github/workflows/test.yml
+    name: "Run tests"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ 3.9 ]
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run tests
+        id: test
+        continue-on-error: true
+        run: make test 2>&1
+
+      - name: Tests Status
+        if: steps.test.outcome == 'failure'
+        run: make test-clean && exit 1
