@@ -9,18 +9,19 @@ on:
   workflow_call:
 
 jobs:
-  style-check:
-    name: "Style Check"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: YAPF install
-        run: pip3 install yapf toml
-
-      - name: YAPF
-        run: make style-check
+# todo enable
+#  style-check:
+#    name: "Style Check"
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v2
+#
+#      - name: YAPF install
+#        run: pip3 install yapf toml
+#
+#      - name: YAPF
+#        run: make style-check
 
   test:
     name: "Run tests"
