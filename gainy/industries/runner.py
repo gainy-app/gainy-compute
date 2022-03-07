@@ -114,56 +114,60 @@ class IndustryAssignmentRunner:
 
     def run_predict(self):
         with mlflow.start_run() as run:
-            self._load_model()
-            mlflow.log_param("step _load_model", "reached")
-            mlflow.log_metric("step step _load_model memory", psutil.Process().memory_info().rss / (1024 * 1024))
-            return
+            try:
+                self._load_model()
+                mlflow.log_param("step _load_model", "reached")
+                mlflow.log_metric("step step _load_model memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                return
 
-            tickers = self.repo.load_tickers()[["symbol", "description"]]
-            mlflow.log_param("step load_tickers 0", "reached")
-            mlflow.log_metric("step step load_tickers 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                tickers = self.repo.load_tickers()[["symbol", "description"]]
+                mlflow.log_param("step load_tickers 0", "reached")
+                mlflow.log_metric("step step load_tickers 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            tickers = tickers[tickers["description"] ==
-                              tickers["description"]]  # Remove Nones, NaNs, etc
-            mlflow.log_param("step load_tickers 1", "reached")
-            mlflow.log_metric("step step load_tickers 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                tickers = tickers[tickers["description"] ==
+                                  tickers["description"]]  # Remove Nones, NaNs, etc
+                mlflow.log_param("step load_tickers 1", "reached")
+                mlflow.log_metric("step step load_tickers 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            tickers.reset_index(inplace=True, drop=True)
-            mlflow.log_param("step load_tickers 2", "reached")
-            mlflow.log_metric("step step load_tickers 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                tickers.reset_index(inplace=True, drop=True)
+                mlflow.log_param("step load_tickers 2", "reached")
+                mlflow.log_metric("step step load_tickers 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            batch_size = 1
-            ticker_descriptions = tickers[["description"]]
-            predictions_list = []
-            for start in range(0, len(tickers), batch_size):
-                predictions_list += self.model.predict(
-                    ticker_descriptions.iloc[start:start + batch_size],
-                    n=2,
-                    include_distances=False)
-            mlflow.log_param("step predict 0", "reached")
-            mlflow.log_metric("step step predict 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                batch_size = 1
+                ticker_descriptions = tickers[["description"]]
+                predictions_list = []
+                for start in range(0, len(tickers), batch_size):
+                    predictions_list += self.model.predict(
+                        ticker_descriptions.iloc[start:start + batch_size],
+                        n=2,
+                        include_distances=False)
+                mlflow.log_param("step predict 0", "reached")
+                mlflow.log_metric("step step predict 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            predictions = pd.DataFrame(data=predictions_list,
-                                       columns=["industry_id_1", "industry_id_2"])
-            mlflow.log_param("step predict 1", "reached")
-            mlflow.log_metric("step step predict 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                predictions = pd.DataFrame(data=predictions_list,
+                                           columns=["industry_id_1", "industry_id_2"])
+                mlflow.log_param("step predict 1", "reached")
+                mlflow.log_metric("step step predict 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            manual_ticker_industries = self.repo.load_manual_ticker_industries()
-            mlflow.log_param("step combine 0", "reached")
-            mlflow.log_metric("step step combine 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                manual_ticker_industries = self.repo.load_manual_ticker_industries()
+                mlflow.log_param("step combine 0", "reached")
+                mlflow.log_metric("step step combine 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            tickers_with_industries = tickers.merge(manual_ticker_industries,
-                                                    how="left",
-                                                    on=["symbol"])
-            mlflow.log_param("step combine 1", "reached")
-            mlflow.log_metric("step step combine 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                tickers_with_industries = tickers.merge(manual_ticker_industries,
+                                                        how="left",
+                                                        on=["symbol"])
+                mlflow.log_param("step combine 1", "reached")
+                mlflow.log_metric("step step combine 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            tickers_with_predictions = \
-                pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
-            mlflow.log_param("step combine 2", "reached")
-            mlflow.log_metric("step step combine 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+                tickers_with_predictions = \
+                    pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
+                mlflow.log_param("step combine 2", "reached")
+                mlflow.log_metric("step step combine 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
 
-            self.repo.save_auto_ticker_industries(tickers_with_predictions)
+                self.repo.save_auto_ticker_industries(tickers_with_predictions)
+            except e:
+                print(e)
+                mlflow.log_param("exception", str(e))
 
     def _load_model(self):
         mlflow.log_param("step _load_model 0", "reached")
