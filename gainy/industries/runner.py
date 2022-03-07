@@ -168,13 +168,13 @@ class IndustryAssignmentRunner:
     def _load_model(self):
         mlflow.log_param("step _load_model 0", "reached")
         mlflow.log_metric("step step _load_model 0 memory", psutil.Process().memory_info().rss / (1024 * 1024))
-        return
 
         client = MlflowClient()
         latest_version = client.get_latest_versions(
             self._registered_name, [self._model_version_stage])[0]
         mlflow.log_param("step _load_model 1", "reached")
         mlflow.log_metric("step step _load_model 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+        return
 
         artifact_uri = client.get_model_version_download_uri(
             latest_version.name, latest_version.version)
