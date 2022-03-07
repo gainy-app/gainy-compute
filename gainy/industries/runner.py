@@ -117,7 +117,6 @@ class IndustryAssignmentRunner:
             self._load_model()
             mlflow.log_param("step _load_model", "reached")
             mlflow.log_metric("step step _load_model memory", psutil.Process().memory_info().rss / (1024 * 1024))
-            return
 
             tickers = self.repo.load_tickers()[["symbol", "description"]]
             mlflow.log_param("step load_tickers 0", "reached")
@@ -131,6 +130,7 @@ class IndustryAssignmentRunner:
             tickers.reset_index(inplace=True, drop=True)
             mlflow.log_param("step load_tickers 2", "reached")
             mlflow.log_metric("step step load_tickers 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+            return
 
             batch_size = 1
             ticker_descriptions = tickers[["description"]]
