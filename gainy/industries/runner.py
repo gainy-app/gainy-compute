@@ -179,13 +179,13 @@ class IndustryAssignmentRunner:
             latest_version.name, latest_version.version)
         mlflow.log_param("step _load_model 2", "reached")
         mlflow.log_metric("step step _load_model 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
-        print(artifact_uri)
-        return
 
         model_uri = f"{artifact_uri}/{self.model.name()}"
         loaded_model = mlflow.pyfunc.load_model(model_uri)
         mlflow.log_param("step _load_model 3", "reached")
         mlflow.log_metric("step step _load_model 3 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+        print(model_uri)
+        return
 
         # TODO: A hack to get the original model. Need to handle it in more MLflow'ish way.
         self.model = loaded_model._model_impl.python_model
