@@ -174,12 +174,13 @@ class IndustryAssignmentRunner:
             self._registered_name, [self._model_version_stage])[0]
         mlflow.log_param("step _load_model 1", "reached")
         mlflow.log_metric("step step _load_model 1 memory", psutil.Process().memory_info().rss / (1024 * 1024))
-        return
 
         artifact_uri = client.get_model_version_download_uri(
             latest_version.name, latest_version.version)
         mlflow.log_param("step _load_model 2", "reached")
         mlflow.log_metric("step step _load_model 2 memory", psutil.Process().memory_info().rss / (1024 * 1024))
+        print(artifact_uri)
+        return
 
         model_uri = f"{artifact_uri}/{self.model.name()}"
         loaded_model = mlflow.pyfunc.load_model(model_uri)
