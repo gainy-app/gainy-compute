@@ -120,7 +120,6 @@ class IndustryAssignmentRunner:
             mlflow.log_metric(
                 "step step _load_model memory",
                 psutil.Process().memory_info().rss / (1024 * 1024))
-            return
 
             tickers = self.repo.load_tickers()[["symbol", "description"]]
             mlflow.log_param("step load_tickers 0", "reached")
@@ -209,8 +208,6 @@ class IndustryAssignmentRunner:
         mlflow.log_param("step _load_model 3", "reached")
         mlflow.log_metric("step step _load_model 3 memory",
                           psutil.Process().memory_info().rss / (1024 * 1024))
-        print(model_uri)
-        return
 
         # TODO: A hack to get the original model. Need to handle it in more MLflow'ish way.
         self.model = loaded_model._model_impl.python_model
