@@ -114,100 +114,45 @@ class IndustryAssignmentRunner:
         mlflow.set_experiment(experiment_id=experiment_id)
 
     def run_predict(self):
-        with mlflow.start_run() as run:
-            self._load_model()
-            mlflow.log_param("step _load_model", "reached")
-            mlflow.log_metric(
-                "step step _load_model memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
+        self._load_model()
 
-            tickers = self.repo.load_tickers()[["symbol", "description"]]
-            mlflow.log_param("step load_tickers 0", "reached")
-            mlflow.log_metric(
-                "step step load_tickers 0 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
+        tickers = self.repo.load_tickers()[["symbol", "description"]]
+        tickers = tickers[tickers["description"] == tickers[
+            "description"]]  # Remove Nones, NaNs, etc
+        tickers.reset_index(inplace=True, drop=True)
 
-            tickers = tickers[tickers["description"] == tickers[
-                "description"]]  # Remove Nones, NaNs, etc
-            mlflow.log_param("step load_tickers 1", "reached")
-            mlflow.log_metric(
-                "step step load_tickers 1 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
+        batch_size = 1000
+        ticker_descriptions = tickers[["description"]]
+        predictions_list = []
+        for start in range(0, len(tickers), batch_size):
+            predictions_list += self.model.predict(
+                ticker_descriptions.iloc[start:start + batch_size],
+                n=2,
+                include_distances=False)
 
-            tickers.reset_index(inplace=True, drop=True)
-            mlflow.log_param("step load_tickers 2", "reached")
-            mlflow.log_metric(
-                "step step load_tickers 2 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
+        predictions = pd.DataFrame(
+            data=predictions_list,
+            columns=["industry_id_1", "industry_id_2"])
 
-            batch_size = 1000
-            ticker_descriptions = tickers[["description"]]
-            predictions_list = []
-            for start in range(0, len(tickers), batch_size):
-                predictions_list += self.model.predict(
-                    ticker_descriptions.iloc[start:start + batch_size],
-                    n=2,
-                    include_distances=False)
-            mlflow.log_param("step predict 0", "reached")
-            mlflow.log_metric(
-                "step step predict 0 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
+        manual_ticker_industries = self.repo.load_manual_ticker_industries()
+        tickers_with_industries = tickers.merge(manual_ticker_industries,
+                                                how="left",
+                                                on=["symbol"])
 
-            predictions = pd.DataFrame(
-                data=predictions_list,
-                columns=["industry_id_1", "industry_id_2"])
-            mlflow.log_param("step predict 1", "reached")
-            mlflow.log_metric(
-                "step step predict 1 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
+        tickers_with_predictions = pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
 
-            manual_ticker_industries = self.repo.load_manual_ticker_industries(
-            )
-            mlflow.log_param("step combine 0", "reached")
-            mlflow.log_metric(
-                "step step combine 0 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
-
-            tickers_with_industries = tickers.merge(manual_ticker_industries,
-                                                    how="left",
-                                                    on=["symbol"])
-            mlflow.log_param("step combine 1", "reached")
-            mlflow.log_metric(
-                "step step combine 1 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
-
-            tickers_with_predictions = \
-                pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
-            mlflow.log_param("step combine 2", "reached")
-            mlflow.log_metric(
-                "step step combine 2 memory",
-                psutil.Process().memory_info().rss / (1024 * 1024))
-
-            self.repo.save_auto_ticker_industries(tickers_with_predictions)
+        self.repo.save_auto_ticker_industries(tickers_with_predictions)
 
     def _load_model(self):
-        mlflow.log_param("step _load_model 0", "reached")
-        mlflow.log_metric("step step _load_model 0 memory",
-                          psutil.Process().memory_info().rss / (1024 * 1024))
-
         client = MlflowClient()
         latest_version = client.get_latest_versions(
             self._registered_name, [self._model_version_stage])[0]
-        mlflow.log_param("step _load_model 1", "reached")
-        mlflow.log_metric("step step _load_model 1 memory",
-                          psutil.Process().memory_info().rss / (1024 * 1024))
 
         artifact_uri = client.get_model_version_download_uri(
             latest_version.name, latest_version.version)
-        mlflow.log_param("step _load_model 2", "reached")
-        mlflow.log_metric("step step _load_model 2 memory",
-                          psutil.Process().memory_info().rss / (1024 * 1024))
 
         model_uri = f"{artifact_uri}/{self.model.name()}"
         loaded_model = mlflow.pyfunc.load_model(model_uri)
-        mlflow.log_param("step _load_model 3", "reached")
-        mlflow.log_metric("step step _load_model 3 memory",
-                          psutil.Process().memory_info().rss / (1024 * 1024))
 
         # TODO: A hack to get the original model. Need to handle it in more MLflow'ish way.
         self.model = loaded_model._model_impl.python_model
