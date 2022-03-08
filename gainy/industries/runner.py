@@ -140,7 +140,7 @@ class IndustryAssignmentRunner:
                 "step step load_tickers 2 memory",
                 psutil.Process().memory_info().rss / (1024 * 1024))
 
-            batch_size = 1
+            batch_size = 10000
             ticker_descriptions = tickers[["description"]]
             predictions_list = []
             for start in range(0, len(tickers), batch_size):
