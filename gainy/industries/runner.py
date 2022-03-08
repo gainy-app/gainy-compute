@@ -117,8 +117,8 @@ class IndustryAssignmentRunner:
         self._load_model()
 
         tickers = self.repo.load_tickers()[["symbol", "description"]]
-        tickers = tickers[tickers["description"] == tickers[
-            "description"]]  # Remove Nones, NaNs, etc
+        tickers = tickers[tickers["description"] ==
+                          tickers["description"]]  # Remove Nones, NaNs, etc
         tickers.reset_index(inplace=True, drop=True)
 
         batch_size = 1000
@@ -130,16 +130,17 @@ class IndustryAssignmentRunner:
                 n=2,
                 include_distances=False)
 
-        predictions = pd.DataFrame(
-            data=predictions_list,
-            columns=["industry_id_1", "industry_id_2"])
+        predictions = pd.DataFrame(data=predictions_list,
+                                   columns=["industry_id_1", "industry_id_2"])
 
         manual_ticker_industries = self.repo.load_manual_ticker_industries()
         tickers_with_industries = tickers.merge(manual_ticker_industries,
                                                 how="left",
                                                 on=["symbol"])
 
-        tickers_with_predictions = pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
+        tickers_with_predictions = pd.concat(
+            [tickers_with_industries, predictions],
+            axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
 
         self.repo.save_auto_ticker_industries(tickers_with_predictions)
 
