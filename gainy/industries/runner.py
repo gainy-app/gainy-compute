@@ -1,9 +1,7 @@
 import os
 import traceback
-
 import sys
 from numpy import mean
-
 from gainy.industries.repository import TickerRepository, DatabaseTickerRepository
 from gainy.industries.tfidf_model import TfIdfIndustryAssignmentModel
 import logging
@@ -11,8 +9,12 @@ from gainy.industries.lifecycle import cross_validation, test_model
 import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
-
 from gainy.utils import env
+import psutil
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class IndustryAssignmentRunner:
@@ -40,7 +42,7 @@ class IndustryAssignmentRunner:
         self._set_mlflow_experiment()
         with mlflow.start_run() as run:
             x_score = mean(self._cross_validation(tickers_with_industries))
-            logging.info(
+            logger.info(
                 f"Model cross validation score (average MAP) is {x_score}")
             mlflow.log_metric("Cross-validation MAP", x_score)
 
@@ -49,7 +51,7 @@ class IndustryAssignmentRunner:
             self.model.fit(X, y)
 
             train_score = test_model(self.model, X, y)
-            logging.info(
+            logger.info(
                 f"Model train score (MAP on training data) is {train_score}")
             mlflow.log_metric("Train MAP", train_score)
 
@@ -57,7 +59,7 @@ class IndustryAssignmentRunner:
                                     python_model=self.model)
 
             if x_score < self.MIN_X_SCORE:
-                logging.error(
+                logger.error(
                     f"The cross-validation score is too low, expected={self.MIN_X_SCORE}, actual={x_score}"
                 )
                 raise Exception(
@@ -85,7 +87,7 @@ class IndustryAssignmentRunner:
         return cross_validation(self.model, X, y, n_splits)
 
     def _register_model(self, run):
-        logging.info(
+        logger.info(
             f"Register model `{self._registered_name}` with run_id `{run.info.run_id}`"
         )
         model_version = mlflow.register_model(f"runs:/{run.info.run_id}",
@@ -119,7 +121,7 @@ class IndustryAssignmentRunner:
                           tickers["description"]]  # Remove Nones, NaNs, etc
         tickers.reset_index(inplace=True, drop=True)
 
-        batch_size = 100
+        batch_size = 1000
         ticker_descriptions = tickers[["description"]]
         predictions_list = []
         for start in range(0, len(tickers), batch_size):
@@ -127,19 +129,18 @@ class IndustryAssignmentRunner:
                 ticker_descriptions.iloc[start:start + batch_size],
                 n=2,
                 include_distances=False)
+
         predictions = pd.DataFrame(data=predictions_list,
                                    columns=["industry_id_1", "industry_id_2"])
-
-        #         predictions_list = self.model.predict(tickers[["description"]], n=2, include_distances=False)
-        #         predictions = pd.DataFrame(data=predictions_list, columns=["industry_id_1", "industry_id_2"])
 
         manual_ticker_industries = self.repo.load_manual_ticker_industries()
         tickers_with_industries = tickers.merge(manual_ticker_industries,
                                                 how="left",
                                                 on=["symbol"])
 
-        tickers_with_predictions = \
-            pd.concat([tickers_with_industries, predictions], axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
+        tickers_with_predictions = pd.concat(
+            [tickers_with_industries, predictions],
+            axis=1)[["symbol", "industry_id_1", "industry_id_2"]]
 
         self.repo.save_auto_ticker_industries(tickers_with_predictions)
 
@@ -147,8 +148,10 @@ class IndustryAssignmentRunner:
         client = MlflowClient()
         latest_version = client.get_latest_versions(
             self._registered_name, [self._model_version_stage])[0]
+
         artifact_uri = client.get_model_version_download_uri(
             latest_version.name, latest_version.version)
+
         model_uri = f"{artifact_uri}/{self.model.name()}"
         loaded_model = mlflow.pyfunc.load_model(model_uri)
 
