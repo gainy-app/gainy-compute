@@ -22,7 +22,7 @@ jobs:
           make install
 
       - name: Bump Version
-        if: github.event.inputs.prerelease
+        if: github.event.inputs.prerelease && github.event.inputs.prerelease != 'false'
         run: poetry version $(poetry version -s)-alpha.$(date '+%s')
 
       - name: Build
@@ -36,12 +36,12 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
       - name: Get Version
-        if: "!github.event.inputs.prerelease"
+        if: "!(github.event.inputs.prerelease && github.event.inputs.prerelease != 'false')"
         run: echo RELEASE_VERSION=$(poetry version -s) >> $GITHUB_ENV
 
       - name: Create Release
         uses: actions/create-release@v1
-        if: "!github.event.inputs.prerelease"
+        if: "!(github.event.inputs.prerelease && github.event.inputs.prerelease != 'false')"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
