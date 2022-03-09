@@ -14,9 +14,9 @@ logger = get_logger(__name__)
 
 class MatchScoreJob:
 
-    def __init__(self, db_conn, repo: RecommendationRepository):
+    def __init__(self, db_conn):
         self.db_conn = db_conn
-        self.repo = repo
+        self.repo = RecommendationRepository(db_conn)
 
     def run(self):
         profile_ids = self.repo.read_all_profile_ids()
@@ -31,9 +31,9 @@ class MatchScoreJob:
 def cli(args=None):
     try:
         with db_connect() as db_conn:
-            repo = RecommendationRepository(db_conn)
-            job = MatchScoreJob(repo)
+            job = MatchScoreJob(db_conn)
             job.run()
 
-    except:
+    except Exception as e:
         traceback.print_exc()
+        raise e
