@@ -4,17 +4,14 @@ import sys
 from numpy import mean
 from gainy.industries.repository import TickerRepository, DatabaseTickerRepository
 from gainy.industries.tfidf_model import TfIdfIndustryAssignmentModel
-import logging
 from gainy.industries.lifecycle import cross_validation, test_model
 import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
-from gainy.utils import env
+from gainy.utils import env, get_logger
 import psutil
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 class IndustryAssignmentRunner:
