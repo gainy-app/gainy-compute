@@ -17,7 +17,7 @@ def current_version() -> str:
     try:
         return importlib.metadata.version("gainy-compute")
     except importlib.metadata.PackageNotFoundError as e:
-        logging.info(f"Package not found: {str(e)}")
+        logging.error(f"Package not found: {str(e)}")
         return "local"
 
 
@@ -42,3 +42,11 @@ def db_connect() -> connection:
 
     DB_CONN_STRING = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
     return psycopg2.connect(DB_CONN_STRING)
+
+
+def get_logger(name):
+    logging.basicConfig()
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG if env() == "local" else logging.INFO)
+
+    return logger
