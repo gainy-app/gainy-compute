@@ -36,7 +36,8 @@ class MatchScoreJob:
 
         if len(processed_profile_ids) > 0:
             logger.info(
-                f"Calculated match score for profiles: {processed_profile_ids}")
+                f"Calculated match score for profiles: {processed_profile_ids}"
+            )
 
 
 def cli(args=None):
