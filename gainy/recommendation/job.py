@@ -21,12 +21,22 @@ class MatchScoreJob:
 
     def run(self):
         profile_ids = self.repo.read_all_profile_ids()
+        processed_profile_ids = []
         for profile_id in profile_ids:
-            logger.info(f"Calculate match score for profile: {profile_id}")
-
             recommendations_func = ComputeRecommendationsAndPersist(
                 self.db_conn, profile_id)
             recommendations_func.get_and_persist(self.db_conn, max_tries=3)
+            processed_profile_ids.append(profile_id)
+
+            if len(processed_profile_ids) >= 100:
+                logger.info(
+                    f"Calculate match score for profiles: {processed_profile_ids}"
+                )
+                processed_profile_ids = []
+
+        if len(processed_profile_ids) > 0:
+            logger.info(
+                f"Calculate match score for profiles: {processed_profile_ids}")
 
 
 def cli(args=None):

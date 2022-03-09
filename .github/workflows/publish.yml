@@ -36,7 +36,6 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
       - name: Get Version
-        if: "!(github.event.inputs.prerelease && github.event.inputs.prerelease != 'false')"
         run: echo RELEASE_VERSION=$(poetry version -s) >> $GITHUB_ENV
 
       - name: Create Release
