@@ -3,9 +3,10 @@ import traceback
 from operator import itemgetter
 import psycopg2
 import sys
+from gainy.recommendation.compute import ComputeRecommendationsAndPersist
 from gainy.recommendation.match_score import profile_ticker_similarity
-from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.models import MatchScoreModel
+from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.utils import db_connect, get_logger
 
