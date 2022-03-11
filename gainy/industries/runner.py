@@ -161,11 +161,11 @@ def cli(args=None):
         if not args:
             args = sys.argv[1:]
 
-        repo = DatabaseTickerRepository(db_host=os.environ["PG_ADDRESS"],
+        repo = DatabaseTickerRepository(db_host=os.environ["PG_HOST"],
                                         db_port=os.environ["PG_PORT"],
                                         db_user=os.environ["PG_USERNAME"],
                                         db_password=os.environ["PG_PASSWORD"],
-                                        db_name=os.environ["PG_DATABASE"])
+                                        db_name=os.environ["PG_DBNAME"])
         runner = IndustryAssignmentRunner(repo)
 
         command = args[0]

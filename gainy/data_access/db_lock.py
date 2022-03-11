@@ -11,6 +11,7 @@ from psycopg2._psycopg import connection
 class ResourceType(enum.Enum):
     GENERAL = 0
     PROFILE_RECOMMENDATIONS = 1
+    UUID_GENERATE = 2
 
 
 class LockAcquisitionTimeout(Exception):

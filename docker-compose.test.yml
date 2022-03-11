@@ -14,9 +14,9 @@ services:
     depends_on:
       - test-postgres
     environment:
-      pg_host: "test-postgres"
-      pg_port: "5432"
-      pg_dbname: "postgres"
-      pg_username: "postgres"
-      pg_password: "postgrespassword"
+      PG_HOST: "test-postgres"
+      PG_PORT: "5432"
+      PG_DBNAME: "postgres"
+      PG_USERNAME: "postgres"
+      PG_PASSWORD: "postgrespassword"
       PUBLIC_SCHEMA_NAME: public_test
