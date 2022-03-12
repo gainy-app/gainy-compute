@@ -29,11 +29,11 @@ def env() -> str:
 def db_connect() -> connection:
     import os
 
-    HOST = os.getenv('pg_host') or os.getenv("PG_ADDRESS")
-    PORT = os.getenv('pg_port') or os.getenv("PG_PORT")
-    USERNAME = os.getenv('pg_username') or os.getenv("PG_USERNAME")
-    PASSWORD = os.getenv('pg_password') or os.getenv("PG_PASSWORD")
-    DB_NAME = os.getenv('pg_dbname') or os.getenv("PG_DATABASE")
+    HOST = os.getenv("PG_HOST")
+    PORT = os.getenv("PG_PORT")
+    USERNAME = os.getenv("PG_USERNAME")
+    PASSWORD = os.getenv("PG_PASSWORD")
+    DB_NAME = os.getenv('PG_DBNAME')
     PUBLIC_SCHEMA_NAME = os.getenv('PUBLIC_SCHEMA_NAME') or os.getenv(
         "DBT_TARGET_SCHEMA")
 
