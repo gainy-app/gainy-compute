@@ -68,23 +68,23 @@ class TfIdfIndustryAssignmentModel(IndustryAssignmentModel):
         #    TermFreq for each description
         tic_tf = tokenize_gettf(tic_desc)
         #    get topN (2 in example) industries names and cossim measures
-        tic_topind_names, tic_topind_cossim = self._tfidfcossim(
+        tic_topind_names, tic_topind_cossim, tic_min_cossim = self._tfidfcossim(
             self.vocab_all_tokens_idf,
             self.vocab_vocab_industry_tokens_tfidfnorm, tic_tf, n)
 
         if include_distances:
-            return tic_topind_names, tic_topind_cossim
+            return tic_topind_names, tic_topind_cossim, tic_min_cossim
         else:
             return tic_topind_names
 
     def _tfidfcossim(
-            self,
-            d_all: dict,
-            # token -> idf (N=count of all  industries, n=count of industries that have this token. Overal vocab. )
-            d_ind: dict,
-            # industry->token-> tfidf L2-normalized (where tf was averaged from companies in that industry (averaged tf is a "average portrait of companies in that industry in TF spector"))
-            l_tictf: list,  # ticker->token->tf (just freq countings)
-            ntop=2) -> (list, list):
+        self,
+        d_all: dict,
+        # token -> idf (N=count of all  industries, n=count of industries that have this token. Overal vocab. )
+        d_ind: dict,
+        # industry->token-> tfidf L2-normalized (where tf was averaged from companies in that industry (averaged tf is a "average portrait of companies in that industry in TF spector"))
+        l_tictf: list,  # ticker->token->tf (just freq countings)
+        ntop=2) -> (list, list, list):
         # d_all struct:
         # vocab_all_tokens_idf{'token':idf, ...}
         # d_ind struct:
@@ -133,8 +133,10 @@ class TfIdfIndustryAssignmentModel(IndustryAssignmentModel):
         tic_topn_industries_names = np.array(ind_names)[topindex].tolist()
         tic_topn_industries_similarity = np.take_along_axis(
             ticind, topindex, -1).tolist()
+        tic_min_industry_similarity = np.amin(ticind, axis=-1).tolist()
 
-        return (tic_topn_industries_names, tic_topn_industries_similarity)
+        return (tic_topn_industries_names, tic_topn_industries_similarity,
+                tic_min_industry_similarity)
 
 
 def textclean_createtextstoremove() -> (Dict[str, str], Dict[str, str]):

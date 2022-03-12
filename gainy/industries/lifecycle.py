@@ -17,9 +17,9 @@ def test_model(model: IndustryAssignmentModel, X_test, y_test) -> float:
     offset = 0
     # TODO: is this batch_iter still needed?
     for batch in batch_iter(X_test.to_numpy(), batch_size):
-        labels, distances = model.predict(pd.DataFrame(data=batch),
-                                          2,
-                                          include_distances=True)
+        labels, distances, _ = model.predict(pd.DataFrame(data=batch),
+                                             2,
+                                             include_distances=True)
 
         for index, labels_with_distances in enumerate(zip(labels, distances)):
             expected_labels = [
