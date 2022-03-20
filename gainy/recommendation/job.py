@@ -25,7 +25,10 @@ class MatchScoreJob:
         for profile_id in profile_ids:
             recommendations_func = ComputeRecommendationsAndPersist(
                 self.db_conn, profile_id)
-            recommendations_func.get_and_persist(self.db_conn, max_tries=3)
+            try:
+                recommendations_func.get_and_persist(self.db_conn, max_tries=7)
+            except ConcurrentVersionUpdate:
+                pass
             processed_profile_ids.append(profile_id)
 
             if len(processed_profile_ids) >= 100:
