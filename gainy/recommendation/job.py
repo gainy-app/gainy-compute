@@ -3,6 +3,7 @@ import traceback
 from operator import itemgetter
 import psycopg2
 import sys
+from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation.compute import ComputeRecommendationsAndPersist
 from gainy.recommendation.match_score import profile_ticker_similarity
 from gainy.recommendation.models import MatchScoreModel
