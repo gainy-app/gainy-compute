@@ -35,6 +35,7 @@ class AbstractOptimisticLockingFunction(ABC):
             lambda: backoff.expo(base=2, factor=0.1),
             exception=Exception,
             max_tries=max_tries,
+            giveup_log_level=logging.WARNING,
             jitter=lambda w: w / 2 + full_jitter(w / 2))
         try:
             backoff_on_exception(lambda: self._try_get_and_persist(db_conn))()
