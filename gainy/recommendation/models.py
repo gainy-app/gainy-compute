@@ -20,8 +20,10 @@ class MatchScoreModel(BaseModel):
         self.fits_risk = explanation.risk_level.value
         self.risk_similarity = explanation.risk_similarity
         self.fits_categories = explanation.category_level.value
+        self.category_similarity = match_score.category_similarity
         self.category_matches = json.dumps(explanation.category_matches)
         self.fits_interests = explanation.interest_level.value
+        self.interest_similarity = match_score.interest_similarity
         self.interest_matches = json.dumps(explanation.interest_matches)
 
         self.updated_at = None
