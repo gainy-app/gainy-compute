@@ -15,7 +15,7 @@ test-build:
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml build
 
 test-python:
-	docker-compose -p gainy_compute_test -f docker-compose.test.yml run test-python make in-docker-test
+	docker-compose -p gainy_compute_test -f docker-compose.test.yml run --rm test-python make in-docker-test
 
 test-clean:
 	docker-compose -p gainy_test -f docker-compose.test.yml down --rmi local -v
