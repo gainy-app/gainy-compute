@@ -50,11 +50,13 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
 
         match_score_list = []
         for ticker_vs in ticker_vs_list:
+            ticker_industry_v, ticker_category_v = ticker_vs
             match_score = profile_ticker_similarity(profile_category_v,
-                                                    ticker_vs[1], risk_mapping,
+                                                    ticker_category_v,
+                                                    risk_mapping,
                                                     profile_interest_vs,
-                                                    ticker_vs[0])
-            match_score_list.append((ticker_vs[0].name, match_score))
+                                                    ticker_industry_v)
+            match_score_list.append((ticker_industry_v.name, match_score))
 
         # Uses minus `match_score` to correctly sort the list by both score and symbol
         match_score_list.sort(key=lambda m: (-m[1].match_score(), m[0]))

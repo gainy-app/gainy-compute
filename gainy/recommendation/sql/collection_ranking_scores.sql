@@ -7,7 +7,7 @@ with collection_ranking_score as (
     group by collection_id
 )
 select c.id as collection_id, coalesce(crs.ranking_score, 0.0) as ranking_score
-from collections c
+from profile_collections c
          left join collection_ranking_score crs
                    on c.id = crs.collection_id
 where c.enabled = '1'
