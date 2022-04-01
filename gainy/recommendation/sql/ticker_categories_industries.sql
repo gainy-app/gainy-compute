@@ -1,8 +1,9 @@
-with ticker_industry_vectors as (
-    select symbol, json_object_agg(industry_id, 1.0) as ticker_industry_vector
-    from ticker_industries
-    group by symbol
-),
+with ticker_industry_vectors as
+         (
+             select symbol, json_object_agg(industry_id, 1.0) as ticker_industry_vector
+             from ticker_industries
+             group by symbol
+         ),
      ticker_category_vectors as (
          select symbol, json_object_agg(category_id, 1.0) as ticker_category_vector
          from ticker_categories

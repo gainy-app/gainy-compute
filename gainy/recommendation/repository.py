@@ -17,78 +17,71 @@ class RecommendationRepository(Repository):
         self.db_conn = db_conn
 
     def read_all_profile_ids(self) -> List[int]:
-        cursor = self.db_conn.cursor()
-        cursor.execute("SELECT id::int4 FROM app.profiles;")
-        return list(map(itemgetter(0), cursor.fetchall()))
+        with self.db_conn.cursor() as cursor:
+            cursor.execute("SELECT id::int4 FROM app.profiles;")
+            return list(map(itemgetter(0), cursor.fetchall()))
 
     def read_categories_risks(self) -> Dict[str, int]:
-        cursor = self.db_conn.cursor()
-        cursor.execute(
-            "SELECT id::varchar, risk_score from categories WHERE risk_score IS NOT NULL;"
-        )
-        return dict(cursor.fetchall())
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT id::varchar, risk_score from categories WHERE risk_score IS NOT NULL;"
+            )
+            return dict(cursor.fetchall())
 
     def read_profile_category_vector(self, profile_id) -> DimVector:
-        with open(os.path.join(script_dir, "sql/profile_categories.sql")
-                  ) as _profile_category_vector_query_file:
-            _profile_category_vector_query = _profile_category_vector_query_file.read(
-            )
+        query_filename = os.path.join(script_dir, "sql/profile_categories.sql")
+        with open(query_filename) as f:
+            query = f.read()
 
-        vectors = self._query_vectors(_profile_category_vector_query,
-                                      {"profile_id": profile_id})
+        vectors = self._query_vectors(query, {"profile_id": profile_id})
         if not vectors:
             return None
 
         return vectors[0]
 
     def read_profile_interest_vectors(self, profile_id) -> List[DimVector]:
-        with open(os.path.join(script_dir, "sql/profile_interests.sql")
-                  ) as _profile_interest_vectors_query_file:
-            _profile_interest_vectors_query = _profile_interest_vectors_query_file.read(
-            )
+        query_filename = os.path.join(script_dir, "sql/profile_interests.sql")
+        with open(query_filename) as f:
+            query = f.read()
 
-        vectors = self._query_vectors(_profile_interest_vectors_query,
-                                      {"profile_id": profile_id})
+        vectors = self._query_vectors(query, {"profile_id": profile_id})
 
         return vectors
 
     def read_all_ticker_category_and_industry_vectors(
             self) -> List[Tuple[DimVector, DimVector]]:
 
-        with open(
-                os.path.join(script_dir, "sql/ticker_categories_industries.sql"
-                             )) as _ticker_categories_industries_query_file:
-            _ticker_categories_industries_query = _ticker_categories_industries_query_file.read(
-            )
+        query_filename = os.path.join(script_dir,
+                                      "sql/ticker_categories_industries.sql")
+        with open(query_filename) as f:
+            query = f.read()
 
-        cursor = self.db_conn.cursor()
-        cursor.execute(_ticker_categories_industries_query)
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query)
 
-        return [(DimVector(row[0], row[1]), DimVector(row[0], row[2]))
-                for row in cursor.fetchall()]
+            # symbol, ticker_industry_vector, ticker_category_vector
+            return [(DimVector(row[0], row[1]), DimVector(row[0], row[2]))
+                    for row in cursor.fetchall()]
 
     def _query_vectors(self, query, variables=None) -> List[DimVector]:
-        cursor = self.db_conn.cursor()
-        cursor.execute(query, variables)
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, variables)
 
-        vectors = []
-        for row in cursor.fetchall():
-            vectors.append(DimVector(row[0], row[1]))
+            vectors = []
+            for row in cursor.fetchall():
+                vectors.append(DimVector(row[0], row[1]))
 
         return vectors
 
     def read_sorted_collection_match_scores(
             self, profile_id: str, limit: int) -> List[Tuple[int, float]]:
-        with open(os.path.join(script_dir, "sql/collection_ranking_scores.sql")
-                  ) as _collection_ranking_scores_query_file:
-            _collection_ranking_scores_query = _collection_ranking_scores_query_file.read(
-            )
+        query_filename = os.path.join(script_dir,
+                                      "sql/collection_ranking_scores.sql")
+        with open(query_filename) as f:
+            query = f.read()
 
         with self.db_conn.cursor() as cursor:
-            cursor.execute(_collection_ranking_scores_query, {
-                "profile_id": profile_id,
-                "limit": limit
-            })
+            cursor.execute(query, {"profile_id": profile_id, "limit": limit})
 
             return list(cursor.fetchall())
 
