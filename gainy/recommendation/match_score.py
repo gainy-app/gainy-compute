@@ -27,19 +27,15 @@ def get_interest_similarity(
     interest_score = DimVector.dot_product(normed_profile_v,
                                            ticker_industry_v) / norm_ticker
 
-    interest_matches = []
-    for profile_interest_v in profile_interest_vs:
-        has_common_industry = _has_common_industry(profile_interest_v,
-                                                   ticker_industry_v)
+    interest_matches = [(DimVector.dot_product(profile_interest_v,
+                                               ticker_industry_v),
+                         profile_interest_v.name)
+                        for profile_interest_v in profile_interest_vs]
+    interest_matches = filter(lambda x: x[0] > 0, interest_matches)
+    interest_matches = sorted(interest_matches, reverse=True)
+    interest_matches = map(lambda x: x[1], interest_matches)
 
-        if has_common_industry:
-            interest_matches.append(profile_interest_v.name)
-
-    return interest_score, interest_matches
-
-
-def _has_common_industry(profile_interest_v, ticker_industry_v):
-    return DimVector.dot_product(profile_interest_v, ticker_industry_v) > 0
+    return interest_score, list(interest_matches)
 
 
 def normalized_profile_industries_vector(vector: DimVector) -> DimVector:
