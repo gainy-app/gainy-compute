@@ -13,7 +13,7 @@ def test_ticker_match_score():
     ]
     profile_categories_v = DimVector(1, {"1": 1, "2": 1})
 
-    ticker_industries_v = DimVector("TICKER", {"1": 1})
+    ticker_industries_v = DimVector("TICKER", {"1": 1, "2": 1})
     ticker_categories_v = DimVector("TICKER", {"2": 1})
 
     risk_mapping = {"1": 1, "2": 3}
@@ -29,4 +29,4 @@ def test_ticker_match_score():
     assert explanation.category_level == SimilarityLevel.HIGH
     assert explanation.category_matches == [2]
     assert explanation.interest_level == SimilarityLevel.HIGH
-    assert explanation.interest_matches == [10, 20]
+    assert explanation.interest_matches == [20, 10]
