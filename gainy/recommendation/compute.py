@@ -181,7 +181,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         if len(t_rsk) == 0:  #if ticker not found
             t_rsk = 0.5
         else:
-            t_rsk = t_rsk[0]
+            t_rsk = t_rsk.iloc[0]
 
         ## risk match component
         # using parameterized bell function with center coord in user risk score - measure proximity of tickers
