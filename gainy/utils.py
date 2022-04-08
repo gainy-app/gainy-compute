@@ -26,7 +26,7 @@ def env() -> str:
     return os.environ.get("ENV", "local")
 
 
-def db_connect() -> connection:
+def get_db_connection_string() -> str:
     import os
 
     HOST = os.getenv("PG_HOST")
@@ -40,8 +40,11 @@ def db_connect() -> connection:
     if not PUBLIC_SCHEMA_NAME or not HOST or not PORT or not DB_NAME or not USERNAME or not PASSWORD:
         raise Exception('Missing db connection env variables')
 
-    DB_CONN_STRING = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
-    return psycopg2.connect(DB_CONN_STRING)
+    return f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
+
+
+def db_connect() -> connection:
+    return psycopg2.connect(get_db_connection_string())
 
 
 def get_logger(name):

@@ -5,7 +5,6 @@ import psycopg2
 import sys
 from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation.compute import ComputeRecommendationsAndPersist
-from gainy.recommendation.match_score import profile_ticker_similarity
 from gainy.recommendation.models import MatchScoreModel
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
@@ -23,20 +22,23 @@ class MatchScoreJob:
     def run(self):
         profile_ids = self.repo.read_all_profile_ids()
         processed_profile_ids = []
+        long_term_cache = {}
         for profile_id in profile_ids:
             recommendations_func = ComputeRecommendationsAndPersist(
-                self.db_conn, profile_id)
+                self.db_conn, profile_id, long_term_cache)
             try:
                 recommendations_func.get_and_persist(self.db_conn, max_tries=7)
             except ConcurrentVersionUpdate:
                 pass
             processed_profile_ids.append(profile_id)
 
+            long_term_cache = recommendations_func.long_term_cache
             if len(processed_profile_ids) >= 100:
                 logger.info(
                     f"Calculated match score for profiles: {processed_profile_ids}"
                 )
                 processed_profile_ids = []
+                long_term_cache = {}
 
         if len(processed_profile_ids) > 0:
             logger.info(

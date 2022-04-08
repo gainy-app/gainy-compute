@@ -2,11 +2,13 @@ import os
 from operator import itemgetter
 from typing import List, Tuple, Dict
 
+import pandas as pd
 from psycopg2.extras import execute_values
 
 from gainy.data_access.exceptions import ObjectNotFoundException
 from gainy.data_access.repository import Repository
 from gainy.recommendation.core import DimVector
+from gainy.utils import get_db_connection_string
 
 script_dir = os.path.dirname(__file__)
 
@@ -15,6 +17,7 @@ class RecommendationRepository(Repository):
 
     def __init__(self, db_conn):
         self.db_conn = db_conn
+        self.db_conn_string = get_db_connection_string()
 
     def read_all_profile_ids(self) -> List[int]:
         with self.db_conn.cursor() as cursor:
@@ -169,3 +172,54 @@ class RecommendationRepository(Repository):
                 "INSERT INTO app.personalized_ticker_collections(profile_id, collection_id, symbol) VALUES %s",
                 [(profile_id, collection_id, symbol)
                  for symbol in ticker_list])
+
+    def get_df_ticker_symbols(self):
+        sql_tickersymbols = "select symbol from tickers where type ilike 'common stock'"
+        return pd.read_sql_query(sql_tickersymbols, self.db_conn_string)
+
+    def get_df_profile_categories(self, profile_id):
+        query = """
+            select profile_id,
+                   category_id
+            from app.profile_categories
+            where profile_id = %(profile_id)s
+        """
+        return pd.read_sql_query(query,
+                                 self.db_conn_string,
+                                 params={"profile_id": profile_id})
+
+    def get_df_profile_interests(self, profile_id):
+        query = """
+            select profile_id,
+                   interest_id
+            from app.profile_interests
+            where profile_id = %(profile_id)s
+        """
+        return pd.read_sql_query(query,
+                                 self.db_conn_string,
+                                 params={"profile_id": profile_id})
+
+    def get_df_profile_scoring_settings(self, profile_id):
+        query = """
+            select *
+            from app.profile_scoring_settings
+            where profile_id = %(profile_id)s
+        """
+        return pd.read_sql_query(query,
+                                 self.db_conn_string,
+                                 params={"profile_id": profile_id})
+
+    def get_df_ticker_interests_continuous(self):
+        query = "select interest_id, symbol, sim_dif from ticker_interests"
+        return pd.read_sql_query(query, self.db_conn_string)
+
+    def get_df_ticker_categories_continuous(self):
+        query = "select category_id, symbol, sim_dif from ticker_categories_continuous"
+        return pd.read_sql_query(query, self.db_conn_string)
+
+    def get_df_ticker_riskscore_continuous(self):
+        query_filename = os.path.join(script_dir,
+                                      "sql/ticker_riskscore_continuous.sql")
+        with open(query_filename) as f:
+            query = f.read()
+        return pd.read_sql_query(query, self.db_conn_string)
