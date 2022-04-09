@@ -149,9 +149,10 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         data_match_scores = []
         data_match_score_similarities = []
         for symbol in self.get_ticker_symbols():
-            match_score = self.f_matchscore(profile_id, symbol, p_cat, p_int,
-                                            p_rsk, t_int_sim_dif[symbol],
-                                            t_cat_sim_dif[symbol],
+            match_score = self.f_matchscore(profile_id, symbol, p_cat,
+                                            p_int, p_rsk,
+                                            t_int_sim_dif.get(symbol, {}),
+                                            t_cat_sim_dif.get(symbol, {}),
                                             t_risk_score.get(symbol,
                                                              0.5), df_p_pi)
             match_score.symbol = symbol
