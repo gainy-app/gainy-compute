@@ -1,0 +1,29 @@
+version: '3.6'
+services:
+  postgres:
+    image: postgres:12
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+
+  python:
+    build:
+      context: ./
+    volumes:
+      - ./:/srv
+    depends_on:
+      - postgres
+    environment:
+      PG_HOST: "postgres"
+      PG_PORT: "5432"
+      PG_DBNAME: "postgres"
+      PG_USERNAME: "postgres"
+      PG_PASSWORD: "postgrespassword"
+      PUBLIC_SCHEMA_NAME: public
+
+volumes:
+  db_data:

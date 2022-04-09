@@ -3,6 +3,7 @@ from typing import Tuple, List, Iterable
 from psycopg2._psycopg import connection
 import numpy as np
 import pandas as pd
+import time
 
 from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
@@ -55,15 +56,15 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
                                      top_k: int = None
                                      ) -> List[Tuple[str, MatchScore]]:
 
+        self.start_time = time.time()
         match_scores_iterable = self.f_profile_vs_alltickers(
             self.profile_id,
-            self.repo.get_df_ticker_symbols(),
-            self.repo.get_df_profile_categories(self.profile_id),
-            self.repo.get_df_profile_interests(self.profile_id),
-            self.repo.get_df_profile_scoring_settings(self.profile_id),
-            self.get_df_ticker_interests_continuous(),
-            self.get_df_ticker_categories_continuous(),
-            self.get_df_ticker_riskscore_continuous(),
+            set(self.repo.get_profile_category_ids(self.profile_id)),
+            set(self.repo.get_profile_interest_ids(self.profile_id)),
+            self.repo.get_profile_risk_score(self.profile_id),
+            self.get_ticker_interests_continuous(),
+            self.get_ticker_categories_continuous(),
+            self.get_ticker_risk_score(),
         )
 
         if top_k is not None:
@@ -77,111 +78,127 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
                 match_score.category_matches, match_score.interest_similarity,
                 match_score.interest_matches
             ])
+        self.logger.debug('Profile processed in: %fs',
+                          time.time() - self.start_time)
 
         return match_scores_list
 
-    def get_df_ticker_interests_continuous(self):
-        if 'df_ticker_interests_continuous' not in self.long_term_cache:
+    def get_ticker_symbols(self):
+        if 'ticker_symbols' not in self.long_term_cache:
             self.long_term_cache[
-                'df_ticker_interests_continuous'] = self.repo.get_df_ticker_interests_continuous(
-                )
-        return self.long_term_cache['df_ticker_interests_continuous']
+                'ticker_symbols'] = self.repo.get_ticker_symbols()
+        return self.long_term_cache['ticker_symbols']
 
-    def get_df_ticker_categories_continuous(self):
-        if 'df_ticker_categories_continuous' not in self.long_term_cache:
-            self.long_term_cache[
-                'df_ticker_categories_continuous'] = self.repo.get_df_ticker_categories_continuous(
-                )
-        return self.long_term_cache['df_ticker_categories_continuous']
+    def get_ticker_categories_continuous(self):
+        if 'ticker_categories_continuous' not in self.long_term_cache:
+            t_cat_sim_dif = {}
+            for row in self.repo.get_ticker_categories_continuous():
+                symbol = row['symbol']
+                if symbol not in t_cat_sim_dif:
+                    t_cat_sim_dif[symbol] = {}
+                category_id = row['category_id']
+                if category_id not in t_cat_sim_dif[symbol]:
+                    t_cat_sim_dif[symbol][category_id] = {}
+                t_cat_sim_dif[symbol][category_id] = row['sim_dif']
 
-    def get_df_ticker_riskscore_continuous(self):
-        if 'df_ticker_riskscore_continuous' not in self.long_term_cache:
             self.long_term_cache[
-                'df_ticker_riskscore_continuous'] = self.repo.get_df_ticker_riskscore_continuous(
-                )
-        return self.long_term_cache['df_ticker_riskscore_continuous']
+                'ticker_categories_continuous'] = t_cat_sim_dif
+        return self.long_term_cache['ticker_categories_continuous']
+
+    def get_ticker_interests_continuous(self):
+        if 'ticker_interests_continuous' not in self.long_term_cache:
+            t_cat_sim_dif = {}
+            for row in self.repo.get_ticker_interests_continuous():
+                symbol = row['symbol']
+                if symbol not in t_cat_sim_dif:
+                    t_cat_sim_dif[symbol] = {}
+                interest_id = row['interest_id']
+                if interest_id not in t_cat_sim_dif[symbol]:
+                    t_cat_sim_dif[symbol][interest_id] = {}
+                t_cat_sim_dif[symbol][interest_id] = row['sim_dif']
+
+            self.long_term_cache['ticker_interests_continuous'] = t_cat_sim_dif
+        return self.long_term_cache['ticker_interests_continuous']
+
+    def get_ticker_risk_score(self):
+        if 'ticker_risk_score' not in self.long_term_cache:
+            t_risk_score = {}
+            for row in self.repo.get_ticker_risk_score():
+                symbol = row['symbol']
+                if symbol not in t_risk_score:
+                    t_risk_score[symbol] = {}
+                t_risk_score[symbol] = row['risk_score']
+
+            self.long_term_cache['ticker_risk_score'] = t_risk_score
+        return self.long_term_cache['ticker_risk_score']
 
     def f_profile_vs_alltickers(
         self,
         profile_id: int,
-        df_t,
-        df_p_c,
-        df_p_i,
-        df_p_r,
-        df_t_i,
-        df_t_c,
-        df_t_r,
+        p_cat,
+        p_int,
+        p_rsk,
+        t_int_sim_dif,  # {symbol: {interest_id: sim_dif}}
+        t_cat_sim_dif,  # {symbol: {category_id: sim_dif}}
+        t_risk_score,  # {symbol: risk_score}
         df_p_pi=None  #profile interests from portfolio
     ) -> Iterable[Tuple[str, MatchScore]]:
         ## we need to implement this alike function and process MS of all tickers for the user in a step (coz of "extremalizing ms values for each user's little world")
         # the approach is not speed-optimized, but shows how to do the task
 
-        match_scores = {}
-        data_symbols = []
         data_match_scores = []
-        for symbol in set(df_t['symbol']):
-            match_score = self.f_matchscore(profile_id, symbol, df_p_c, df_p_i,
-                                            df_p_r, df_t_i, df_t_c, df_t_r,
-                                            df_p_pi)
-            match_scores[symbol] = match_score
-            data_symbols.append(symbol)
-            data_match_scores.append(match_score.similarity)
+        data_match_score_similarities = []
+        for symbol in self.get_ticker_symbols():
+            match_score = self.f_matchscore(profile_id, symbol, p_cat, p_int,
+                                            p_rsk, t_int_sim_dif[symbol],
+                                            t_cat_sim_dif[symbol],
+                                            t_risk_score.get(symbol,
+                                                             0.5), df_p_pi)
+            match_score.symbol = symbol
+            data_match_scores.append(match_score)
+            data_match_score_similarities.append(match_score.similarity)
 
-        df = pd.DataFrame(data={"matchscore": data_match_scores},
-                          index=data_symbols)
-
-        if len(df) > 10:
+        if len(data_match_score_similarities) > 10:
+            similarities = np.array(data_match_score_similarities)
             ## extremalizing ms values for each user's little world
             # [-0.5..0.5]
-            df.loc[:, 'matchscore'] = df.loc[:, 'matchscore'] - 0.5
+            similarities -= 0.5
 
             # rescale amplitude of right and left sides to the amplitude max limits
-            max_value = df.matchscore.max(level=None)
-            min_value = df.matchscore.min(level=None)
+            max_value = similarities.max()
+            min_value = similarities.min()
             if max_value > 0:
-                df.loc[df['matchscore'] > 0, 'matchscore'] /= max_value
+                similarities[similarities > 0] /= max_value
             if min_value < 0:
-                df.loc[df['matchscore'] < 0, 'matchscore'] /= -min_value
+                similarities[similarities < 0] /= -min_value
 
             # from [-1..1] back to [0..1]
-            df.loc[:, 'matchscore'] = (df.loc[:, 'matchscore'] + 1) / 2
+            similarities = (similarities + 1) / 2
 
-        df = df.sort_values(['matchscore'], ascending=False)
-        for symbol, row in df.iterrows():
-            match_score = match_scores[symbol]
-            match_score.similarity = row.matchscore
-            yield symbol, match_score
+            for match_score, new_similarity in zip(
+                    data_match_scores, data_match_score_similarities):
+                match_score.similarity = new_similarity
+
+        for match_score in sorted(data_match_scores,
+                                  key=lambda x: x.similarity,
+                                  reverse=True):
+            yield match_score.symbol, match_score
 
     def f_matchscore(
         self,
         profile_id: int,
         symbol: str,
-        df_p_c,  #profile categories
-        df_p_i,  #profile interests
-        df_p_r,  #profile risk
-        df_t_i,  #ticker_interests
-        df_t_c,  #ticker_categories_continuous
-        df_t_r,  #ticker_risk
+        p_cat,  #profile categories
+        p_int,  #profile interests
+        p_rsk,  #profile risk
+        t_int_sim_dif,  #ticker_interests [-1..1]
+        t_cat_sim_dif,  #ticker_categories_continuous [-1..1]
+        t_risk_score,  #ticker_risk_score [0..1]
         df_p_pi=None  #profile interests from portfolio
     ) -> MatchScore:
-
-        p_cat = set(df_p_c[df_p_c['profile_id'] == profile_id]['category_id'])
-        p_int = set(df_p_i[df_p_i['profile_id'] == profile_id]['interest_id'])
-        p_rsk = df_p_r.loc[0, 'risk_score']
+        start_time = time.time()
         # minmax normlztn, from risk categories interval [1..3] to interval [0..1]
         p_rsk = (p_rsk - 1) / 2
-
-        # [-1..1]
-        t_cat = df_t_c.loc[df_t_c['symbol'] == symbol].set_index('category_id')
-        # [-1..1]
-        t_int = df_t_i.loc[df_t_i['symbol'] == symbol].set_index('interest_id')
-
-        # [0..1]
-        t_rsk = df_t_r.loc[df_t_r['symbol'] == symbol, 'risk_score']
-        if len(t_rsk) == 0:  #if ticker not found
-            t_rsk = 0.5
-        else:
-            t_rsk = t_rsk.iloc[0]
 
         ## risk match component
         # using parameterized bell function with center coord in user risk score - measure proximity of tickers
@@ -191,7 +208,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         sr = 6.53
         sc = 3.38
         a = p_rsk
-        x = t_rsk
+        x = t_risk_score
         match_comp_risk = 1. / (
             1. + abs(a - x)**d * abs(sr + (sc - sr) * abs(a - 0.5) / 0.5)**d)
         # and move it from [0..1] to [-1..1] . (0.5 there is meaningful threshold via function's parameters choosen)
@@ -200,28 +217,38 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         ## category match component
         # maxout category of ticker in crossed categories with user
         # if no crosses - put min eq -1.
-        match_comp_category = t_cat.loc[list(p_cat.intersection(t_cat.index)),
-                                        'sim_dif'].max()
-        if np.isnan(match_comp_category):
+        ticker_category_ids = t_cat_sim_dif.keys()
+        _cat_sim_dif = [
+            t_cat_sim_dif[category_id]
+            for category_id in p_cat.intersection(ticker_category_ids)
+        ]
+        if _cat_sim_dif:
+            match_comp_category = max(_cat_sim_dif)
+        else:
             match_comp_category = -1
 
         ## interest match component
         # maxout interest of ticker in crossed interests with user
         # if no crosses - put min eq -1.
-        match_comp_interest = t_int.loc[list(p_int.intersection(t_int.index)),
-                                        'sim_dif'].max()
-        if np.isnan(match_comp_interest):
+        ticker_interest_ids = t_int_sim_dif.keys()
+        _int_sim_dif = [
+            t_int_sim_dif[interest_id]
+            for interest_id in p_int.intersection(ticker_interest_ids)
+        ]
+        if _int_sim_dif:
+            match_comp_interest = max(_int_sim_dif)
+        else:
             match_comp_interest = -1
 
         ## weighting up ticker by interest matching to portfolio's interests (if df with interests from portfolio is provided, here default=None just for demo with this adjustment and wo)
         if df_p_pi is not None:
             p_p_int = set(
                 df_p_pi[df_p_pi['profile_id'] == profile_id]['interest_id'])
-            for intrst in p_p_int.intersection(t_int.index):
+            for intrst in p_p_int.intersection(ticker_interest_ids):
                 # x + (1-x) * ((1-x)/2 * (1 - (1-x)/2))^0.5
                 #soft-weight bump 0.5 https://www.wolframalpha.com/input?i=plot+x+%2B+%281-x%29+*+%28%281-x%29%2F2+*+%281+-+%281-x%29%2F2%29%29%5E0.5%2C+x+where+x+from+-1+to+1
-                int_adj = t_int[intrst] + (1. - t_int[intrst]) * \
-                  abs((1. - t_int[intrst])/2. * (1. - (1.-t_int[intrst])/2.))**0.5
+                int_adj = t_int_sim_dif[intrst] + (1. - t_int_sim_dif[intrst]) * \
+                  abs((1. - t_int_sim_dif[intrst])/2. * (1. - (1.-t_int_sim_dif[intrst])/2.))**0.5
                 if match_comp_interest < int_adj:
                     match_comp_interest = int_adj
 
@@ -236,8 +263,8 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         # Explanation
         ms_expl_interests_matched = [{
             "interest_id": key,
-            "value": t_int.loc[key, 'sim_dif']
-        } for key in p_int.intersection(t_int.index)]
+            "value": t_int_sim_dif[key]
+        } for key in p_int.intersection(ticker_interest_ids)]
         ms_expl_interests_matched = sorted(
             ms_expl_interests_matched, key=lambda x: x['value'],
             reverse=True)[:MS_EXPL_INTERESTS_MAX_COUNT]
@@ -248,8 +275,8 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
 
         ms_expl_categories_matched = [{
             "category_id": key,
-            "value": t_cat.loc[key, 'sim_dif']
-        } for key in p_cat.intersection(t_cat.index)]
+            "value": t_cat_sim_dif[key]
+        } for key in p_cat.intersection(ticker_category_ids)]
         ms_expl_categories_matched = sorted(
             ms_expl_categories_matched, key=lambda x: x['value'],
             reverse=True)[:MS_EXPL_CATEGORIES_MAX_COUNT]
@@ -263,7 +290,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         ms_expl_interest_similarity = match_comp_interest / 2 + 0.5
 
         ms_expl_is_matchedinterestsinportfolio = (df_p_pi is not None) and len(
-            p_p_int.intersection(t_int.keys())) > 0
+            p_p_int.intersection(ticker_interest_ids)) > 0
 
         #print(ms_expl_interests_matched)
         #print(ms_expl_interests_matched)

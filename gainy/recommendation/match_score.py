@@ -186,6 +186,7 @@ class MatchScoreExplainer:
 
 
 class MatchScore:
+    symbol = None
 
     def __init__(self, similarity: float, risk_similarity: float,
                  category_similarity: float, category_matches: List[int],
