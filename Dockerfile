@@ -5,4 +5,4 @@ COPY . .
 
 RUN apt update && apt install -y make
 RUN pip install poetry
-RUN make install
+RUN poetry install
