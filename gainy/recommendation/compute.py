@@ -162,12 +162,11 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         data_match_scores = []
         data_match_score_similarities = []
         for symbol in self.get_ticker_symbols():
-            match_score = self.f_matchscore(profile_id, symbol, p_cat,
-                                            p_int, p_rsk, p_p_int,
+            match_score = self.f_matchscore(profile_id, symbol, p_cat, p_int,
+                                            p_rsk, p_p_int,
                                             t_int_sim_dif.get(symbol, {}),
                                             t_cat_sim_dif.get(symbol, {}),
-                                            t_risk_score.get(symbol,
-                                                             0.5))
+                                            t_risk_score.get(symbol, 0.5))
             match_score.symbol = symbol
             data_match_scores.append(match_score)
             data_match_score_similarities.append(match_score.similarity)
@@ -300,7 +299,8 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         ms_expl_category_similarity = match_comp_category / 2 + 0.5
         ms_expl_interest_similarity = match_comp_interest / 2 + 0.5
 
-        ms_expl_is_matchedinterestsinportfolio = len(p_p_int.intersection(ticker_interest_ids)) > 0
+        ms_expl_is_matchedinterestsinportfolio = len(
+            p_p_int.intersection(ticker_interest_ids)) > 0
 
         #print(ms_expl_interests_matched)
         #print(ms_expl_interests_matched)

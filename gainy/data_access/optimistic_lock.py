@@ -11,6 +11,7 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
+
 class ConcurrentVersionUpdate(Exception):
 
     def __init__(self, cur_version: ResourceVersion,
@@ -64,7 +65,8 @@ class AbstractOptimisticLockingFunction(ABC):
                                        cur_version.resource_id):
             new_version = self.load_version(db_conn)
 
-            self.time_spent["_try_get_and_persist1"] += time.time() - start_time
+            self.time_spent["_try_get_and_persist1"] += time.time(
+            ) - start_time
             start_time = time.time()
 
             is_creation = cur_version.resource_version is None and not new_version
@@ -77,7 +79,8 @@ class AbstractOptimisticLockingFunction(ABC):
             self.repo.persist(db_conn, new_version)
             self._do_persist(db_conn, entities)
             db_conn.commit()
-            self.time_spent["_try_get_and_persist2"] += time.time() - start_time
+            self.time_spent["_try_get_and_persist2"] += time.time(
+            ) - start_time
 
     def _do_persist(self, db_conn, entities):
         self.repo.persist(db_conn, entities)
