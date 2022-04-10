@@ -24,6 +24,10 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         self.profile_id = profile_id
         self.logger = get_logger(__name__)
         self.long_term_cache = long_term_cache
+        self.time_spent = {
+            "_get_and_sort_by_match_score": 0,
+            "_do_persist": 0,
+        }
 
     def load_version(self, db_conn: connection):
         profile_metadata_list = self.repo.load(db_conn,
@@ -45,18 +49,20 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         ]
 
     def _do_persist(self, db_conn, entities):
+        start_time = time.time()
         super()._do_persist(db_conn, entities)
 
         top_20_tickers = [match_score.symbol for match_score in entities[:20]]
         self.repo.update_personalized_collection(self.profile_id,
                                                  TOP_20_FOR_YOU_COLLECTION_ID,
                                                  top_20_tickers)
+        self.time_spent["_do_persist"] = time.time() - start_time
 
     def _get_and_sort_by_match_score(self,
                                      top_k: int = None
                                      ) -> List[Tuple[str, MatchScore]]:
 
-        self.start_time = time.time()
+        start_time = time.time()
         match_scores_iterable = self.f_profile_vs_alltickers(
             self.profile_id,
             set(self.repo.get_profile_category_ids(self.profile_id)),
@@ -71,15 +77,15 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
             match_scores_iterable = match_scores_iterable[:top_k]
 
         match_scores_list = list(match_scores_iterable)
-        for symbol, match_score in match_scores_list:
-            self.logger.debug('Calculated MS: %s', [
-                self.profile_id, symbol, match_score.similarity,
-                match_score.risk_similarity, match_score.category_similarity,
-                match_score.category_matches, match_score.interest_similarity,
-                match_score.interest_matches
-            ])
-        self.logger.debug('Profile processed in: %fs',
-                          time.time() - self.start_time)
+        #         for symbol, match_score in match_scores_list:
+        #             self.logger.debug('Calculated MS: %s', [
+        #                 self.profile_id, symbol, match_score.similarity,
+        #                 match_score.risk_similarity, match_score.category_similarity,
+        #                 match_score.category_matches, match_score.interest_similarity,
+        #                 match_score.interest_matches
+        #             ])
+        self.time_spent["_get_and_sort_by_match_score"] = time.time(
+        ) - start_time
 
         return match_scores_list
 
