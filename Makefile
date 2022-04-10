@@ -1,5 +1,5 @@
-install:
-	poetry install
+shell:
+	docker-compose run --rm python /bin/bash
 
 build:
 	poetry build

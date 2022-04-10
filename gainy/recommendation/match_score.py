@@ -245,4 +245,5 @@ def profile_ticker_similarity(
     similarity = risk_weight * risk_similarity + category_weight * category_similarity + interest_weight * interest_similarity
 
     return MatchScore(similarity, risk_similarity, category_similarity,
-                      category_matches, interest_similarity, interest_matches)
+                      category_matches, interest_similarity, interest_matches,
+                      False)
