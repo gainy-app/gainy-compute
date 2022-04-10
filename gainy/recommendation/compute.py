@@ -25,6 +25,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         self.logger = get_logger(__name__)
         self.long_term_cache = long_term_cache
         self.time_spent = {
+            **self.time_spent,
             "_get_and_sort_by_match_score": 0,
             "_do_persist": 0,
         }
@@ -41,12 +42,17 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
             return profile_metadata_list[0]
 
     def get_entities(self, db_conn: connection):
+        start_time = time.time()
         tickers_with_match_score = self._get_and_sort_by_match_score()
 
-        return [
+        result = [
             MatchScoreModel(self.profile_id, ticker, match_score)
             for ticker, match_score in tickers_with_match_score
         ]
+
+        self.time_spent["get_entities"] = time.time() - start_time
+
+        return result
 
     def _do_persist(self, db_conn, entities):
         start_time = time.time()
@@ -65,9 +71,10 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         start_time = time.time()
         match_scores_iterable = self.f_profile_vs_alltickers(
             self.profile_id,
-            set(self.repo.get_profile_category_ids(self.profile_id)),
-            set(self.repo.get_profile_interest_ids(self.profile_id)),
+            self.repo.get_profile_category_ids(self.profile_id),
+            self.repo.get_profile_interest_ids(self.profile_id),
             self.repo.get_profile_risk_score(self.profile_id),
+            self.repo.get_profile_portfolio_interests(self.profile_id),
             self.get_ticker_interests_continuous(),
             self.get_ticker_categories_continuous(),
             self.get_ticker_risk_score(),
@@ -144,10 +151,10 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         p_cat,
         p_int,
         p_rsk,
+        p_p_int,  #profile interests from portfolio
         t_int_sim_dif,  # {symbol: {interest_id: sim_dif}}
         t_cat_sim_dif,  # {symbol: {category_id: sim_dif}}
-        t_risk_score,  # {symbol: risk_score}
-        df_p_pi=None  #profile interests from portfolio
+        t_risk_score  # {symbol: risk_score}
     ) -> Iterable[Tuple[str, MatchScore]]:
         ## we need to implement this alike function and process MS of all tickers for the user in a step (coz of "extremalizing ms values for each user's little world")
         # the approach is not speed-optimized, but shows how to do the task
@@ -156,11 +163,11 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         data_match_score_similarities = []
         for symbol in self.get_ticker_symbols():
             match_score = self.f_matchscore(profile_id, symbol, p_cat,
-                                            p_int, p_rsk,
+                                            p_int, p_rsk, p_p_int,
                                             t_int_sim_dif.get(symbol, {}),
                                             t_cat_sim_dif.get(symbol, {}),
                                             t_risk_score.get(symbol,
-                                                             0.5), df_p_pi)
+                                                             0.5))
             match_score.symbol = symbol
             data_match_scores.append(match_score)
             data_match_score_similarities.append(match_score.similarity)
@@ -198,10 +205,10 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         p_cat,  #profile categories
         p_int,  #profile interests
         p_rsk,  #profile risk
+        p_p_int,  #profile interests from portfolio
         t_int_sim_dif,  #ticker_interests [-1..1]
         t_cat_sim_dif,  #ticker_categories_continuous [-1..1]
-        t_risk_score,  #ticker_risk_score [0..1]
-        df_p_pi=None  #profile interests from portfolio
+        t_risk_score  #ticker_risk_score [0..1]
     ) -> MatchScore:
         start_time = time.time()
         # minmax normlztn, from risk categories interval [1..3] to interval [0..1]
@@ -248,16 +255,13 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
             match_comp_interest = -1
 
         ## weighting up ticker by interest matching to portfolio's interests (if df with interests from portfolio is provided, here default=None just for demo with this adjustment and wo)
-        if df_p_pi is not None:
-            p_p_int = set(
-                df_p_pi[df_p_pi['profile_id'] == profile_id]['interest_id'])
-            for intrst in p_p_int.intersection(ticker_interest_ids):
-                # x + (1-x) * ((1-x)/2 * (1 - (1-x)/2))^0.5
-                #soft-weight bump 0.5 https://www.wolframalpha.com/input?i=plot+x+%2B+%281-x%29+*+%28%281-x%29%2F2+*+%281+-+%281-x%29%2F2%29%29%5E0.5%2C+x+where+x+from+-1+to+1
-                int_adj = t_int_sim_dif[intrst] + (1. - t_int_sim_dif[intrst]) * \
-                  abs((1. - t_int_sim_dif[intrst])/2. * (1. - (1.-t_int_sim_dif[intrst])/2.))**0.5
-                if match_comp_interest < int_adj:
-                    match_comp_interest = int_adj
+        for intrst in p_p_int.intersection(ticker_interest_ids):
+            # x + (1-x) * ((1-x)/2 * (1 - (1-x)/2))^0.5
+            #soft-weight bump 0.5 https://www.wolframalpha.com/input?i=plot+x+%2B+%281-x%29+*+%28%281-x%29%2F2+*+%281+-+%281-x%29%2F2%29%29%5E0.5%2C+x+where+x+from+-1+to+1
+            int_adj = t_int_sim_dif[intrst] + (1. - t_int_sim_dif[intrst]) * \
+              abs((1. - t_int_sim_dif[intrst])/2. * (1. - (1.-t_int_sim_dif[intrst])/2.))**0.5
+            if match_comp_interest < int_adj:
+                match_comp_interest = int_adj
 
         # we made 0. in each component as strong "inbetween" point by meaning of all measures
         # and each component is in interval [-1..1]
@@ -296,8 +300,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         ms_expl_category_similarity = match_comp_category / 2 + 0.5
         ms_expl_interest_similarity = match_comp_interest / 2 + 0.5
 
-        ms_expl_is_matchedinterestsinportfolio = (df_p_pi is not None) and len(
-            p_p_int.intersection(ticker_interest_ids)) > 0
+        ms_expl_is_matchedinterestsinportfolio = len(p_p_int.intersection(ticker_interest_ids)) > 0
 
         #print(ms_expl_interests_matched)
         #print(ms_expl_interests_matched)
@@ -311,4 +314,5 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
                           ms_expl_category_similarity,
                           list(ms_expl_categories_matched),
                           ms_expl_interest_similarity,
-                          list(ms_expl_interests_matched))
+                          list(ms_expl_interests_matched),
+                          ms_expl_is_matchedinterestsinportfolio)

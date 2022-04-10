@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 from backoff import full_jitter
 import backoff
@@ -6,7 +7,9 @@ from psycopg2._psycopg import connection
 
 from gainy.data_access.db_lock import LockManager, LockAcquisitionTimeout
 from gainy.data_access.models import ResourceVersion
+from gainy.utils import get_logger
 
+logger = get_logger(__name__)
 
 class ConcurrentVersionUpdate(Exception):
 
@@ -21,6 +24,11 @@ class AbstractOptimisticLockingFunction(ABC):
 
     def __init__(self, repo):
         self.repo = repo
+        self.time_spent = {
+            "_try_get_and_persist0": 0,
+            "_try_get_and_persist1": 0,
+            "_try_get_and_persist2": 0,
+        }
 
     @abstractmethod
     def load_version(self, db_conn: connection):
@@ -44,12 +52,20 @@ class AbstractOptimisticLockingFunction(ABC):
             raise e
 
     def _try_get_and_persist(self, db_conn: connection):
+        start_time = time.time()
+
         cur_version = self.load_version(db_conn)
         entities = self.get_entities(db_conn)
+
+        self.time_spent["_try_get_and_persist0"] += time.time() - start_time
+        start_time = time.time()
 
         with LockManager.database_lock(db_conn, cur_version.resource_type,
                                        cur_version.resource_id):
             new_version = self.load_version(db_conn)
+
+            self.time_spent["_try_get_and_persist1"] += time.time() - start_time
+            start_time = time.time()
 
             is_creation = cur_version.resource_version is None and not new_version
             is_same_version = new_version and new_version.resource_version == cur_version.resource_version
@@ -61,6 +77,7 @@ class AbstractOptimisticLockingFunction(ABC):
             self.repo.persist(db_conn, new_version)
             self._do_persist(db_conn, entities)
             db_conn.commit()
+            self.time_spent["_try_get_and_persist2"] += time.time() - start_time
 
     def _do_persist(self, db_conn, entities):
         self.repo.persist(db_conn, entities)

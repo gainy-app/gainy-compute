@@ -176,7 +176,7 @@ class RecommendationRepository(Repository):
                 "select symbol from tickers where type ilike 'common stock'")
             return list(map(itemgetter(0), cursor.fetchall()))
 
-    def get_profile_category_ids(self, profile_id):
+    def get_profile_category_ids(self, profile_id) -> set:
         query = """
             select category_id
             from app.profile_categories
@@ -184,9 +184,9 @@ class RecommendationRepository(Repository):
         """
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, {"profile_id": profile_id})
-            return list(map(itemgetter(0), cursor.fetchall()))
+            return set(map(itemgetter(0), cursor.fetchall()))
 
-    def get_profile_interest_ids(self, profile_id):
+    def get_profile_interest_ids(self, profile_id) -> set:
         query = """
             select interest_id
             from app.profile_interests
@@ -194,7 +194,7 @@ class RecommendationRepository(Repository):
         """
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, {"profile_id": profile_id})
-            return list(map(itemgetter(0), cursor.fetchall()))
+            return set(map(itemgetter(0), cursor.fetchall()))
 
     def get_profile_risk_score(self, profile_id):
         query = """
@@ -205,6 +205,18 @@ class RecommendationRepository(Repository):
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, {"profile_id": profile_id})
             return next(map(itemgetter(0), cursor.fetchall()))
+
+    def get_profile_portfolio_interests(self, profile_id) -> set:
+        query = """
+            select distinct tint.interest_id
+            from app.profile_holdings ph
+            join app.portfolio_securities ps on ps.id = ph.security_id
+            join ticker_interests tint on tint.symbol = ps.ticker_symbol
+            where profile_id = %(profile_id)s
+        """
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, {"profile_id": profile_id})
+            return set(map(itemgetter(0), cursor.fetchall()))
 
     def get_ticker_interests_continuous(self):
         query = "select interest_id, symbol, sim_dif from ticker_interests"

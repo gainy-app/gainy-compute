@@ -190,7 +190,8 @@ class MatchScore:
 
     def __init__(self, similarity: float, risk_similarity: float,
                  category_similarity: float, category_matches: List[int],
-                 interest_similarity: float, interest_matches: List[int]):
+                 interest_similarity: float, interest_matches: List[int],
+                 matches_portfolio: bool):
         self.similarity = similarity
 
         self.risk_similarity = risk_similarity
@@ -200,6 +201,8 @@ class MatchScore:
 
         self.interest_similarity = interest_similarity
         self.interest_matches = interest_matches
+
+        self.matches_portfolio = matches_portfolio
 
         self.similarity_explainer = MatchScoreExplainer(EXPLANATION_CONFIG)
 
