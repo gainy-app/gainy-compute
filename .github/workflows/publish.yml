@@ -19,7 +19,7 @@ jobs:
       - name: Setup Poetry
         run: |
           pip install poetry
-          make install
+          poetry install
 
       - name: Bump Version
         if: github.event.inputs.prerelease && github.event.inputs.prerelease != 'false'
