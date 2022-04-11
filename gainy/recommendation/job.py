@@ -5,10 +5,10 @@ import psycopg2
 import sys
 import time
 from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
-from gainy.recommendation.compute import ComputeRecommendationsAndPersist
-from gainy.recommendation.models import MatchScoreModel
-from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
+from gainy.recommendation.repository import RecommendationRepository
+from gainy.recommendation.compute import generate_match_scores
+from gainy.recommendation.models import MatchScoreModel
 from gainy.utils import db_connect, get_logger
 
 logger = get_logger(__name__)
@@ -21,46 +21,18 @@ class MatchScoreJob:
         self.repo = RecommendationRepository(db_conn)
 
     def run(self):
-        profile_ids = self.repo.read_all_profile_ids()
-        processed_profile_ids = []
-        long_term_cache = {}
-        time_spent = {}
         start_time = time.time()
+
+        #         generate_match_scores(self.db_conn)
+
+        profile_ids = self.repo.read_all_profile_ids()
         for profile_id in profile_ids:
-            recommendations_func = ComputeRecommendationsAndPersist(
-                self.db_conn, profile_id, long_term_cache)
-            try:
-                recommendations_func.get_and_persist(self.db_conn, max_tries=7)
-            except ConcurrentVersionUpdate:
-                pass
-            processed_profile_ids.append(profile_id)
+            top_20_tickers = self.repo.read_top_match_score_tickers(
+                profile_id, 20)
+            self.repo.update_personalized_collection(
+                profile_id, TOP_20_FOR_YOU_COLLECTION_ID, top_20_tickers)
 
-            for k, i in recommendations_func.time_spent.items():
-                if k in time_spent:
-                    time_spent[k] += i
-                else:
-                    time_spent[k] = i
-
-            long_term_cache = recommendations_func.long_term_cache
-            if len(processed_profile_ids) >= 100:
-                logger.info(
-                    "Calculated match score in %f, times: %s, profiles: %s",
-                    time.time() - start_time,
-                    time_spent,
-                    processed_profile_ids,
-                )
-                time_spent = {}
-                start_time = time.time()
-                processed_profile_ids = []
-                long_term_cache = {}
-
-        if len(processed_profile_ids) > 0:
-            logger.info(
-                "Calculated match score in %f, times: %s, profiles: %s",
-                time.time() - start_time,
-                time_spent,
-                processed_profile_ids,
-            )
+        logger.info("Calculated match score in %f", time.time() - start_time)
 
 
 def cli(args=None):
