@@ -7,7 +7,7 @@ import time
 from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.repository import RecommendationRepository
-from gainy.recommendation.compute import generate_match_scores
+from gainy.recommendation.compute import generate_all_match_scores
 from gainy.recommendation.models import MatchScoreModel
 from gainy.utils import db_connect, get_logger
 
@@ -23,7 +23,7 @@ class MatchScoreJob:
     def run(self):
         start_time = time.time()
 
-        #         generate_match_scores(self.db_conn)
+        generate_all_match_scores(self.db_conn)
 
         profile_ids = self.repo.read_all_profile_ids()
         for profile_id in profile_ids:
