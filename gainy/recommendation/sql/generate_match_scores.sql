@@ -1,6 +1,6 @@
 insert into app.profile_ticker_match_score (profile_id, symbol, match_score, fits_risk, risk_similarity,
                                             fits_categories, fits_interests, category_matches, interest_matches,
-                                            updated_at, category_similarity, interest_similarity, portfolio_matches)
+                                            updated_at, category_similarity, interest_similarity, matches_portfolio)
 with p_rsk as
          (
              select profile_id, (risk_score::double precision - 1) / 2 as value
@@ -140,7 +140,7 @@ with p_rsk as
                 2 + 0.5                                                       as match_comp_interest_normalized,
                 coalesce(category_matches::text, '[]')                        as category_matches,
                 coalesce(interest_matches::text, '[]')                        as interest_matches,
-                portfolio_interest_similarity.match_comp_interest is not null as portfolio_matches
+                portfolio_interest_similarity.match_comp_interest is not null as matches_portfolio
          from risk_similarity
                   left join category_similarity using (profile_id, symbol)
                   left join interest_similarity using (profile_id, symbol)
@@ -163,7 +163,7 @@ with p_rsk as
                 match_comp_interest_normalized,
                 category_matches,
                 interest_matches,
-                portfolio_matches
+                matches_portfolio
          from combined0
                   join (
              select profile_id,
@@ -185,7 +185,7 @@ select profile_id,
        now()                                                                                     as updated_at,
        match_comp_category_normalized                                                            as category_similarity,
        match_comp_interest_normalized                                                            as interest_similarity,
-       portfolio_matches
+       matches_portfolio
 from combined1
 on conflict (
     profile_id, symbol

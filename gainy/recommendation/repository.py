@@ -1,13 +1,11 @@
 import os
 from operator import itemgetter
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
-from psycopg2.extras import execute_values, RealDictCursor
+from psycopg2.extras import execute_values
 from psycopg2 import sql
 
-from gainy.data_access.exceptions import ObjectNotFoundException
 from gainy.data_access.repository import Repository
-from gainy.recommendation.core import DimVector
 
 script_dir = os.path.dirname(__file__)
 
@@ -134,18 +132,6 @@ class RecommendationRepository(Repository):
                 "INSERT INTO app.personalized_ticker_collections(profile_id, collection_id, symbol) VALUES %s",
                 [(profile_id, collection_id, symbol)
                  for symbol in ticker_list])
-
-    def get_profile_portfolio_interests(self, profile_id) -> set:
-        query = """
-            select distinct tint.interest_id
-            from app.profile_holdings ph
-            join app.portfolio_securities ps on ps.id = ph.security_id
-            join ticker_interests tint on tint.symbol = ps.ticker_symbol
-            where profile_id = %(profile_id)s
-        """
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query, {"profile_id": profile_id})
-            return set(map(itemgetter(0), cursor.fetchall()))
 
     def generate_match_scores(self, profile_id=None):
         query_filename = os.path.join(script_dir,

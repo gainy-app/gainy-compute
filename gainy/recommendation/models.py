@@ -9,7 +9,7 @@ class MatchScoreModel(BaseModel):
     key_fields = ["profile_id", "symbol"]
 
     db_excluded_fields = ["updated_at"]
-    non_persistent_fields = []
+    non_persistent_fields = ["updated_at"]
 
     def __init__(self, profile_id: int, symbol: str, match_score: MatchScore):
         self.profile_id = profile_id
