@@ -13,7 +13,7 @@ publish: build
 
 in-docker-test:
 	apt update && apt install -y postgresql-client
-	find tests/fixtures -iname '*.sql' | sort | while read -r i; do PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAM} -P pager -f "$i"; done
+	find tests/fixtures -iname '*.sql' | sort | while read -r i; do PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAM} -P pager -f "$$i"; done
 	poetry run pytest tests/*
 
 test-build:
