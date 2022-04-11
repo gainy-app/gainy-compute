@@ -43,5 +43,5 @@ def test_ticker_match_score():
     assert match_score["category_matches"] == '[7]'
     assert match_score["interest_matches"] == '[5]'
     assert abs(match_score["category_similarity"] - 0.8620509848080247) < 1e-5
-    assert (match_score["interest_similarity"] - 0.909622215042517) < 1e-5
+    assert abs(match_score["interest_similarity"] - 0.909622215042517) < 1e-5
     assert match_score["matches_portfolio"] == True
