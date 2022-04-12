@@ -2,7 +2,7 @@ import os
 from operator import itemgetter
 from typing import List, Tuple
 
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
 
 from gainy.data_access.repository import Repository
@@ -78,11 +78,11 @@ class RecommendationRepository(Repository):
     # Deprecated
     def read_ticker_match_scores(self, profile_id: str,
                                  symbols: List[str]) -> list:
-        _ticker_match_scores_query = """select symbol, match_score, fits_risk, risk_similarity, fits_categories, category_matches, fits_interests, interest_matches
+        _ticker_match_scores_query = """select symbol, match_score, fits_risk, risk_similarity, fits_categories, category_matches, fits_interests, interest_matches, matches_portfolio
         from app.profile_ticker_match_score
         where profile_id = %(profile_id)s and symbol in %(symbols)s;"""
 
-        with self.db_conn.cursor() as cursor:
+        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(_ticker_match_scores_query, {
                 "profile_id": profile_id,
                 "symbols": tuple(symbols)

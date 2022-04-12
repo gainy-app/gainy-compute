@@ -205,4 +205,5 @@ on conflict (
                     interest_matches    = excluded.interest_matches,
                     updated_at          = excluded.updated_at,
                     category_similarity = excluded.category_similarity,
-                    interest_similarity = excluded.interest_similarity;
+                    interest_similarity = excluded.interest_similarity,
+                    matches_portfolio   = excluded.matches_portfolio;
