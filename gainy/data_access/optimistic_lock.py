@@ -4,8 +4,11 @@ from backoff import full_jitter
 import backoff
 from psycopg2._psycopg import connection
 
-from gainy.data_access.db_lock import LockManager
+from gainy.data_access.db_lock import LockManager, LockAcquisitionTimeout
 from gainy.data_access.models import ResourceVersion
+from gainy.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class ConcurrentVersionUpdate(Exception):
@@ -33,7 +36,7 @@ class AbstractOptimisticLockingFunction(ABC):
     def get_and_persist(self, db_conn: connection, max_tries: int = 3):
         backoff_on_exception = backoff.on_exception(
             lambda: backoff.expo(base=2, factor=0.1),
-            exception=Exception,
+            exception=(LockAcquisitionTimeout, ConcurrentVersionUpdate),
             max_tries=max_tries,
             giveup_log_level=logging.WARNING,
             jitter=lambda w: w / 2 + full_jitter(w / 2))

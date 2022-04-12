@@ -1,13 +1,14 @@
-from typing import Tuple, List
-
 from psycopg2._psycopg import connection
 
 from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
-from gainy.recommendation.match_score import MatchScore, profile_ticker_similarity
-from gainy.recommendation.models import MatchScoreModel
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.models import ProfileRecommendationsMetadata
+from gainy.utils import get_logger
+
+
+def generate_all_match_scores(db_conn):
+    RecommendationRepository(db_conn).generate_match_scores()
 
 
 class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
@@ -15,6 +16,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
     def __init__(self, db_conn, profile_id):
         super().__init__(RecommendationRepository(db_conn))
         self.profile_id = profile_id
+        self.logger = get_logger(__name__)
 
     def load_version(self, db_conn: connection):
         profile_metadata_list = self.repo.load(db_conn,
@@ -28,45 +30,14 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
             return profile_metadata_list[0]
 
     def get_entities(self, db_conn: connection):
-        tickers_with_match_score = self._get_and_sort_by_match_score()
-
-        return [
-            MatchScoreModel(self.profile_id, ticker, match_score)
-            for ticker, match_score in tickers_with_match_score
-        ]
-
-    def _get_and_sort_by_match_score(self,
-                                     top_k: int = None
-                                     ) -> List[Tuple[str, MatchScore]]:
-        profile_category_v = self.repo.read_profile_category_vector(
-            self.profile_id)
-        profile_interest_vs = self.repo.read_profile_interest_vectors(
-            self.profile_id)
-
-        risk_mapping = self.repo.read_categories_risks()
-
-        ticker_vs_list = self.repo.read_all_ticker_category_and_industry_vectors(
-        )
-
-        match_score_list = []
-        for ticker_vs in ticker_vs_list:
-            ticker_industry_v, ticker_category_v = ticker_vs
-            match_score = profile_ticker_similarity(profile_category_v,
-                                                    ticker_category_v,
-                                                    risk_mapping,
-                                                    profile_interest_vs,
-                                                    ticker_industry_v)
-            match_score_list.append((ticker_industry_v.name, match_score))
-
-        # Uses minus `match_score` to correctly sort the list by both score and symbol
-        match_score_list.sort(key=lambda m: (-m[1].match_score(), m[0]))
-
-        return match_score_list[:top_k] if top_k else match_score_list
+        return []
 
     def _do_persist(self, db_conn, entities):
-        super()._do_persist(db_conn, entities)
+        RecommendationRepository(db_conn).generate_match_scores(
+            self.profile_id)
 
-        top_20_tickers = [match_score.symbol for match_score in entities[:20]]
+        top_20_tickers = self.repo.read_top_match_score_tickers(
+            self.profile_id, 20)
         self.repo.update_personalized_collection(self.profile_id,
                                                  TOP_20_FOR_YOU_COLLECTION_ID,
                                                  top_20_tickers)

@@ -1,12 +1,11 @@
 import os
 from operator import itemgetter
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, RealDictCursor
+from psycopg2 import sql
 
-from gainy.data_access.exceptions import ObjectNotFoundException
 from gainy.data_access.repository import Repository
-from gainy.recommendation.core import DimVector
 
 script_dir = os.path.dirname(__file__)
 
@@ -18,60 +17,24 @@ class RecommendationRepository(Repository):
 
     def read_all_profile_ids(self) -> List[int]:
         with self.db_conn.cursor() as cursor:
-            cursor.execute("SELECT id::int4 FROM app.profiles;")
+            cursor.execute("SELECT id FROM app.profiles")
             return list(map(itemgetter(0), cursor.fetchall()))
 
-    def read_categories_risks(self) -> Dict[str, int]:
+    def read_top_match_score_tickers(self, profile_id: int,
+                                     limit: int) -> List[int]:
         with self.db_conn.cursor() as cursor:
             cursor.execute(
-                "SELECT id::varchar, risk_score from categories WHERE risk_score IS NOT NULL;"
-            )
-            return dict(cursor.fetchall())
-
-    def read_profile_category_vector(self, profile_id) -> DimVector:
-        query_filename = os.path.join(script_dir, "sql/profile_categories.sql")
-        with open(query_filename) as f:
-            query = f.read()
-
-        vectors = self._query_vectors(query, {"profile_id": profile_id})
-        if not vectors:
-            return None
-
-        return vectors[0]
-
-    def read_profile_interest_vectors(self, profile_id) -> List[DimVector]:
-        query_filename = os.path.join(script_dir, "sql/profile_interests.sql")
-        with open(query_filename) as f:
-            query = f.read()
-
-        vectors = self._query_vectors(query, {"profile_id": profile_id})
-
-        return vectors
-
-    def read_all_ticker_category_and_industry_vectors(
-            self) -> List[Tuple[DimVector, DimVector]]:
-
-        query_filename = os.path.join(script_dir,
-                                      "sql/ticker_categories_industries.sql")
-        with open(query_filename) as f:
-            query = f.read()
-
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query)
-
-            # symbol, ticker_industry_vector, ticker_category_vector
-            return [(DimVector(row[0], row[1]), DimVector(row[0], row[2]))
-                    for row in cursor.fetchall()]
-
-    def _query_vectors(self, query, variables=None) -> List[DimVector]:
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query, variables)
-
-            vectors = []
-            for row in cursor.fetchall():
-                vectors.append(DimVector(row[0], row[1]))
-
-        return vectors
+                """
+                SELECT symbol
+                FROM app.profile_ticker_match_score
+                where profile_id = %(profile_id)s
+                order by match_score desc
+                limit %(limit)s
+            """, {
+                    "profile_id": profile_id,
+                    "limit": limit
+                })
+            return list(map(itemgetter(0), cursor.fetchall()))
 
     def read_sorted_collection_match_scores(
             self, profile_id: str, limit: int) -> List[Tuple[int, float]]:
@@ -115,11 +78,11 @@ class RecommendationRepository(Repository):
     # Deprecated
     def read_ticker_match_scores(self, profile_id: str,
                                  symbols: List[str]) -> list:
-        _ticker_match_scores_query = """select symbol, match_score, fits_risk, risk_similarity, fits_categories, category_matches, fits_interests, interest_matches
+        _ticker_match_scores_query = """select symbol, match_score, fits_risk, risk_similarity, fits_categories, category_matches, fits_interests, interest_matches, matches_portfolio
         from app.profile_ticker_match_score
         where profile_id = %(profile_id)s and symbol in %(symbols)s;"""
 
-        with self.db_conn.cursor() as cursor:
+        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(_ticker_match_scores_query, {
                 "profile_id": profile_id,
                 "symbols": tuple(symbols)
@@ -169,3 +132,26 @@ class RecommendationRepository(Repository):
                 "INSERT INTO app.personalized_ticker_collections(profile_id, collection_id, symbol) VALUES %s",
                 [(profile_id, collection_id, symbol)
                  for symbol in ticker_list])
+
+    def generate_match_scores(self, profile_id=None):
+        query_filename = os.path.join(script_dir,
+                                      "sql/generate_match_scores.sql")
+        with open(query_filename) as f:
+            query = f.read()
+
+        where_clause = []
+        params = {}
+        if profile_id is not None:
+            where_clause.append(sql.SQL("profile_id = %(profile_id)s"))
+            params['profile_id'] = profile_id
+
+        if where_clause:
+            where_clause = sql.SQL('where ') + sql.SQL(' and ').join(
+                where_clause)
+        else:
+            where_clause = sql.SQL('')
+
+        query = sql.SQL(query).format(where_clause=where_clause)
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)

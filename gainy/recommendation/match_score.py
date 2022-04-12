@@ -189,7 +189,8 @@ class MatchScore:
 
     def __init__(self, similarity: float, risk_similarity: float,
                  category_similarity: float, category_matches: List[int],
-                 interest_similarity: float, interest_matches: List[int]):
+                 interest_similarity: float, interest_matches: List[int],
+                 matches_portfolio: bool):
         self.similarity = similarity
 
         self.risk_similarity = risk_similarity
@@ -199,6 +200,8 @@ class MatchScore:
 
         self.interest_similarity = interest_similarity
         self.interest_matches = interest_matches
+
+        self.matches_portfolio = matches_portfolio
 
         self.similarity_explainer = MatchScoreExplainer(EXPLANATION_CONFIG)
 
@@ -211,34 +214,3 @@ class MatchScore:
                                                      self.category_matches,
                                                      self.interest_similarity,
                                                      self.interest_matches)
-
-
-def profile_ticker_similarity(
-    profile_categories: DimVector,
-    ticker_categories: DimVector,
-    risk_mapping: Dict[str, int],
-    profile_interests: List[DimVector],
-    ticker_industries: DimVector,
-) -> MatchScore:
-    risk_weight = 1 / 4
-    category_weight = 1 / 4
-    interest_weight = 1 / 2
-
-    if profile_categories is None:
-        risk_similarity = 0
-        category_similarity = 0
-        category_matches = []
-    else:
-        risk_similarity = get_risk_similarity(profile_categories,
-                                              ticker_categories, risk_mapping)
-        (category_similarity,
-         category_matches) = get_category_similarity(profile_categories,
-                                                     ticker_categories)
-    (interest_similarity,
-     interest_matches) = get_interest_similarity(profile_interests,
-                                                 ticker_industries)
-
-    similarity = risk_weight * risk_similarity + category_weight * category_similarity + interest_weight * interest_similarity
-
-    return MatchScore(similarity, risk_similarity, category_similarity,
-                      category_matches, interest_similarity, interest_matches)
