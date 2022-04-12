@@ -164,25 +164,25 @@ with profiles as
                      when match_score - 0.5 < 0
                          then (match_score - 0.5) / -min_match_score
                      else match_score
-                     end + 1) / 2 as match_score,
-                match_comp_risk_normalized,
-                match_comp_category_normalized,
-                match_comp_interest_normalized,
+                     end + 1) / 2                           as match_score,
+                coalesce(match_comp_risk_normalized, 0)     as match_comp_risk_normalized,
+                coalesce(match_comp_category_normalized, 0) as match_comp_category_normalized,
+                coalesce(match_comp_interest_normalized, 0) as match_comp_interest_normalized,
                 category_matches,
                 interest_matches,
                 matches_portfolio
          from combined0
                   join (
              select profile_id,
-                    max(match_score) as max_match_score,
-                    min(match_score) as min_match_score
+                    max(match_score - 0.5) as max_match_score,
+                    min(match_score - 0.5) as min_match_score
              from combined0
              group by profile_id
          ) t using (profile_id)
      )
 select profile_id,
        symbol,
-       (match_score * 100)::int                                                                  as match_score,
+       (coalesce(match_score, 0) * 100)::int                                                     as match_score,
        (match_comp_risk_normalized > 0.3)::int + (match_comp_risk_normalized > 0.7)::int         as fits_risk,
        match_comp_risk_normalized                                                                as risk_similarity,
        (match_comp_category_normalized > 0.3)::int + (match_comp_category_normalized > 0.7)::int as fits_categories,
