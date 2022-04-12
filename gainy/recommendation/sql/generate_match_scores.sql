@@ -182,7 +182,7 @@ with profiles as
      )
 select profile_id,
        symbol,
-       (coalesce(match_score, 0) * 100)::int                                                     as match_score,
+       coalesce(match_score * 100, 0)::int                                                       as match_score,
        (match_comp_risk_normalized > 0.3)::int + (match_comp_risk_normalized > 0.7)::int         as fits_risk,
        match_comp_risk_normalized                                                                as risk_similarity,
        (match_comp_category_normalized > 0.3)::int + (match_comp_category_normalized > 0.7)::int as fits_categories,
