@@ -25,7 +25,7 @@ def test_ticker_match_score():
                 INSERT INTO app.profile_categories (profile_id, category_id) VALUES (%(profile_id)s, 2), (%(profile_id)s, 5), (%(profile_id)s, 7);
                 """, {"profile_id": profile_id})
 
-        generate_all_match_scores(db_conn)
+        generate_all_match_scores(db_conn, [profile_id])
         with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
                 "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s",
