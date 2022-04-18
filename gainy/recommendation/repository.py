@@ -27,6 +27,7 @@ class RecommendationRepository(Repository):
                 """
                 SELECT symbol
                 FROM app.profile_ticker_match_score
+                join tickers using (symbol)
                 where profile_id = %(profile_id)s
                 order by match_score desc
                 limit %(limit)s
@@ -101,7 +102,7 @@ class RecommendationRepository(Repository):
                     "collection_id": collection_id
                 })
 
-            if not cursor.fetchone() is None:
+            if cursor.fetchone() is not None:
                 cursor.execute(
                     """DELETE FROM app.personalized_ticker_collections 
                     WHERE profile_id = %(profile_id)s AND collection_id = %(collection_id)s""",
