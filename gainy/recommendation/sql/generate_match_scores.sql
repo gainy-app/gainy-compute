@@ -140,7 +140,6 @@ with profiles as
                 3 / 2 + 0.5                                                   as match_score,
                 match_comp_risk / 2 + 0.5                                     as match_comp_risk_normalized,
                 match_comp_category / 2 + 0.5                                 as match_comp_category_normalized,
-                --greatest(interest_similarity.match_comp_interest, portfolio_interest_similarity.match_comp_interest) /
                 interest_similarity.match_comp_interest /
                 2 + 0.5                                                       as match_comp_interest_normalized,
                 coalesce(category_matches::text, '[]')                        as category_matches,
@@ -184,10 +183,10 @@ with profiles as
 select profile_id,
        symbol,
        coalesce(match_score * 100, 0)::int                                                       as match_score,
-       (match_comp_risk_normalized > 1/3)::int + (match_comp_risk_normalized > 2/3)::int         as fits_risk,
+       (match_comp_risk_normalized > 1/3.)::int + (match_comp_risk_normalized > 2/3.)::int         as fits_risk,
        match_comp_risk_normalized                                                                as risk_similarity,
-       (match_comp_category_normalized > 1/3)::int + (match_comp_category_normalized > 2/3)::int as fits_categories,
-       (match_comp_interest_normalized > 1/3)::int + (match_comp_interest_normalized > 2/3)::int as fits_interests,
+       (match_comp_category_normalized > 1/3.)::int + (match_comp_category_normalized > 2/3.)::int as fits_categories,
+       (match_comp_interest_normalized > 1/3.)::int + (match_comp_interest_normalized > 2/3.)::int as fits_interests,
        category_matches,
        interest_matches,
        now()                                                                                     as updated_at,
