@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gainy-compute"
-version = "0.3.1"
+version = "0.3.2"
 description = "All stuff related to data computations and ML models in Python"
 authors = [
     "Vasilii Khomutov <vasilii@gainy.app>",
