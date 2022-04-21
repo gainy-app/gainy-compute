@@ -41,6 +41,7 @@ class DatabaseLock:
         backoff_on_predicate = backoff.on_predicate(
             lambda: backoff.expo(base=2, factor=0.01),
             max_time=await_sec,
+            giveup_log_level=logging.WARNING,
             jitter=lambda w: w / 2 + full_jitter(w / 2))
         is_locked = backoff_on_predicate(lambda: self.try_lock(resource_id))()
 
@@ -69,7 +70,7 @@ class DatabaseLockContext(AbstractContextManager):
         try:
             self.db_lock.lock(self.resource_id, self.await_sec)
         except LockAcquisitionTimeout as lat:
-            logging.info(lat, exc_info=True)
+            logging.info(lat)
             raise lat
 
     def __exit__(self, exc_type, exc_value, traceback):
