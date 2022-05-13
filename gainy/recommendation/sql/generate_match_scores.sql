@@ -182,16 +182,16 @@ with profiles as
      )
 select profile_id,
        symbol,
-       coalesce(match_score * 100, 0)::int                                                       as match_score,
+       coalesce(match_score * 100, 0)::int                                                         as match_score,
        (match_comp_risk_normalized > 1/3.)::int + (match_comp_risk_normalized > 2/3.)::int         as fits_risk,
-       match_comp_risk_normalized                                                                as risk_similarity,
+       match_comp_risk_normalized                                                                  as risk_similarity,
        (match_comp_category_normalized > 1/3.)::int + (match_comp_category_normalized > 2/3.)::int as fits_categories,
        (match_comp_interest_normalized > 1/3.)::int + (match_comp_interest_normalized > 2/3.)::int as fits_interests,
        category_matches,
        interest_matches,
-       now()                                                                                     as updated_at,
-       match_comp_category_normalized                                                            as category_similarity,
-       match_comp_interest_normalized                                                            as interest_similarity,
+       now()                                                                                       as updated_at,
+       match_comp_category_normalized                                                              as category_similarity,
+       match_comp_interest_normalized                                                              as interest_similarity,
        matches_portfolio
 from combined1
 on conflict (
