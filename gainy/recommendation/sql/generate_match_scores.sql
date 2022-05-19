@@ -136,8 +136,13 @@ with profiles as
          select profile_id,
                 symbol,
                 (match_comp_risk + match_comp_category +
-                 greatest(interest_similarity.match_comp_interest, portfolio_interest_similarity.match_comp_interest)) /
-                3 / 2 + 0.5                                                   as match_score,
+                 greatest(interest_similarity.match_comp_interest, portfolio_interest_similarity.match_comp_interest)) 
+                 / (case
+                      when tickers."type" ilike 'crypto'
+                      then 2 -- for cryptos only 2 components exists: interests and risk
+                      else 3 -- for all others (now it's common stocks) all 3 components exists: categories, interests, risk
+                    end)
+                / 2 + 0.5                                                     as match_score,
                 match_comp_risk / 2 + 0.5                                     as match_comp_risk_normalized,
                 match_comp_category / 2 + 0.5                                 as match_comp_category_normalized,
                 interest_similarity.match_comp_interest /
