@@ -5,5 +5,5 @@ from profile_collections c
 where collection_match_score.profile_id = %(profile_id)s
   and c.enabled = '1'
   and c.personalized = '0'
-order by ranking_score desc
+order by collection_match_score.interest_level desc, collection_match_score.match_score desc nulls last
 limit %(limit)s;

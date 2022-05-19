@@ -35,7 +35,7 @@ def test_ticker_match_score():
 
     assert match_score["profile_id"] == profile_id
     assert match_score["symbol"] == 'AAPL'
-    assert match_score["match_score"] == 100
+    assert match_score["match_score"] >= 99
     assert match_score["fits_risk"] == 2
     assert abs(match_score["risk_similarity"] - 0.9990181336784723) < 1e-5
     assert match_score["fits_categories"] == 2
