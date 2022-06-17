@@ -145,6 +145,8 @@ class RecommendationRepository(Repository):
         if profile_id is not None:
             where_clause.append(sql.SQL("profile_id = %(profile_id)s"))
             params['profile_id'] = profile_id
+        else:
+            where_clause.append(sql.SQL("email not ilike '%@gainy.app' or email not ilike '%test%'"))
 
         if where_clause:
             where_clause = sql.SQL('where ') + sql.SQL(' and ').join(
