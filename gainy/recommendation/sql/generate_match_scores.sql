@@ -3,7 +3,7 @@ insert into app.profile_ticker_match_score (profile_id, symbol, match_score, fit
                                             updated_at, category_similarity, interest_similarity, matches_portfolio)
 with profiles as
          (
-             select id as profile_id
+             select id as profile_id, email
              from app.profiles
          ),
      p_rsk as
