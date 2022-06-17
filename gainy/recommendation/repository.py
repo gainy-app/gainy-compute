@@ -146,7 +146,7 @@ class RecommendationRepository(Repository):
             where_clause.append(sql.SQL("profile_id = %(profile_id)s"))
             params['profile_id'] = profile_id
         else:
-            where_clause.append(sql.SQL("email not ilike '%test%@gainy.app'"))
+            where_clause.append(sql.SQL("profiles.email not ilike '%test%@gainy.app'"))
 
         if where_clause:
             where_clause = sql.SQL('where ') + sql.SQL(' and ').join(
