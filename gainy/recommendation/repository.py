@@ -155,7 +155,7 @@ class RecommendationRepository(Repository):
             where_clause = sql.SQL('')
 
         query = sql.SQL(query).format(where_clause=where_clause)
-        if params:
+        if not params:
             params = None
 
         with self.db_conn.cursor() as cursor:
