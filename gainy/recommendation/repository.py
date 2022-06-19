@@ -33,6 +33,7 @@ class RecommendationRepository(Repository):
                 """
                 SELECT symbol
                 FROM app.profile_ticker_match_score
+                join tickers using (symbol)
                 where profile_id = %(profile_id)s
                 order by match_score desc
                 limit %(limit)s
@@ -107,7 +108,7 @@ class RecommendationRepository(Repository):
                     "collection_id": collection_id
                 })
 
-            if not cursor.fetchone() is None:
+            if cursor.fetchone() is not None:
                 cursor.execute(
                     """DELETE FROM app.personalized_ticker_collections 
                     WHERE profile_id = %(profile_id)s AND collection_id = %(collection_id)s""",
@@ -150,6 +151,8 @@ class RecommendationRepository(Repository):
         if profile_ids is not None:
             where_clause.append(sql.SQL("profile_id IN (%(profile_ids)s)"))
             params['profile_ids'] = tuple(profile_ids)
+        else:
+            where_clause.append(sql.SQL("email not ilike '%test%@gainy.app'"))
 
         if where_clause:
             where_clause = sql.SQL('where ') + sql.SQL(' and ').join(
@@ -158,6 +161,8 @@ class RecommendationRepository(Repository):
             where_clause = sql.SQL('')
 
         query = sql.SQL(query).format(where_clause=where_clause)
+        if not params:
+            params = None
 
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, params)

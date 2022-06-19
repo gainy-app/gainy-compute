@@ -35,7 +35,7 @@ class DatabaseTickerRepository(TickerRepository):
         return tickers.loc[desc_filter]
 
     def load_manual_ticker_industries(self) -> pd.DataFrame:
-        ticker_industries = pd.read_sql_table("gainy_ticker_industries",
+        ticker_industries = pd.read_sql_table("gainy_ticker_custom_industries",
                                               self._db_conn_uri,
                                               schema=self._raw_schema)
         ticker_industries = ticker_industries.rename(columns={
@@ -43,17 +43,16 @@ class DatabaseTickerRepository(TickerRepository):
             "code": "symbol"
         })
 
-        gainy_industries = pd.read_sql_table("gainy_industries",
-                                             self._db_conn_uri,
-                                             schema=self._raw_schema)
-        gainy_industries = gainy_industries.rename(columns={
+        industries = pd.read_sql_table("gainy_custom_industries",
+                                       self._db_conn_uri,
+                                       schema=self._raw_schema)
+        industries = industries.rename(columns={
             "name": "industry_name",
             "id": "industry_id"
         })
-        gainy_industries["industry_id"] = gainy_industries[
-            "industry_id"].astype(int)
+        industries["industry_id"] = industries["industry_id"].astype(int)
 
-        return ticker_industries.merge(gainy_industries,
+        return ticker_industries.merge(industries,
                                        how="inner",
                                        on=["industry_name"
                                            ])[["symbol", "industry_id"]]
