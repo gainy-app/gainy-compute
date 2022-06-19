@@ -17,7 +17,9 @@ class RecommendationRepository(Repository):
 
     def read_batch_profile_ids(self, batch_size: int) -> List[int]:
         with self.db_conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM app.profiles where email not ilike '%test%@gainy.app'")
+            cursor.execute(
+                "SELECT id FROM app.profiles where email not ilike '%test%@gainy.app'"
+            )
 
             while True:
                 batch = cursor.fetchmany()
