@@ -151,7 +151,7 @@ class RecommendationRepository(Repository):
         where_clause = []
         params = {}
         if profile_ids is not None:
-            where_clause.append(sql.SQL("id IN (%(profile_ids)s)"))
+            where_clause.append(sql.SQL("id IN %(profile_ids)s"))
             params['profile_ids'] = tuple(profile_ids)
         else:
             where_clause.append(sql.SQL("email not ilike '%test%@gainy.app'"))
