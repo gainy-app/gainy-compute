@@ -5,6 +5,7 @@ with profiles as
          (
              select id as profile_id, email
              from app.profiles
+             {where_clause}
          ),
      p_rsk as
          (
@@ -158,7 +159,6 @@ with profiles as
                   left join portfolio_interest_similarity using (profile_id, symbol)
                   left join category_matches using (profile_id, symbol)
                   left join interest_matches using (profile_id, symbol)
-         {where_clause}
      ),
      combined1 as (
          select profile_id,

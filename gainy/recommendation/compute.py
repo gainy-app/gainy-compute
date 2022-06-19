@@ -1,3 +1,5 @@
+from typing import List
+
 from psycopg2._psycopg import connection
 
 from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
@@ -7,8 +9,8 @@ from gainy.recommendation.models import ProfileRecommendationsMetadata
 from gainy.utils import get_logger
 
 
-def generate_all_match_scores(db_conn):
-    RecommendationRepository(db_conn).generate_match_scores()
+def generate_all_match_scores(db_conn, profile_ids: List[int]):
+    RecommendationRepository(db_conn).generate_match_scores(profile_ids)
 
 
 class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
@@ -35,7 +37,7 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
 
     def _do_persist(self, db_conn, entities):
         RecommendationRepository(db_conn).generate_match_scores(
-            self.profile_id)
+            [self.profile_id])
 
         top_20_tickers = self.repo.read_top_match_score_tickers(
             self.profile_id, 20)

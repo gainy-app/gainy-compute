@@ -15,10 +15,18 @@ class RecommendationRepository(Repository):
     def __init__(self, db_conn):
         self.db_conn = db_conn
 
-    def read_all_profile_ids(self) -> List[int]:
+    def read_batch_profile_ids(self, batch_size: int) -> List[int]:
         with self.db_conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM app.profiles")
-            return list(map(itemgetter(0), cursor.fetchall()))
+            cursor.execute(
+                "SELECT id FROM app.profiles where email not ilike '%test%@gainy.app'"
+            )
+
+            while True:
+                batch = cursor.fetchmany()
+                if not batch:
+                    break
+
+                yield list(map(itemgetter(0), batch))
 
     def read_top_match_score_tickers(self, profile_id: int,
                                      limit: int) -> List[int]:
@@ -134,7 +142,7 @@ class RecommendationRepository(Repository):
                 [(profile_id, collection_id, symbol)
                  for symbol in ticker_list])
 
-    def generate_match_scores(self, profile_id=None):
+    def generate_match_scores(self, profile_ids: List[int]):
         query_filename = os.path.join(script_dir,
                                       "sql/generate_match_scores.sql")
         with open(query_filename) as f:
@@ -142,9 +150,9 @@ class RecommendationRepository(Repository):
 
         where_clause = []
         params = {}
-        if profile_id is not None:
-            where_clause.append(sql.SQL("profile_id = %(profile_id)s"))
-            params['profile_id'] = profile_id
+        if profile_ids is not None:
+            where_clause.append(sql.SQL("id IN (%(profile_ids)s)"))
+            params['profile_ids'] = tuple(profile_ids)
         else:
             where_clause.append(sql.SQL("email not ilike '%test%@gainy.app'"))
 

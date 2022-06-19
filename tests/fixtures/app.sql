@@ -49,6 +49,24 @@ create table if not exists app.profiles
     legal_address varchar
 );
 
+CREATE TABLE IF NOT EXISTS "app"."personalized_ticker_collections"
+(
+    "profile_id"    integer NOT NULL,
+    "collection_id" integer NOT NULL,
+    "symbol"        varchar NOT NULL,
+    PRIMARY KEY ("profile_id", "collection_id", "symbol"),
+    FOREIGN KEY ("profile_id") REFERENCES "app"."profiles" ("id") ON UPDATE cascade ON DELETE cascade
+);
+
+CREATE TABLE IF NOT EXISTS "app"."personalized_collection_sizes"
+(
+    "profile_id"    integer NOT NULL,
+    "collection_id" integer NOT NULL,
+    "size"          integer NOT NULL,
+    PRIMARY KEY ("profile_id", "collection_id"),
+    FOREIGN KEY ("profile_id") REFERENCES "app"."profiles" ("id") ON UPDATE cascade ON DELETE cascade
+);
+
 create table if not exists app.profile_recommendations_metadata
 (
     profile_id              integer not null
@@ -95,7 +113,6 @@ INSERT INTO app.portfolio_securities (id, close_price, close_price_as_of, iso_cu
                                       ticker_symbol, type, created_at, updated_at)
 VALUES (49, 0.6928, '2022-04-07 00:00:00.000000', 'USD', 'Remark Media, Inc.', 'ODbxOoxka6fPx3Xy4xkEIMDPJAPLpOfMPXEry',
         'MARK', 'equity', '2021-11-19 21:22:29.251714 +00:00', '2022-04-08 07:02:36.062043 +00:00');
-
 
 create table if not exists app.profile_holdings
 (
