@@ -6,6 +6,7 @@ import psycopg2
 from psycopg2._psycopg import connection
 import sys
 import time
+import json
 from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.repository import RecommendationRepository
@@ -24,10 +25,9 @@ class MatchScoreJob:
         self.batch_size = batch_size
 
     def run(self):
-        start_time = time.time()
-
         for profile_ids_batch in self.repo.read_batch_profile_ids(
                 self.batch_size):
+            start_time = time.time()
             generate_all_match_scores(self.db_conn, profile_ids_batch)
 
             for profile_id in profile_ids_batch:
@@ -36,8 +36,8 @@ class MatchScoreJob:
                 self.repo.update_personalized_collection(
                     profile_id, TOP_20_FOR_YOU_COLLECTION_ID, top_20_tickers)
 
-            logger.info("Calculated match score for %d profiles in %f",
-                        len(profile_ids_batch),
+            logger.info("Calculated match score profiles %s in %f",
+                        json.dumps(profile_ids_batch),
                         time.time() - start_time)
 
 
