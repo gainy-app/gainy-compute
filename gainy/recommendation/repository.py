@@ -1,6 +1,6 @@
 import os
 from operator import itemgetter
-from typing import List, Tuple
+from typing import List, Tuple, Iterable
 
 from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
@@ -15,14 +15,14 @@ class RecommendationRepository(Repository):
     def __init__(self, db_conn):
         self.db_conn = db_conn
 
-    def read_batch_profile_ids(self, batch_size: int) -> List[int]:
+    def read_batch_profile_ids(self, batch_size: int) -> Iterable[List[int]]:
         with self.db_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT id FROM app.profiles where email not ilike '%test%@gainy.app'"
             )
 
             while True:
-                batch = cursor.fetchmany()
+                batch = cursor.fetchmany(batch_size)
                 if not batch:
                     break
 
