@@ -18,7 +18,9 @@ jobs:
 
       - name: Setup Poetry
         run: |
+          which python3.9
           pip install poetry
+          poetry env use /usr/bin/python3.9
           poetry install
 
       - name: Bump Version
