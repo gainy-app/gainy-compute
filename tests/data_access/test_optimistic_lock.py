@@ -9,8 +9,7 @@ import psycopg2
 
 from psycopg2._psycopg import connection
 import pytest
-from sqlalchemy.util import classproperty
-from gainy.data_access.models import BaseModel, ResourceVersion
+from gainy.data_access.models import BaseModel, ResourceVersion, classproperty
 
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
