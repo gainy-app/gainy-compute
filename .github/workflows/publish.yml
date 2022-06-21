@@ -16,11 +16,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup Poetry
+      - name: Setup Python
         run: |
           which python3.9
+          apt update && apt install -y python3.9
+          which python3.9
+
+      - name: Setup Poetry
+        run: |
           pip install poetry
-          poetry env use /usr/bin/python3.9
+          poetry env use $(which python3.9)
           poetry install
 
       - name: Bump Version
