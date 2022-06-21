@@ -17,10 +17,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup Python
-        run: |
-          which python3.9
-          apt update && apt install -y python3.9
-          which python3.9
+        run: apt update && apt install -y python3.9
 
       - name: Setup Poetry
         run: |
