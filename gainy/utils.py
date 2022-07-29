@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2._psycopg import connection
 import numpy as np
 import logging
+from pythonjsonlogger import jsonlogger
 
 
 def batch_iter(ary, batch_size: int = 100) -> Iterable[List[Any]]:
@@ -48,5 +49,10 @@ def get_logger(name):
     logging.basicConfig()
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG if env() == "local" else logging.INFO)
+
+    logHandler = logging.StreamHandler()
+    formatter = jsonlogger.JsonFormatter()
+    logHandler.setFormatter(formatter)
+    logger.addHandler(logHandler)
 
     return logger
