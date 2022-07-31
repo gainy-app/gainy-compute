@@ -37,7 +37,34 @@ formatter = CustomJsonFormatter()
 LOG_LEVEL = logging.DEBUG if env() == "local" else logging.INFO
 LOG_HANDLER = logging.StreamHandler()
 LOG_HANDLER.setFormatter(formatter)
-logging.basicConfig(level=LOG_LEVEL, handlers=[LOG_HANDLER])
+logging.basicConfig(level=LOG_LEVEL, handlers=[LOG_HANDLER], force=True)
+
+
+def get_logger(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(LOG_LEVEL)
+
+    return logger
+
+
+sys._excepthook = sys.excepthook  # save original excepthook
+
+
+def exception_hook(exctype, value, tb):
+    trace = [{
+        "filename": frame.filename,
+        "lineno": frame.lineno,
+        "name": frame.name
+    } for frame in traceback.extract_tb(tb)]
+
+    get_logger("root").exception(value,
+                                 extra={
+                                     "exc_type": exctype.__name__,
+                                     "traceback": trace
+                                 })
+
+
+sys.excepthook = exception_hook  # overwrite default excepthook
 
 
 def batch_iter(ary, batch_size: int = 100) -> Iterable[List[Any]]:
@@ -71,35 +98,3 @@ def db_connect() -> connection:
 
     DB_CONN_STRING = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
     return psycopg2.connect(DB_CONN_STRING)
-
-
-def get_logger(name):
-    logger = logging.getLogger(name)
-    logger.setLevel(LOG_LEVEL)
-
-    for handler in logger.handlers:
-        logger.removeHandler(handler)
-
-    logger.addHandler(LOG_HANDLER)
-
-    return logger
-
-
-sys._excepthook = sys.excepthook  # save original excepthook
-
-
-def exception_hook(exctype, value, tb):
-    trace = [{
-        "filename": frame.filename,
-        "lineno": frame.lineno,
-        "name": frame.name
-    } for frame in traceback.extract_tb(tb)]
-
-    get_logger("root").exception(value,
-                                 extra={
-                                     "exc_type": exctype.__name__,
-                                     "traceback": trace
-                                 })
-
-
-sys.excepthook = exception_hook  # overwrite default excepthook
