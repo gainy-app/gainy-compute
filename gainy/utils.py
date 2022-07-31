@@ -28,8 +28,12 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         log_record['lineno'] = record.lineno
 
 
-formatter = CustomJsonFormatter()
+def env() -> str:
+    import os
+    return os.environ.get("ENV", "local")
 
+
+formatter = CustomJsonFormatter()
 LOG_LEVEL = logging.DEBUG if env() == "local" else logging.INFO
 LOG_HANDLER = logging.StreamHandler()
 LOG_HANDLER.setFormatter(formatter)
@@ -49,11 +53,6 @@ def current_version() -> str:
     except importlib.metadata.PackageNotFoundError as e:
         logging.error(f"Package not found: {str(e)}")
         return "local"
-
-
-def env() -> str:
-    import os
-    return os.environ.get("ENV", "local")
 
 
 def db_connect() -> connection:
