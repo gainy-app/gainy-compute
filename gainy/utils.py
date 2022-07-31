@@ -71,12 +71,12 @@ def get_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG if env() == "local" else logging.INFO)
 
-    for handler in logger.handlers:
-        logger.removeHandler(handler)
-    logHandler = logging.StreamHandler()
-    logger.addHandler(logHandler)
     formatter = CustomJsonFormatter()
-    logHandler.setFormatter(formatter)
+    for handler in logger.handlers:
+#         logger.removeHandler(handler)
+#     logHandler = logging.StreamHandler()
+#     logger.addHandler(logHandler)
+        handler.setFormatter(formatter)
 
     return logger
 
