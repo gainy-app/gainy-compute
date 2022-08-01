@@ -4,10 +4,8 @@ import psycopg2
 from psycopg2._psycopg import connection
 import numpy as np
 import logging
-import sys
 from pythonjsonlogger import jsonlogger
 import datetime
-import traceback
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -45,26 +43,6 @@ def get_logger(name):
     logger.setLevel(LOG_LEVEL)
 
     return logger
-
-
-sys._excepthook = sys.excepthook  # save original excepthook
-
-
-def exception_hook(exctype, value, tb):
-    trace = [{
-        "filename": frame.filename,
-        "lineno": frame.lineno,
-        "name": frame.name
-    } for frame in traceback.extract_tb(tb)]
-
-    get_logger("root").exception(value,
-                                 extra={
-                                     "exc_type": exctype.__name__,
-                                     "traceback": trace
-                                 })
-
-
-sys.excepthook = exception_hook  # overwrite default excepthook
 
 
 def batch_iter(ary, batch_size: int = 100) -> Iterable[List[Any]]:
