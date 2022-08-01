@@ -1,11 +1,14 @@
 from math import trunc
 from typing import Iterable, List, Any
+import logging
+import datetime
+import traceback
+import sys
+
 import psycopg2
 from psycopg2._psycopg import connection
 import numpy as np
-import logging
 from pythonjsonlogger import jsonlogger
-import datetime
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -25,6 +28,15 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         log_record['pathname'] = record.pathname
         log_record['lineno'] = record.lineno
 
+        (exc_type, exc_value, exc_tb) = sys.exc_info()
+        if exc_type is not None:
+            log_record["exc_type"] = exc_type.__name__
+            log_record["traceback"] = [{
+                "filename": frame.filename,
+                "lineno": frame.lineno,
+                "name": frame.name
+            } for frame in traceback.extract_tb(exc_tb)]
+
 
 def env() -> str:
     import os
@@ -43,6 +55,15 @@ def get_logger(name):
     logger.setLevel(LOG_LEVEL)
 
     return logger
+
+
+def setup_exception_logger_hook():
+    sys._excepthook = sys.excepthook
+
+    def exception_hook(exc_type, exc_value, tb):
+        get_logger("root").exception(exc_value)
+
+    sys.excepthook = exception_hook
 
 
 def batch_iter(ary, batch_size: int = 100) -> Iterable[List[Any]]:
