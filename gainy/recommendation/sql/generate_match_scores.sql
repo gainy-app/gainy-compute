@@ -159,7 +159,7 @@ with profiles as
                   left join portfolio_interest_similarity using (profile_id, symbol)
                   left join category_matches using (profile_id, symbol)
                   left join interest_matches using (profile_id, symbol)
-         where tickers.type in ('preferred stock', 'common stock', 'crypto')
+         where tickers.type in ('preferred stock', 'common stock', 'crypto', 'etf')
      ),
      combined1 as (
          select profile_id,
