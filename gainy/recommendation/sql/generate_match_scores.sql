@@ -159,6 +159,7 @@ with profiles as
                   left join portfolio_interest_similarity using (profile_id, symbol)
                   left join category_matches using (profile_id, symbol)
                   left join interest_matches using (profile_id, symbol)
+         where tickers.type in ('preferred stock', 'common stock', 'crypto')
      ),
      combined1 as (
          select profile_id,
@@ -187,7 +188,7 @@ with profiles as
      )
 select profile_id,
        symbol,
-       coalesce(match_score * 99, 0)::int                                                         as match_score,
+       coalesce(match_score * 99, 0)::int                                                          as match_score,
        (match_comp_risk_normalized > 1/3.)::int + (match_comp_risk_normalized > 2/3.)::int         as fits_risk,
        match_comp_risk_normalized                                                                  as risk_similarity,
        (match_comp_category_normalized > 1/3.)::int + (match_comp_category_normalized > 2/3.)::int as fits_categories,

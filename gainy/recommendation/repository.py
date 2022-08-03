@@ -146,7 +146,12 @@ class RecommendationRepository(Repository):
         query_filename = os.path.join(script_dir,
                                       "sql/generate_match_scores.sql")
         with open(query_filename) as f:
-            query = f.read()
+            generate_query = f.read()
+
+        query_filename = os.path.join(script_dir,
+                                      "sql/cleanup_match_scores.sql")
+        with open(query_filename) as f:
+            cleanup_query = f.read()
 
         where_clause = []
         params = {}
@@ -162,9 +167,13 @@ class RecommendationRepository(Repository):
         else:
             where_clause = sql.SQL('')
 
-        query = sql.SQL(query).format(where_clause=where_clause)
         if not params:
             params = None
 
+        generate_query = sql.SQL(generate_query).format(
+            where_clause=where_clause)
+        cleanup_query = sql.SQL(cleanup_query).format(
+            where_clause=where_clause)
         with self.db_conn.cursor() as cursor:
-            cursor.execute(query, params)
+            cursor.execute(generate_query, params)
+            cursor.execute(cleanup_query, params)
