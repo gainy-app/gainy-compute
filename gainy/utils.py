@@ -25,6 +25,7 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         else:
             log_record['level'] = record.levelname
 
+        log_record['name'] = record.name
         log_record['pathname'] = record.pathname
         log_record['lineno'] = record.lineno
 
