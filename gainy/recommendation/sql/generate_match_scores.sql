@@ -10,17 +10,20 @@ with profiles as
      p_rsk as
          (
              select profile_id, (risk_score::double precision - 1) / 2 as value
-             from app.profile_scoring_settings
+             from profiles
+                      join app.profile_scoring_settings using (profile_id)
          ),
      p_cat as
          (
              select profile_id, category_id
-             from app.profile_categories
+             from profiles
+                      join app.profile_categories using (profile_id)
          ),
      p_int as
          (
              select profile_id, interest_id
-             from app.profile_interests
+             from profiles
+                      join app.profile_interests using (profile_id)
          ),
      t_cat_sim_dif as
          (
@@ -48,7 +51,8 @@ with profiles as
                     symbol,
                     1. / (1. + pow(abs(p_rsk.value - coalesce(t_risk_score.risk_score, 0.5)), d) *
                                pow(abs(sr + (sc - sr) * abs(p_rsk.value - 0.5) / 0.5), d)) * 2 - 1 as match_comp_risk
-             from p_rsk
+             from profiles
+                      join p_rsk using (profile_id)
                       join const on true
                       left join t_risk_score on true
          ),
@@ -127,7 +131,8 @@ with profiles as
                     max(tint2.sim_dif + (1. - tint2.sim_dif) *
                                        pow(abs((1. - tint2.sim_dif) / 2. * (1. - (1. - tint2.sim_dif) / 2.)),
                                            0.5)) as match_comp_interest
-             from app.profile_holdings ph
+             from profiles
+                      join app.profile_holdings ph using (profile_id)
                       join app.portfolio_securities ps on ps.id = ph.security_id
                       join ticker_interests tint on tint.symbol = ps.ticker_symbol
                       join ticker_interests tint2 on tint2.interest_id = tint.interest_id
