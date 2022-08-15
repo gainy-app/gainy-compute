@@ -5,7 +5,10 @@ from typing import List, Tuple, Iterable
 from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
 
+from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.data_access.repository import Repository
+from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
+from gainy.recommendation.compute import ComputeRecommendationsAndPersist
 
 script_dir = os.path.dirname(__file__)
 
@@ -14,6 +17,36 @@ class RecommendationRepository(Repository):
 
     def __init__(self, db_conn):
         self.db_conn = db_conn
+
+    def get_recommended_collections(self, profile_id: int, limit: int,
+                                    force: bool) -> List[Tuple[int, str]]:
+        if force:
+            recommendations_func = ComputeRecommendationsAndPersist(
+                self.db_conn, profile_id)
+            try:
+                recommendations_func.get_and_persist(self.db_conn, max_tries=3)
+            except ConcurrentVersionUpdate:
+                pass
+
+        sorted_collection_match_scores = self.read_sorted_collection_match_scores(
+            profile_id, limit)
+        sorted_collections_ids = list(
+            map(itemgetter(0), sorted_collection_match_scores))
+        sorted_collections_uniq_ids = [
+            f"0_{i}" for i in sorted_collections_ids
+        ]
+
+        # Add `top-20 for you` collection as the top item
+        is_top_20_enabled = self.is_collection_enabled(
+            profile_id, TOP_20_FOR_YOU_COLLECTION_ID)
+        if is_top_20_enabled:
+            sorted_collections_ids = [TOP_20_FOR_YOU_COLLECTION_ID
+                                      ] + sorted_collections_ids
+            sorted_collections_uniq_ids = [
+                f"{profile_id}_{TOP_20_FOR_YOU_COLLECTION_ID}"
+            ] + sorted_collections_uniq_ids
+
+        return list(zip(sorted_collections_ids, sorted_collections_uniq_ids))
 
     def read_batch_profile_ids(self, batch_size: int) -> Iterable[List[int]]:
         with self.db_conn.cursor() as cursor:
