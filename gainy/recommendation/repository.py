@@ -5,10 +5,8 @@ from typing import List, Tuple, Iterable
 from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
 
-from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.data_access.repository import Repository
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
-from gainy.recommendation.compute import ComputeRecommendationsAndPersist
 
 script_dir = os.path.dirname(__file__)
 
@@ -20,13 +18,6 @@ class RecommendationRepository(Repository):
 
     def get_recommended_collections(self, profile_id: int, limit: int,
                                     force: bool) -> List[Tuple[int, str]]:
-        if force:
-            recommendations_func = ComputeRecommendationsAndPersist(
-                self.db_conn, profile_id)
-            try:
-                recommendations_func.get_and_persist(self.db_conn, max_tries=3)
-            except ConcurrentVersionUpdate:
-                pass
 
         sorted_collection_match_scores = self.read_sorted_collection_match_scores(
             profile_id, limit)
