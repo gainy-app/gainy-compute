@@ -16,8 +16,8 @@ class RecommendationRepository(Repository):
     def __init__(self, db_conn):
         self.db_conn = db_conn
 
-    def get_recommended_collections(self, profile_id: int, limit: int,
-                                    force: bool) -> List[Tuple[int, str]]:
+    def get_recommended_collections(self, profile_id: int,
+                                    limit: int) -> List[Tuple[int, str]]:
 
         sorted_collection_match_scores = self.read_sorted_collection_match_scores(
             profile_id, limit)
