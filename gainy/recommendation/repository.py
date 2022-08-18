@@ -1,3 +1,4 @@
+import enum
 import os
 from operator import itemgetter
 from typing import List, Tuple, Iterable
@@ -11,16 +12,34 @@ from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 script_dir = os.path.dirname(__file__)
 
 
+class RecommendedCollectionAlgorithm(enum.Enum):
+    MATCH_SCORE = 0
+    TOP_FAVORITED = 1
+
+
 class RecommendationRepository(Repository):
 
     def __init__(self, db_conn):
         self.db_conn = db_conn
 
-    def get_recommended_collections(self, profile_id: int,
-                                    limit: int) -> List[Tuple[int, str]]:
+    def get_recommended_collections(
+        self,
+        profile_id: int,
+        limit: int,
+        algorithm:
+        RecommendedCollectionAlgorithm = RecommendedCollectionAlgorithm.
+        MATCH_SCORE
+    ) -> List[Tuple[int, str]]:
 
-        sorted_collection_match_scores = self.read_sorted_collection_match_scores(
-            profile_id, limit)
+        if algorithm == RecommendedCollectionAlgorithm.MATCH_SCORE:
+            sorted_collection_match_scores = self.read_sorted_collection_match_scores(
+                profile_id, limit)
+        elif algorithm == RecommendedCollectionAlgorithm.TOP_FAVORITED:
+            sorted_collection_match_scores = self.read_sorted_collection_top_favorited(
+                limit)
+        else:
+            raise Exception('Unsupported algorithm')
+
         sorted_collections_ids = list(
             map(itemgetter(0), sorted_collection_match_scores))
         sorted_collections_uniq_ids = [
@@ -78,6 +97,18 @@ class RecommendationRepository(Repository):
 
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, {"profile_id": profile_id, "limit": limit})
+
+            return list(cursor.fetchall())
+
+    def read_sorted_collection_top_favorited(
+            self, limit: int) -> List[Tuple[int, float]]:
+        query_filename = os.path.join(script_dir,
+                                      "sql/collection_top_favorited.sql")
+        with open(query_filename) as f:
+            query = f.read()
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, {"limit": limit})
 
             return list(cursor.fetchall())
 
