@@ -24,7 +24,7 @@ def test_ticker_match_score():
                 INSERT INTO app.profile_interests (profile_id, interest_id) VALUES (%(profile_id)s, 5);
                 INSERT INTO app.profile_categories (profile_id, category_id) VALUES (%(profile_id)s, 2), (%(profile_id)s, 5), (%(profile_id)s, 7);
 
-                INSERT INTO collection_tickers_weighted (date, profile_id, collection_id, collection_uniq_id, symbol, weight)
+                INSERT INTO collection_ticker_actual_weights (date, profile_id, collection_id, collection_uniq_id, symbol, weight)
                 VALUES ('2022-08-22', null, 83, '0_83', 'AAPL', 1);
                 """, {"profile_id": profile_id})
 
