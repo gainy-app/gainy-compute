@@ -59,6 +59,7 @@ def test_ticker_match_score():
     assert ticker_match_score["matches_portfolio"] == True
 
     assert collection_match_score["profile_id"] == profile_id
+    assert collection_match_score["collection_id"] == 83
     assert collection_match_score["collection_uniq_id"] == '0_83'
     assert collection_match_score["match_score"] >= 99
     assert abs(collection_match_score["risk_similarity"] -

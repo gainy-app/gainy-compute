@@ -97,6 +97,7 @@ create table if not exists app.profile_ticker_match_score
 CREATE TABLE "app"."profile_collection_match_score"
 (
     "profile_id"          integer   NOT NULL,
+    "collection_id"       integer   NOT NULL,
     "collection_uniq_id"  text      NOT NULL,
     "match_score"         float8    NOT NULL,
     "risk_similarity"     float8    NOT NULL,
