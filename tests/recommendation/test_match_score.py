@@ -23,6 +23,9 @@ def test_ticker_match_score():
 
                 INSERT INTO app.profile_interests (profile_id, interest_id) VALUES (%(profile_id)s, 5);
                 INSERT INTO app.profile_categories (profile_id, category_id) VALUES (%(profile_id)s, 2), (%(profile_id)s, 5), (%(profile_id)s, 7);
+
+                INSERT INTO collection_tickers_weighted (date, profile_id, collection_id, collection_uniq_id, symbol, weight)
+                VALUES ('2022-08-22', null, 83, '0_83', 'AAPL', 1);
                 """, {"profile_id": profile_id})
 
         generate_all_match_scores(db_conn, [profile_id])
@@ -31,17 +34,39 @@ def test_ticker_match_score():
                 "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s",
                 {"profile_id": profile_id})
 
-            match_score = cursor.fetchone()
+            ticker_match_score = cursor.fetchone()
 
-    assert match_score["profile_id"] == profile_id
-    assert match_score["symbol"] == 'AAPL'
-    assert match_score["match_score"] >= 99
-    assert match_score["fits_risk"] == 2
-    assert abs(match_score["risk_similarity"] - 0.9990181336784723) < 1e-5
-    assert match_score["fits_categories"] == 2
-    assert match_score["fits_interests"] == 2
-    assert match_score["category_matches"] == '[7]'
-    assert match_score["interest_matches"] == '[5]'
-    assert abs(match_score["category_similarity"] - 0.8620509848080247) < 1e-5
-    assert abs(match_score["interest_similarity"] - 0.8232970416257972) < 1e-5
-    assert match_score["matches_portfolio"] == True
+            cursor.execute(
+                "SELECT * from app.profile_collection_match_score where profile_id = %(profile_id)s",
+                {"profile_id": profile_id})
+
+            collection_match_score = cursor.fetchone()
+
+    assert ticker_match_score["profile_id"] == profile_id
+    assert ticker_match_score["symbol"] == 'AAPL'
+    assert ticker_match_score["match_score"] >= 99
+    assert ticker_match_score["fits_risk"] == 2
+    assert abs(ticker_match_score["risk_similarity"] -
+               0.9990181336784723) < 1e-5
+    assert ticker_match_score["fits_categories"] == 2
+    assert ticker_match_score["fits_interests"] == 2
+    assert ticker_match_score["category_matches"] == '[7]'
+    assert ticker_match_score["interest_matches"] == '[5]'
+    assert abs(ticker_match_score["category_similarity"] -
+               0.8620509848080247) < 1e-5
+    assert abs(ticker_match_score["interest_similarity"] -
+               0.8232970416257972) < 1e-5
+    assert ticker_match_score["matches_portfolio"] == True
+
+    assert collection_match_score["profile_id"] == profile_id
+    assert collection_match_score["collection_uniq_id"] == '0_83'
+    assert collection_match_score["match_score"] >= 99
+    assert abs(collection_match_score["risk_similarity"] -
+               0.9990181336784723) < 1e-5
+    assert abs(collection_match_score["category_similarity"] -
+               0.8620509848080247) < 1e-5
+    assert abs(collection_match_score["interest_similarity"] -
+               0.8232970416257972) < 1e-5
+    assert collection_match_score["risk_level"] == 2
+    assert collection_match_score["category_level"] == 2
+    assert collection_match_score["interest_level"] == 2

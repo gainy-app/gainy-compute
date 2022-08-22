@@ -106,7 +106,7 @@ CREATE TABLE "app"."profile_collection_match_score"
     "risk_level"          integer   NOT NULL,
     "category_level"      integer   NOT NULL,
     "interest_level"      integer   NOT NULL,
-    PRIMARY KEY ("profile_id", "collection_uniq_id"),
+    PRIMARY KEY ("profile_id", "collection_uniq_id")
 );
 
 create table if not exists app.portfolio_securities

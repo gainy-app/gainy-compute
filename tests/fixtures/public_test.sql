@@ -81,3 +81,13 @@ create table if not exists public_test.ticker_risk_scores
 INSERT INTO public_test.ticker_risk_scores (symbol, risk_score, updated_at)
 VALUES ('AAPL', 0.4752466534540463, '2022-04-11 11:22:20.084558')
 on conflict do nothing;
+
+create table if not exists public_test.collection_tickers_weighted
+(
+    date               date,
+    profile_id         integer,
+    collection_id      integer,
+    collection_uniq_id text,
+    symbol             text,
+    weight             double precision
+);
