@@ -11,7 +11,6 @@ from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.compute import generate_all_match_scores
-from gainy.recommendation.models import MatchScoreModel
 from gainy.utils import db_connect, get_logger
 
 logger = get_logger(__name__)

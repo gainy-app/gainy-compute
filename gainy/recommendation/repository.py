@@ -198,15 +198,18 @@ class RecommendationRepository(Repository):
                  for symbol in ticker_list])
 
     def generate_match_scores(self, profile_ids: List[int]):
-        query_filename = os.path.join(script_dir,
-                                      "sql/generate_match_scores.sql")
-        with open(query_filename) as f:
-            generate_query = f.read()
+        queries = []
+        query_filenames = [
+            'generate_ticker_match_scores.sql',
+            'cleanup_ticker_match_scores.sql',
+            'generate_collection_match_scores.sql',
+            'cleanup_collection_match_scores.sql',
+        ]
 
-        query_filename = os.path.join(script_dir,
-                                      "sql/cleanup_match_scores.sql")
-        with open(query_filename) as f:
-            cleanup_query = f.read()
+        for query_filename in query_filenames:
+            query_filename = os.path.join(script_dir, "sql", query_filename)
+            with open(query_filename) as f:
+                queries.append(f.read())
 
         where_clause = []
         params = {}
@@ -225,10 +228,11 @@ class RecommendationRepository(Repository):
         if not params:
             params = None
 
-        generate_query = sql.SQL(generate_query).format(
-            where_clause=where_clause)
-        cleanup_query = sql.SQL(cleanup_query).format(
-            where_clause=where_clause)
+        queries = [
+            sql.SQL(query).format(where_clause=where_clause)
+            for query in queries
+        ]
+
         with self.db_conn.cursor() as cursor:
-            cursor.execute(generate_query, params)
-            cursor.execute(cleanup_query, params)
+            for query in queries:
+                cursor.execute(query, params)

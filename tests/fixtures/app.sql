@@ -94,6 +94,21 @@ create table if not exists app.profile_ticker_match_score
     constraint profile_ticker_match_score_pk
         primary key (profile_id, symbol)
 );
+CREATE TABLE "app"."profile_collection_match_score"
+(
+    "profile_id"          integer   NOT NULL,
+    "collection_uniq_id"  text      NOT NULL,
+    "match_score"         float8    NOT NULL,
+    "risk_similarity"     float8    NOT NULL,
+    "category_similarity" float8    NOT NULL,
+    "interest_similarity" float8    NOT NULL,
+    "updated_at"          timestamp NOT NULL,
+    "risk_level"          integer   NOT NULL,
+    "category_level"      integer   NOT NULL,
+    "interest_level"      integer   NOT NULL,
+    PRIMARY KEY ("profile_id", "collection_uniq_id"),
+);
+
 create table if not exists app.portfolio_securities
 (
     id                serial
