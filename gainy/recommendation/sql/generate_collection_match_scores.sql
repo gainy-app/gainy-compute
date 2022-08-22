@@ -28,10 +28,10 @@ from (
                 (sum(interest_similarity * weight) / sum(weight))::double precision as interest_similarity
          from profiles
                   join app.profile_ticker_match_score using (profile_id)
-                  join collection_tickers_weighted
-                       on (collection_tickers_weighted.profile_id is null or
-                           collection_tickers_weighted.profile_id = profiles.profile_id)
-                           and profile_ticker_match_score.symbol = collection_tickers_weighted.symbol
+                  join collection_ticker_actual_weights
+                       on (collection_ticker_actual_weights.profile_id is null or
+                           collection_ticker_actual_weights.profile_id = profiles.profile_id)
+                           and profile_ticker_match_score.symbol = collection_ticker_actual_weights.symbol
          group by profile_ticker_match_score.profile_id, collection_id, collection_uniq_id
          having sum(weight) > 0
      ) t
