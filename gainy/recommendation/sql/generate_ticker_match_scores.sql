@@ -170,6 +170,8 @@ with profiles as
          select profile_id,
                 symbol,
                 (case
+                     when match_score is null
+                         then least(min_match_score, 0)
                      when match_score - 0.5 > 0
                          then (match_score - 0.5) / max_match_score
                      when match_score - 0.5 < 0
