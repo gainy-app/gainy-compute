@@ -78,8 +78,8 @@ class _TestGetAndPersist(AbstractOptimisticLockingFunction):
         self.objects_per_iter = objects_per_iter
 
     def load_version(self, db_conn: connection):
-        profile_metadata_list = self.repo.load(db_conn, MetadataClass,
-                                               {"profile_id": self.profile_id})
+        profile_metadata_list = self.repo.find_all(
+            db_conn, MetadataClass, {"profile_id": self.profile_id})
         if len(profile_metadata_list) == 0:
             profile_metadata = MetadataClass()
             profile_metadata.profile_id = self.profile_id
@@ -88,8 +88,8 @@ class _TestGetAndPersist(AbstractOptimisticLockingFunction):
             return profile_metadata_list[0]
 
     def get_entities(self, db_conn: connection):
-        entities = self.repo.load(db_conn, DataClass,
-                                  {"profile_id": self.profile_id})
+        entities = self.repo.find_all(db_conn, DataClass,
+                                      {"profile_id": self.profile_id})
         for object_index in range(0, self.objects_per_iter):
             symbol = f"S{object_index}"
             entity_by_symbol = [
@@ -203,13 +203,13 @@ def _test_optimistic_locks(profile_num: int, threads_per_profile: int):
 
     with db_connect() as db_conn:
         repo = Repository()
-        metadata_list = repo.load(db_conn, MetadataClass)
+        metadata_list = repo.find_all(db_conn, MetadataClass)
         assert len(metadata_list) == profile_num
         for metadata in metadata_list:
             assert metadata.version == threads_per_profile * 5
 
         repo = Repository()
-        data_list = repo.load(db_conn, DataClass)
+        data_list = repo.find_all(db_conn, DataClass)
         assert len(data_list) == 200 * profile_num
         for data in data_list:
             assert set(data.value_list) == set(

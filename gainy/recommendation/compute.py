@@ -22,9 +22,9 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
 
     def load_version(self,
                      db_conn: connection) -> ProfileRecommendationsMetadata:
-        profile_metadata_list = self.repo.load(db_conn,
-                                               ProfileRecommendationsMetadata,
-                                               {"profile_id": self.profile_id})
+        profile_metadata_list = self.repo.find_all(
+            db_conn, ProfileRecommendationsMetadata,
+            {"profile_id": self.profile_id})
         if len(profile_metadata_list) == 0:
             profile_metadata = ProfileRecommendationsMetadata()
             profile_metadata.profile_id = self.profile_id

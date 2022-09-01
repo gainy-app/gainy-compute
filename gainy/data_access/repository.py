@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from psycopg2 import sql
 from psycopg2._psycopg import connection
@@ -11,34 +11,42 @@ MAX_TRANSACTION_SIZE = 100
 
 class TableLoad:
 
-    def load(self, db_conn, clazz, filter_by: Dict[str, Any] = None):
-        stmnt = sql.SQL("SELECT * FROM {schema_name}.{table_name}").format(
-            schema_name=sql.Identifier(clazz.schema_name),
-            table_name=sql.Identifier(clazz.table_name))
+    def find_one(self, db_conn, cls, filter_by: Dict[str, Any] = None):
+        with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(self._filter_query(cls, filter_by), filter_by)
+
+            row = cursor.fetchone()
+
+        return cls(row) if row else None
+
+    def iterate_all(self,
+                    db_conn,
+                    cls,
+                    filter_by: Dict[str, Any] = None) -> Iterable[Any]:
+        with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(self._filter_query(cls, filter_by), filter_by)
+
+            for row in cursor:
+                yield cls(row)
+
+    def find_all(self,
+                 db_conn,
+                 cls,
+                 filter_by: Dict[str, Any] = None) -> List[Any]:
+        return list(self.iterate_all(db_conn, cls, filter_by))
+
+    def _filter_query(self, cls, filter_by):
+        query = sql.SQL("SELECT * FROM {schema_name}.{table_name}").format(
+            schema_name=sql.Identifier(cls.schema_name),
+            table_name=sql.Identifier(cls.table_name))
 
         if filter_by:
-            stmnt += self._where_clause_stmnt(filter_by)
+            query += self._where_clause_statement(filter_by)
 
-        with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(stmnt, filter_by)
-
-            entities = []
-            for row in cursor.fetchall():
-                entity = self._row_to_object(clazz, row)
-                entities.append(entity)
-
-            return entities
+        return query
 
     @staticmethod
-    def _row_to_object(clazz, row):
-        entity = clazz()
-        for field, value in row.items():
-            if hasattr(entity, field):
-                setattr(entity, field, value)
-        return entity
-
-    @staticmethod
-    def _where_clause_stmnt(filter_by: Dict[str, Any]):
+    def _where_clause_statement(filter_by: Dict[str, Any]):
         condition = sql.SQL(" AND ").join([
             sql.SQL(f"{{field}} = %({field})s").format(
                 field=sql.Identifier(field)) for field in filter_by.keys()
