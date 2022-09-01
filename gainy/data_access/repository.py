@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Iterable
 
 from psycopg2 import sql
 from psycopg2._psycopg import connection
