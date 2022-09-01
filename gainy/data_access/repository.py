@@ -99,9 +99,9 @@ class TablePersist:
             returned = cursor.fetchall()
 
         for entity, returned_row in zip(entities, returned):
-            for db_excluded_field, value in zip(non_persistent_fields,
-                                                returned_row):
-                entity.__setattr__(db_excluded_field, value)
+            for non_persistent_field, value in zip(non_persistent_fields,
+                                                   returned_row):
+                entity.__setattr__(non_persistent_field, value)
 
     def _get_insert_statement(self, schema_name, table_name, field_names,
                               entities):
