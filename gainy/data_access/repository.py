@@ -55,7 +55,13 @@ class TableLoad(TableFilter):
 
 class TableDelete(TableFilter):
 
-    def delete(self, cls, filter_by: Dict[str, Any]):
+    def delete(self, entity: BaseModel):
+        self.delete_by(
+            entity.__class__,
+            {field: getattr(entity, field)
+             for field in entity.key_fields})
+
+    def delete_by(self, cls, filter_by: Dict[str, Any]):
         query = sql.SQL("DELETE FROM {schema_name}.{table_name}").format(
             schema_name=sql.Identifier(cls.schema_name),
             table_name=sql.Identifier(cls.table_name))
