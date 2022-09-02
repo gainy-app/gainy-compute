@@ -37,3 +37,4 @@ class ComputeRecommendationsAndPersist(AbstractOptimisticLockingFunction):
         self.repo.update_personalized_collection(self.profile_id,
                                                  TOP_20_FOR_YOU_COLLECTION_ID,
                                                  top_20_tickers)
+        self.repo.commit()

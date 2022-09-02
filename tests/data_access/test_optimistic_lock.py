@@ -209,7 +209,6 @@ def _test_optimistic_locks(profile_num: int, threads_per_profile: int):
         for metadata in metadata_list:
             assert metadata.version == threads_per_profile * 5
 
-        repo = Repository(db_conn)
         data_list = repo.find_all(DataClass)
         assert len(data_list) == 200 * profile_num
         for data in data_list:

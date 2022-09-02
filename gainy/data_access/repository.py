@@ -68,6 +68,9 @@ class TableDelete(TableFilter):
 
 class TablePersist:
 
+    def commit(self):
+        self.db_conn.commit()
+
     def persist(self, entities):
         if isinstance(entities, BaseModel):
             entities = [entities]

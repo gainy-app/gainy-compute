@@ -65,6 +65,7 @@ class AbstractOptimisticLockingFunction(ABC):
 
             self.repo.persist(new_version)
             self._do_persist(entities)
+            self.repo.commit()
 
     def _do_persist(self, entities):
         self.repo.persist(entities)
