@@ -9,10 +9,21 @@ from gainy.data_access.models import BaseModel
 MAX_TRANSACTION_SIZE = 100
 
 
-class TableLoad:
+class TableFilter:
 
-    def find_one(self, db_conn, cls, filter_by: Dict[str, Any] = None):
-        with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+    @staticmethod
+    def _where_clause_statement(filter_by: Dict[str, Any]):
+        condition = sql.SQL(" AND ").join([
+            sql.SQL(f"{{field}} = %({field})s").format(
+                field=sql.Identifier(field)) for field in filter_by.keys()
+        ])
+        return sql.SQL(" WHERE ") + condition
+
+
+class TableLoad(TableFilter):
+
+    def find_one(self, cls, filter_by: Dict[str, Any] = None):
+        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(self._filter_query(cls, filter_by), filter_by)
 
             row = cursor.fetchone()
@@ -20,20 +31,16 @@ class TableLoad:
         return cls(row) if row else None
 
     def iterate_all(self,
-                    db_conn,
                     cls,
                     filter_by: Dict[str, Any] = None) -> Iterable[Any]:
-        with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(self._filter_query(cls, filter_by), filter_by)
 
             for row in cursor:
                 yield cls(row)
 
-    def find_all(self,
-                 db_conn,
-                 cls,
-                 filter_by: Dict[str, Any] = None) -> List[Any]:
-        return list(self.iterate_all(db_conn, cls, filter_by))
+    def find_all(self, cls, filter_by: Dict[str, Any] = None) -> List[Any]:
+        return list(self.iterate_all(cls, filter_by))
 
     def _filter_query(self, cls, filter_by):
         query = sql.SQL("SELECT * FROM {schema_name}.{table_name}").format(
@@ -45,18 +52,23 @@ class TableLoad:
 
         return query
 
-    @staticmethod
-    def _where_clause_statement(filter_by: Dict[str, Any]):
-        condition = sql.SQL(" AND ").join([
-            sql.SQL(f"{{field}} = %({field})s").format(
-                field=sql.Identifier(field)) for field in filter_by.keys()
-        ])
-        return sql.SQL(" WHERE ") + condition
+
+class TableDelete(TableFilter):
+
+    def delete(self, cls, filter_by: Dict[str, Any]):
+        query = sql.SQL("DELETE FROM {schema_name}.{table_name}").format(
+            schema_name=sql.Identifier(cls.schema_name),
+            table_name=sql.Identifier(cls.table_name))
+
+        query += self._where_clause_statement(filter_by)
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, filter_by)
 
 
 class TablePersist:
 
-    def persist(self, db_conn, entities):
+    def persist(self, entities):
         if isinstance(entities, BaseModel):
             entities = [entities]
 
@@ -74,9 +86,9 @@ class TablePersist:
                               (chunk_id + 1) * MAX_TRANSACTION_SIZE)
                 chunk = group_entities[l_bound:r_bound]
 
-                self._persist_chunk(db_conn, schema_name, table_name, chunk)
+                self._persist_chunk(schema_name, table_name, chunk)
 
-    def _persist_chunk(self, db_conn, schema_name, table_name, entities):
+    def _persist_chunk(self, schema_name, table_name, entities):
         field_names = [
             field_name for field_name in entities[0].to_dict().keys()
             if field_name not in entities[0].db_excluded_fields
@@ -90,7 +102,7 @@ class TablePersist:
         values = [[entity_dict[field_name] for field_name in field_names]
                   for entity_dict in entity_dicts]
 
-        with db_conn.cursor() as cursor:
+        with self.db_conn.cursor() as cursor:
             execute_values(cursor, sql_string, values)
 
             if not non_persistent_fields:
@@ -156,5 +168,7 @@ class TablePersist:
         return entities_grouped
 
 
-class Repository(TableLoad, TablePersist):
-    pass
+class Repository(TableLoad, TablePersist, TableDelete):
+
+    def __init__(self, db_conn):
+        self.db_conn = db_conn

@@ -77,9 +77,9 @@ class _TestGetAndPersist(AbstractOptimisticLockingFunction):
         self.profile_id = profile_id
         self.objects_per_iter = objects_per_iter
 
-    def load_version(self, db_conn: connection):
+    def load_version(self):
         profile_metadata_list = self.repo.find_all(
-            db_conn, MetadataClass, {"profile_id": self.profile_id})
+            MetadataClass, {"profile_id": self.profile_id})
         if len(profile_metadata_list) == 0:
             profile_metadata = MetadataClass()
             profile_metadata.profile_id = self.profile_id
@@ -87,8 +87,8 @@ class _TestGetAndPersist(AbstractOptimisticLockingFunction):
         else:
             return profile_metadata_list[0]
 
-    def get_entities(self, db_conn: connection):
-        entities = self.repo.find_all(db_conn, DataClass,
+    def get_entities(self):
+        entities = self.repo.find_all(DataClass,
                                       {"profile_id": self.profile_id})
         for object_index in range(0, self.objects_per_iter):
             symbol = f"S{object_index}"
@@ -121,8 +121,9 @@ class _TestThread(threading.Thread):
         for iter_index in range(0, self.max_iter):
             try:
                 with db_connect() as db_conn:
-                    func = _TestGetAndPersist(Repository(), self.profile_id)
-                    func.get_and_persist(db_conn, 50)
+                    func = _TestGetAndPersist(Repository(db_conn),
+                                              self.profile_id)
+                    func.get_and_persist(50)
             except Exception as e:
                 traceback.print_exc()
                 raise e
@@ -202,14 +203,14 @@ def _test_optimistic_locks(profile_num: int, threads_per_profile: int):
         thread.join()
 
     with db_connect() as db_conn:
-        repo = Repository()
-        metadata_list = repo.find_all(db_conn, MetadataClass)
+        repo = Repository(db_conn)
+        metadata_list = repo.find_all(MetadataClass)
         assert len(metadata_list) == profile_num
         for metadata in metadata_list:
             assert metadata.version == threads_per_profile * 5
 
-        repo = Repository()
-        data_list = repo.find_all(db_conn, DataClass)
+        repo = Repository(db_conn)
+        data_list = repo.find_all(DataClass)
         assert len(data_list) == 200 * profile_num
         for data in data_list:
             assert set(data.value_list) == set(

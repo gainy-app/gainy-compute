@@ -26,14 +26,14 @@ class AbstractOptimisticLockingFunction(ABC):
         self.repo = repo
 
     @abstractmethod
-    def load_version(self, db_conn: connection):
+    def load_version(self):
         pass
 
     @abstractmethod
-    def get_entities(self, db_conn: connection):
+    def get_entities(self):
         pass
 
-    def get_and_persist(self, db_conn: connection, max_tries: int = 3):
+    def get_and_persist(self, max_tries: int = 3):
         backoff_on_exception = backoff.on_exception(
             lambda: backoff.expo(base=2, factor=0.1),
             exception=(LockAcquisitionTimeout, ConcurrentVersionUpdate),
@@ -41,18 +41,20 @@ class AbstractOptimisticLockingFunction(ABC):
             giveup_log_level=logging.WARNING,
             jitter=lambda w: w / 2 + full_jitter(w / 2))
         try:
-            backoff_on_exception(lambda: self._try_get_and_persist(db_conn))()
+            backoff_on_exception(self._try_get_and_persist)()
         except Exception as e:
             logging.warning(e, exc_info=True)
             raise e
 
-    def _try_get_and_persist(self, db_conn: connection):
-        cur_version = self.load_version(db_conn)
-        entities = self.get_entities(db_conn)
+    def _try_get_and_persist(self):
+        cur_version = self.load_version()
+        entities = self.get_entities()
 
-        with LockManager.database_lock(db_conn, cur_version.resource_type,
+        # TODO dependency on repo for database_lock looks bad
+        with LockManager.database_lock(self.repo.db_conn,
+                                       cur_version.resource_type,
                                        cur_version.resource_id):
-            new_version = self.load_version(db_conn)
+            new_version = self.load_version()
 
             is_creation = cur_version.resource_version is None and not new_version
             is_same_version = new_version and new_version.resource_version == cur_version.resource_version
@@ -61,9 +63,8 @@ class AbstractOptimisticLockingFunction(ABC):
             else:
                 raise ConcurrentVersionUpdate(cur_version, new_version)
 
-            self.repo.persist(db_conn, new_version)
-            self._do_persist(db_conn, entities)
-            db_conn.commit()
+            self.repo.persist(new_version)
+            self._do_persist(entities)
 
-    def _do_persist(self, db_conn, entities):
-        self.repo.persist(db_conn, entities)
+    def _do_persist(self, entities):
+        self.repo.persist(entities)

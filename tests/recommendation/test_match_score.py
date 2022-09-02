@@ -1,6 +1,6 @@
 from gainy.utils import db_connect
-from gainy.recommendation.compute import generate_all_match_scores
 from psycopg2.extras import RealDictCursor
+from gainy.recommendation.repository import RecommendationRepository
 
 
 def test_ticker_match_score():
@@ -28,7 +28,8 @@ def test_ticker_match_score():
                 VALUES ('2022-08-22', null, 83, '0_83', 'AAPL', 1);
                 """, {"profile_id": profile_id})
 
-        generate_all_match_scores(db_conn, [profile_id])
+        RecommendationRepository(db_conn).generate_match_scores([profile_id])
+
         with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
                 "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s",
