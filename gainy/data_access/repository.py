@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Iterable
+from typing import Dict, Any, List, Iterable, Tuple
 
 from psycopg2 import sql
 from psycopg2._psycopg import connection
@@ -26,7 +26,7 @@ class TableFilter:
 class TableOrder:
 
     @staticmethod
-    def _order_clause_statement(order_by: List[Dict[str, str]]):
+    def _order_clause_statement(order_by: List[Tuple[str, str]]):
         if not order_by:
             return sql.SQL("")
 
@@ -44,7 +44,7 @@ class TableLoad(TableFilter, TableOrder):
     def find_one(self,
                  cls,
                  filter_by: Dict[str, Any] = None,
-                 order_by: List[Dict[str, str]] = None):
+                 order_by: List[Tuple[str, str]] = None):
         query, params = self._get_query(cls, filter_by, order_by)
         with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(query, params)
@@ -56,7 +56,7 @@ class TableLoad(TableFilter, TableOrder):
     def iterate_all(self,
                     cls,
                     filter_by: Dict[str, Any] = None,
-                    order_by: List[Dict[str, str]] = None) -> Iterable[Any]:
+                    order_by: List[Tuple[str, str]] = None) -> Iterable[Any]:
         query, params = self._get_query(cls, filter_by, order_by)
         with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(query, params)
@@ -67,11 +67,11 @@ class TableLoad(TableFilter, TableOrder):
     def find_all(self,
                  cls,
                  filter_by: Dict[str, Any] = None,
-                 order_by: List[Dict[str, str]] = None) -> List[Any]:
+                 order_by: List[Tuple[str, str]] = None) -> List[Any]:
         return list(self.iterate_all(cls, filter_by, order_by))
 
     def _get_query(self, cls, filter_by: Dict[str, Any],
-                   order_by: List[Dict[str, str]]):
+                   order_by: List[Tuple[str, str]]):
         query = sql.SQL("SELECT * FROM {}").format(
             sql.Identifier(cls.schema_name, cls.table_name))
 
