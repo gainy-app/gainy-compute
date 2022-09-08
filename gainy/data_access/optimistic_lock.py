@@ -64,10 +64,10 @@ class AbstractOptimisticLockingFunction(ABC):
                 raise ConcurrentVersionUpdate(cur_version, new_version)
 
             self.repo.persist(new_version)
-            result = self._do(entities)
+            result = self._do(new_version, entities)
             self.repo.commit()
 
         return result
 
-    def _do(self, entities):
+    def _do(self, version, entities):
         self.repo.persist(entities)

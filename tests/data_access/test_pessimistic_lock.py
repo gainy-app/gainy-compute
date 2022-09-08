@@ -82,7 +82,7 @@ class _TestGetAndPersist(AbstractPessimisticLockingFunction):
         else:
             return profile_metadata_list[0]
 
-    def _do(self):
+    def _do(self, version):
         entities = self.repo.find_all(DataClass,
                                       {"profile_id": self.profile_id})
         for object_index in range(0, self.objects_per_iter):

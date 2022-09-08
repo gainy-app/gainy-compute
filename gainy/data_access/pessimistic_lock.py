@@ -43,11 +43,11 @@ class AbstractPessimisticLockingFunction(ABC):
             new_version.update_version()
             self.repo.persist(new_version)
 
-            result = self._do()
+            result = self._do(new_version)
             self.repo.commit()
 
         return result
 
     @abstractmethod
-    def _do(self):
+    def _do(self, version):
         pass
