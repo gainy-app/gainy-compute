@@ -13,6 +13,9 @@ class TableFilter:
 
     @staticmethod
     def _where_clause_statement(filter_by: Dict[str, Any]):
+        if not filter_by:
+            return sql.SQL("")
+
         condition = sql.SQL(" AND ").join([
             sql.SQL(f"{{field}} = %({field})s").format(
                 field=sql.Identifier(field)) for field in filter_by.keys()
@@ -20,11 +23,31 @@ class TableFilter:
         return sql.SQL(" WHERE ") + condition
 
 
-class TableLoad(TableFilter):
+class TableOrder:
 
-    def find_one(self, cls, filter_by: Dict[str, Any] = None):
+    @staticmethod
+    def _order_clause_statement(order_by: List[Dict[str, str]]):
+        if not order_by:
+            return sql.SQL("")
+
+        condition = sql.SQL(", ").join([
+            sql.SQL(f"{{field}} {{direction}}").format(
+                field=sql.Identifier(field), direction=sql.SQL(direction))
+            for field, direction in order_by
+        ])
+        return sql.SQL(" ORDER BY ") + condition
+
+
+class TableLoad(TableFilter, TableOrder):
+    db_conn: connection
+
+    def find_one(self,
+                 cls,
+                 filter_by: Dict[str, Any] = None,
+                 order_by: List[Dict[str, str]] = None):
+        query, params = self._get_query(cls, filter_by, order_by)
         with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(self._filter_query(cls, filter_by), filter_by)
+            cursor.execute(query, params)
 
             row = cursor.fetchone()
 
@@ -32,28 +55,36 @@ class TableLoad(TableFilter):
 
     def iterate_all(self,
                     cls,
-                    filter_by: Dict[str, Any] = None) -> Iterable[Any]:
+                    filter_by: Dict[str, Any] = None,
+                    order_by: List[Dict[str, str]] = None) -> Iterable[Any]:
+        query, params = self._get_query(cls, filter_by, order_by)
         with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(self._filter_query(cls, filter_by), filter_by)
+            cursor.execute(query, params)
 
             for row in cursor:
                 yield cls(row)
 
-    def find_all(self, cls, filter_by: Dict[str, Any] = None) -> List[Any]:
-        return list(self.iterate_all(cls, filter_by))
+    def find_all(self,
+                 cls,
+                 filter_by: Dict[str, Any] = None,
+                 order_by: List[Dict[str, str]] = None) -> List[Any]:
+        return list(self.iterate_all(cls, filter_by, order_by))
 
-    def _filter_query(self, cls, filter_by):
-        query = sql.SQL("SELECT * FROM {schema_name}.{table_name}").format(
-            schema_name=sql.Identifier(cls.schema_name),
-            table_name=sql.Identifier(cls.table_name))
+    def _get_query(self, cls, filter_by: Dict[str, Any],
+                   order_by: List[Dict[str, str]]):
+        query = sql.SQL("SELECT * FROM {}").format(
+            sql.Identifier(cls.schema_name, cls.table_name))
 
         if filter_by:
             query += self._where_clause_statement(filter_by)
+        if order_by:
+            query += self._order_clause_statement(order_by)
 
-        return query
+        return query, filter_by
 
 
 class TableDelete(TableFilter):
+    db_conn: connection
 
     def delete(self, entity: BaseModel):
         self.delete_by(
@@ -62,9 +93,11 @@ class TableDelete(TableFilter):
              for field in entity.key_fields})
 
     def delete_by(self, cls, filter_by: Dict[str, Any]):
-        query = sql.SQL("DELETE FROM {schema_name}.{table_name}").format(
-            schema_name=sql.Identifier(cls.schema_name),
-            table_name=sql.Identifier(cls.table_name))
+        if not filter_by:
+            raise Exception('Deleting all objects is not allowed')
+
+        query = sql.SQL("DELETE FROM {}").format(
+            sql.Identifier(cls.schema_name, cls.table_name))
 
         query += self._where_clause_statement(filter_by)
 
@@ -73,6 +106,7 @@ class TableDelete(TableFilter):
 
 
 class TablePersist:
+    db_conn: connection
 
     def commit(self):
         self.db_conn.commit()
@@ -129,10 +163,9 @@ class TablePersist:
         field_names_escaped = self._escape_fields(field_names)
 
         sql_string = sql.SQL(
-            "INSERT INTO {schema_name}.{table_name} ({field_names}) VALUES %s"
-        ).format(schema_name=sql.Identifier(schema_name),
-                 table_name=sql.Identifier(table_name),
-                 field_names=field_names_escaped)
+            "INSERT INTO {full_table_name} ({field_names}) VALUES %s").format(
+                full_table_name=sql.Identifier(schema_name, table_name),
+                field_names=field_names_escaped)
 
         key_fields = entities[0].key_fields
         if key_fields:

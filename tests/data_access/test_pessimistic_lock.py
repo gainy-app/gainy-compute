@@ -7,7 +7,7 @@ from typing import List
 import pytest
 from gainy.data_access.models import BaseModel, ResourceVersion, classproperty
 from gainy.data_access.db_lock import ResourceType
-from gainy.data_access.optimistic_lock import AbstractOptimisticLockingFunction
+from gainy.data_access.pessimistic_lock import AbstractPessimisticLockingFunction
 from gainy.data_access.repository import Repository
 from gainy.utils import db_connect
 
@@ -62,7 +62,7 @@ class MetadataClass(BaseModel, ResourceVersion):
         self.version = self.version + 1 if self.version else 1
 
 
-class _TestGetAndPersist(AbstractOptimisticLockingFunction):
+class _TestGetAndPersist(AbstractPessimisticLockingFunction):
 
     def __init__(self,
                  repo: Repository,
@@ -82,7 +82,7 @@ class _TestGetAndPersist(AbstractOptimisticLockingFunction):
         else:
             return profile_metadata_list[0]
 
-    def get_entities(self):
+    def _do(self):
         entities = self.repo.find_all(DataClass,
                                       {"profile_id": self.profile_id})
         for object_index in range(0, self.objects_per_iter):
@@ -102,7 +102,7 @@ class _TestGetAndPersist(AbstractOptimisticLockingFunction):
 
         time.sleep(random.choice(range(10, 50)) / 1000)
 
-        return entities
+        self.repo.persist(entities)
 
 
 class _TestThread(threading.Thread):
@@ -175,19 +175,19 @@ def data_table(request):
     yield data_table
 
 
-def test_optimistic_locks_single_thread(metadata_table, data_table):
-    _test_optimistic_locks(1, 1)
+def test_pessimistic_locks_single_thread(metadata_table, data_table):
+    _test_pessimistic_locks(1, 1)
 
 
-def test_optimistic_locks_two_threads(metadata_table, data_table):
-    _test_optimistic_locks(2, 2)
+def test_pessimistic_locks_two_threads(metadata_table, data_table):
+    _test_pessimistic_locks(2, 2)
 
 
-def test_optimistic_locks_multiple_threads(metadata_table, data_table):
-    _test_optimistic_locks(3, 5)
+def test_pessimistic_locks_multiple_threads(metadata_table, data_table):
+    _test_pessimistic_locks(3, 5)
 
 
-def _test_optimistic_locks(profile_num: int, threads_per_profile: int):
+def _test_pessimistic_locks(profile_num: int, threads_per_profile: int):
     threads = []
     for thread_id in range(0, threads_per_profile * profile_num):
         thread = _TestThread(thread_id % profile_num)
