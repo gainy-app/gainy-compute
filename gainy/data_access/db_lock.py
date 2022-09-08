@@ -12,6 +12,7 @@ class ResourceType(enum.Enum):
     GENERAL = 0
     PROFILE_RECOMMENDATIONS = 1
     WEBSOCKETS = 2
+    DRIVEWEALTH_AUTH_TOKEN = 2
 
 
 class LockAcquisitionTimeout(Exception):
