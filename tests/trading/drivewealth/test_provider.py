@@ -2,9 +2,7 @@ from gainy.tests.mocks.repository_mocks import mock_find, mock_persist
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
     mock_get_account_positions
 from gainy.trading.models import TradingAccount
-from gainy.trading.drivewealth.api import DriveWealthApi
-from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, DriveWealthAccountPositions
 

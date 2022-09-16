@@ -60,8 +60,10 @@ create table if not exists app.profiles
     avatar_url    varchar,
     legal_address varchar
 );
-INSERT INTO app.profiles (email, first_name, last_name, gender, user_id, avatar_url, legal_address)
-VALUES ('test3@example.com', 'fn', 'ln', 0, 'AO0OQyz0jyL5lNUpvKbpVdAPvlI3', '', 'legal_address');
+INSERT INTO app.profiles (id, email, first_name, last_name, gender, user_id, avatar_url, legal_address)
+VALUES (1, 'test3@example.com', 'fn', 'ln', 0, 'AO0OQyz0jyL5lNUpvKbpVdAPvlI3', '', 'legal_address')
+on conflict do nothing;
+ALTER SEQUENCE app.profiles_id_seq RESTART WITH 2;
 
 CREATE TABLE IF NOT EXISTS "app"."personalized_ticker_collections"
 (

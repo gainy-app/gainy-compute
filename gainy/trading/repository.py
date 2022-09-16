@@ -1,5 +1,3 @@
-from typing import Iterable
-
 from gainy.data_access.repository import Repository
 
 

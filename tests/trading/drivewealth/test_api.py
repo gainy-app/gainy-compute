@@ -3,8 +3,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from gainy.utils import db_connect
-from gainy.trading.drivewealth.api import DriveWealthApi
-from gainy.trading.drivewealth.repository import DriveWealthRepository
+from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository
 
 
 def _get_token(monkeypatch):
@@ -40,8 +39,6 @@ def test_get_token(monkeypatch):
 
     tokens = [i[0] for i in result]
     invocations_count = [i[1] for i in result]
-
-    print(tokens)
 
     assert len(invocations_count) == threads_count
     assert sum(invocations_count) == 1
