@@ -35,3 +35,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 gainy_industry_assignment = "gainy.industries.runner:cli"
 gainy_recommendation = "gainy.recommendation.job:cli"
+gainy_update_account_balances = "gainy.trading.jobs.update_account_balances:cli"
