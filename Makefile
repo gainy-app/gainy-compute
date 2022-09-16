@@ -1,6 +1,9 @@
 shell:
 	docker-compose run --rm python /bin/bash
 
+clean:
+	- docker-compose down --rmi local -v --remove-orphans
+
 test-shell:
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run test-python make in-docker-test-configure
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run --rm test-python /bin/bash

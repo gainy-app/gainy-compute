@@ -14,12 +14,14 @@ class ContextContainer(AbstractContextManager):
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self._db_conn:
+            self._db_conn.commit()
             self._db_conn.close()
 
     @property
     def db_conn(self) -> connection:
         if not self._db_conn:
             self._db_conn = db_connect()
+
         return self._db_conn
 
     @cache
