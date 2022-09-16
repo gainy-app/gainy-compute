@@ -1,5 +1,17 @@
 create schema if not exists app;
 
+CREATE OR REPLACE FUNCTION "app"."set_current_timestamp_updated_at"()
+    RETURNS TRIGGER AS
+$$
+DECLARE
+    _new record;
+BEGIN
+    _new := NEW;
+    _new."updated_at" = NOW();
+    RETURN _new;
+END;
+$$ LANGUAGE plpgsql;
+
 create table if not exists app.profile_categories
 (
     profile_id  integer not null,
@@ -48,6 +60,8 @@ create table if not exists app.profiles
     avatar_url    varchar,
     legal_address varchar
 );
+INSERT INTO app.profiles (email, first_name, last_name, gender, user_id, avatar_url, legal_address)
+VALUES ('test3@example.com', 'fn', 'ln', 0, 'AO0OQyz0jyL5lNUpvKbpVdAPvlI3', '', 'legal_address');
 
 CREATE TABLE IF NOT EXISTS "app"."personalized_ticker_collections"
 (
@@ -143,3 +157,20 @@ create table if not exists app.profile_holdings
     updated_at            timestamp with time zone,
     plaid_access_token_id integer
 );
+
+create table app.drivewealth_auth_tokens
+(
+    id         serial
+        primary key,
+    auth_token varchar,
+    expires_at timestamp with time zone,
+    version    integer                                not null,
+    data       json,
+    created_at timestamp with time zone default now() not null,
+    updated_at timestamp with time zone default now() not null
+);
+create trigger set_app_drivewealth_auth_tokens_updated_at
+    before update
+    on app.drivewealth_auth_tokens
+    for each row
+execute procedure app.set_current_timestamp_updated_at();
