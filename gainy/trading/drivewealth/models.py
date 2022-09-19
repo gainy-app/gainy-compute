@@ -117,7 +117,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         self.cash_available_for_withdrawal = data["bod"].get(
             "cashAvailableForWithdrawal", 0)
         self.cash_balance = data["bod"].get("cashBalance", 0)
-        self.data = json.dumps(data)
+        self.data = data
 
     def update_trading_account(self, trading_account: TradingAccount):
         trading_account.cash_available_for_trade = self.cash_available_for_trade
@@ -148,7 +148,7 @@ class DriveWealthAccountMoney(BaseDriveWealthModel):
         if not data:
             return
         self.drivewealth_account_id = data["accountID"]
-        self.data = json.dumps(data)
+        self.data = data
 
         cash = data["cash"]
         self.cash_available_for_trade = cash["cashAvailableForTrade"]
@@ -183,7 +183,7 @@ class DriveWealthAccountPositions(BaseDriveWealthModel):
             return
         self.drivewealth_account_id = data["accountID"]
         self.equity_value = data["equityValue"]
-        self.data = json.dumps(data)
+        self.data = data
 
     def update_trading_account(self, trading_account: TradingAccount):
         trading_account.equity_value = self.equity_value

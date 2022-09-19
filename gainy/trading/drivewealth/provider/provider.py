@@ -16,9 +16,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.api = api
 
     def sync_trading_accounts(self, profile_id: int):
-        user = self._get_user(profile_id)
-        user_ref_id = user.ref_id
         repository = self.repository
+        user_ref_id = self._get_user(profile_id).ref_id
 
         accounts_data = self.api.get_user_accounts(user_ref_id)
         for account_data in accounts_data:

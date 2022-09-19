@@ -15,6 +15,7 @@ def test_sync_trading_accounts(monkeypatch):
     cash_available_for_trade = 2
     cash_available_for_withdrawal = 3
     equity_value = 4
+    profile_id = 5
     account_ref_id = "account_ref_id"
     user_ref_id = "user_ref_id"
     trading_account_id = "trading_account_id"
@@ -37,6 +38,9 @@ def test_sync_trading_accounts(monkeypatch):
             (DriveWealthAccount, {
                 "ref_id": account_ref_id
             }, account),
+            (DriveWealthUser, {
+                "profile_id": profile_id
+            }, user),
             (TradingAccount, {
                 "id": trading_account_id
             }, trading_account),
@@ -63,7 +67,7 @@ def test_sync_trading_accounts(monkeypatch):
         mock_get_account_positions(account_ref_id, equity_value=equity_value))
 
     service = DriveWealthProvider(drivewealth_repository, api)
-    service.sync_trading_accounts(user)
+    service.sync_trading_accounts(profile_id)
 
     assert DriveWealthAccount in persisted_objects
     assert DriveWealthAccountMoney in persisted_objects
