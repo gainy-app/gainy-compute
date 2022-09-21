@@ -24,6 +24,7 @@ nltk = "^3.6.7"
 numpy = "^1.22.1"
 backoff = "^1.11.1"
 python-json-logger = "^2.0.4"
+stripe = "^4.1.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -36,3 +37,5 @@ build-backend = "poetry.core.masonry.api"
 gainy_industry_assignment = "gainy.industries.runner:cli"
 gainy_recommendation = "gainy.recommendation.job:cli"
 gainy_update_account_balances = "gainy.trading.jobs.update_account_balances:cli"
+gainy_create_invoices = "gainy.billing.jobs.create_invoices:cli"
+gainy_charge_invoices = "gainy.billing.jobs.charge_invoices:cli"

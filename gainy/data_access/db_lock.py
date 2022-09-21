@@ -13,6 +13,7 @@ class ResourceType(enum.Enum):
     PROFILE_RECOMMENDATIONS = 1
     WEBSOCKETS = 2
     DRIVEWEALTH_AUTH_TOKEN = 3
+    INVOICE = 4
 
 
 class LockAcquisitionTimeout(Exception):

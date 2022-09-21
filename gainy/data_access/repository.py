@@ -5,6 +5,7 @@ from psycopg2._psycopg import connection
 from psycopg2.extras import execute_values, RealDictCursor
 
 from gainy.data_access.models import BaseModel
+from gainy.data_access.operators import OperatorEq, OperatorInterface
 
 MAX_TRANSACTION_SIZE = 100
 
@@ -12,15 +13,23 @@ MAX_TRANSACTION_SIZE = 100
 class TableFilter:
 
     @staticmethod
-    def _where_clause_statement(filter_by: Dict[str, Any]):
+    def _where_clause_statement(
+            filter_by: Dict[str, Any]) -> Tuple[sql.SQL, Dict[str, Any]]:
+        params = {}
         if not filter_by:
-            return sql.SQL("")
+            return sql.SQL(""), params
 
-        condition = sql.SQL(" AND ").join([
-            sql.SQL(f"{{field}} = %({field})s").format(
-                field=sql.Identifier(field)) for field in filter_by.keys()
-        ])
-        return sql.SQL(" WHERE ") + condition
+        conditions = []
+        for field, value in filter_by.items():
+            if not isinstance(value, OperatorInterface):
+                value = OperatorEq(value)
+
+            op_sql, op_params = value.to_sql(field)
+            conditions.append(sql.Identifier(field) + op_sql)
+            params.update(op_params)
+
+        condition = sql.SQL(" AND ").join(conditions)
+        return sql.SQL(" WHERE ") + condition, params
 
 
 class TableOrder:
@@ -75,12 +84,25 @@ class TableLoad(TableFilter, TableOrder):
         query = sql.SQL("SELECT * FROM {}").format(
             sql.Identifier(cls.schema_name, cls.table_name))
 
+        params = []
         if filter_by:
-            query += self._where_clause_statement(filter_by)
+            where_clause, params = self._where_clause_statement(filter_by)
+            query += where_clause
         if order_by:
             query += self._order_clause_statement(order_by)
 
-        return query, filter_by
+        return query, params
+
+    def refresh(self, entity: BaseModel):
+        db_entity = self.find_one(
+            entity.__class__,
+            {field: getattr(entity, field)
+             for field in entity.key_fields})
+
+        if db_entity:
+            entity.refresh_entity(db_entity)
+
+        return entity
 
 
 class TableDelete(TableFilter):

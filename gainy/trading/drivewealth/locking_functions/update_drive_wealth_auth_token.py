@@ -30,7 +30,6 @@ class UpdateDriveWealthAuthToken(AbstractPessimisticLockingFunction):
         return entity
 
     def _do(self, token: DriveWealthAuthToken):
-        print(token.to_dict())
         if not token.is_expired() and not self.force:
             return token
 

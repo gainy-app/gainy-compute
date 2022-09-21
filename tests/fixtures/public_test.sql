@@ -91,3 +91,13 @@ create table if not exists public_test.collection_ticker_actual_weights
     symbol             text,
     weight             double precision
 );
+
+
+create table if not exists public_test.drivewealth_monthly_usage
+(
+    profile_id   integer,
+    period_start timestamp,
+    period_end   timestamp,
+    equity_value numeric,
+    unique (profile_id, period_start)
+);

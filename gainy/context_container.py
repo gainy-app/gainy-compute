@@ -2,6 +2,12 @@ from contextlib import AbstractContextManager
 
 from psycopg2._psycopg import connection
 from functools import cached_property, cache
+
+from gainy.billing.repository import BillingRepository
+from gainy.billing.service import BillingService
+from gainy.billing.stripe.api import StripeApi
+from gainy.billing.stripe.provider import StripePaymentProvider
+from gainy.billing.stripe.repository import StripeRepository
 from gainy.data_access.repository import Repository
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.trading import TradingService, TradingRepository
@@ -35,7 +41,30 @@ class ContextContainer(AbstractContextManager):
     def recommendation_repository(self) -> RecommendationRepository:
         return RecommendationRepository(self.db_conn)
 
-    # drivewealth
+    # Stripe
+    @cached_property
+    def stripe_repository(self) -> StripeRepository:
+        return StripeRepository(self.db_conn)
+
+    @cached_property
+    def stripe_api(self) -> StripeApi:
+        return StripeApi()
+
+    @cached_property
+    def stripe_payment_provider(self) -> StripePaymentProvider:
+        return StripePaymentProvider(self.stripe_repository, self.stripe_api)
+
+    # Billing
+    @cached_property
+    def billing_repository(self) -> BillingRepository:
+        return BillingRepository(self.db_conn)
+
+    @cached_property
+    def billing_service(self) -> BillingService:
+        return BillingService(self.billing_repository,
+                              self.stripe_payment_provider)
+
+    # DriveWealth
     @cached_property
     def drivewealth_repository(self):
         return DriveWealthRepository(self.db_conn)
