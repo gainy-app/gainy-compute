@@ -1,6 +1,16 @@
 from abc import ABC, abstractmethod
+from decimal import Decimal
+import json
 from typing import List, Any, Dict
 from gainy.data_access.db_lock import ResourceType
+
+
+class DecimalEncoder(json.JSONEncoder):
+
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
 
 
 class classproperty(property):
