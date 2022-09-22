@@ -4,7 +4,7 @@ from gainy.billing.service import BillingService
 from gainy.billing.stripe.provider import StripePaymentProvider
 from gainy.tests.common import TestContextContainer
 
-from gainy.tests.mocks.repository_mocks import mock_persist
+from gainy.tests.mocks.repository_mocks import mock_persist, mock_noop
 
 
 def test_create_invoices(monkeypatch):
@@ -83,6 +83,7 @@ def test_charge(monkeypatch):
                         mock_get_active_payment_method)
     persisted_objects = {}
     monkeypatch.setattr(repo, "persist", mock_persist(persisted_objects))
+    monkeypatch.setattr(repo, "commit", mock_noop)
 
     service = BillingService(repo, stripe_payment_provider)
     service.charge(invoice)
