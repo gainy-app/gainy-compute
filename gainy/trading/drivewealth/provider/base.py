@@ -1,3 +1,4 @@
+from gainy.exceptions import KYCFormHasNotBeenSentException
 from gainy.trading.drivewealth.models import DriveWealthUser
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.utils import get_logger
@@ -15,5 +16,5 @@ class DriveWealthProviderBase:
         repository = self.repository
         user = repository.get_user(profile_id)
         if user is None:
-            raise Exception("KYC form has not been sent")
+            raise KYCFormHasNotBeenSentException("KYC form has not been sent")
         return user
