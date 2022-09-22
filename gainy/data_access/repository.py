@@ -134,6 +134,9 @@ class TablePersist:
     def commit(self):
         self.db_conn.commit()
 
+    def rollback(self):
+        self.db_conn.rollback()
+
     def persist(self, entities):
         if isinstance(entities, BaseModel):
             entities = [entities]

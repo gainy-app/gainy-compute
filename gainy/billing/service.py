@@ -33,17 +33,22 @@ class BillingService(BillingServiceInterface):
                 logger.exception(e)
 
     def charge(self, invoice: Invoice):
-        if not invoice.can_charge():
-            raise InvoiceSealedException()
+        try:
+            if not invoice.can_charge():
+                raise InvoiceSealedException()
 
-        payment_method = self.repo.get_active_payment_method(
-            invoice.profile_id)
-        provider = self._get_payment_method_provider(payment_method)
-        transaction = provider.charge(invoice, payment_method)
-        invoice.on_new_transaction(transaction)
-        self.repo.persist(invoice)
+            payment_method = self.repo.get_active_payment_method(
+                invoice.profile_id)
+            provider = self._get_payment_method_provider(payment_method)
+            transaction = provider.charge(invoice, payment_method)
+            invoice.on_new_transaction(transaction)
+            self.repo.persist(invoice)
 
-        return transaction
+            self.repo.commit()
+            return transaction
+        except Exception as e:
+            logger.exception(e)
+            self.repo.rollback()
 
     def _get_payment_method_provider(
             self, payment_method: PaymentMethod) -> AbstractPaymentProvider:

@@ -29,7 +29,7 @@ class PaymentTransaction(BaseModel):
     profile_id: int = None
     invoice_id: int = None
     payment_method_id: int = None
-    status: str = TransactionStatus.PENDING
+    status: str = None
     metadata: Any = None
     created_at: datetime.datetime = None
 
@@ -42,6 +42,8 @@ class PaymentTransaction(BaseModel):
 
         if row and row["status"]:
             self.status = TransactionStatus(row["status"])
+        else:
+            self.status = TransactionStatus.PENDING
 
     @classproperty
     def schema_name(self) -> str:
