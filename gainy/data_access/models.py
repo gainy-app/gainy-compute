@@ -36,6 +36,11 @@ class BaseModel(ABC):
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__
 
+    def refresh_entity(self, new_entity):
+        if not new_entity:
+            return
+        self.set_from_dict(new_entity.__dict__)
+
     @property
     @abstractmethod
     def schema_name(self) -> str:

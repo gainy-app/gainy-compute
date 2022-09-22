@@ -176,3 +176,35 @@ create trigger set_app_drivewealth_auth_tokens_updated_at
     on app.drivewealth_auth_tokens
     for each row
 execute procedure app.set_current_timestamp_updated_at();
+
+CREATE TABLE "app"."invoices"
+(
+    "id"           serial                  NOT NULL,
+    "profile_id"   int,
+    "period_id"    varchar,
+    "status"       varchar   default 'PENDING',
+    "amount"       numeric,
+    "due_date"     date,
+    "description"  text,
+    "period_start" timestamp,
+    "period_end"   timestamp,
+    "metadata"     json,
+    "version"      int,
+    "created_at"   timestamp default now() not null,
+    PRIMARY KEY ("id"),
+    UNIQUE ("profile_id", "period_id")
+);
+
+create table app.payment_methods
+(
+    id            serial
+        primary key,
+    profile_id    integer                                not null
+        references app.profiles
+            on update cascade on delete cascade,
+    name          varchar                                not null,
+    set_active_at timestamp,
+    created_at    timestamp with time zone default now() not null,
+    updated_at    timestamp with time zone default now() not null,
+    provider      varchar                                not null
+);

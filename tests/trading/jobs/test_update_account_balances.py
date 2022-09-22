@@ -7,7 +7,6 @@ from gainy.trading.models import TradingAccount
 def mock_sync_trading_accounts(visited_users=None):
 
     def mock(profile_id):
-        print(profile_id)
         if visited_users is not None:
             visited_users[profile_id] = True
 
