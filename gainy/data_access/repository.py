@@ -121,10 +121,11 @@ class TableDelete(TableFilter):
         query = sql.SQL("DELETE FROM {}").format(
             sql.Identifier(cls.schema_name, cls.table_name))
 
-        query += self._where_clause_statement(filter_by)
+        where_clause, params = self._where_clause_statement(filter_by)
+        query += where_clause
 
         with self.db_conn.cursor() as cursor:
-            cursor.execute(query, filter_by)
+            cursor.execute(query, params)
 
 
 class TablePersist:
