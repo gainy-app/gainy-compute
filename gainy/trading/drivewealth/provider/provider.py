@@ -15,23 +15,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
         super().__init__(repository)
         self.api = api
 
-    def sync_trading_accounts(self, profile_id: int):
+    def sync_profile_trading_accounts(self, profile_id: int):
         repository = self.repository
         user_ref_id = self._get_user(profile_id).ref_id
 
         accounts_data = self.api.get_user_accounts(user_ref_id)
         for account_data in accounts_data:
             account_ref_id = account_data["id"]
-            account_money_data = self.api.get_account_money(account_ref_id)
-            account_money = DriveWealthAccountMoney()
-            account_money.set_from_response(account_money_data)
-            repository.persist(account_money)
-
-            account_positions_data = self.api.get_account_positions(
-                account_ref_id)
-            account_positions = DriveWealthAccountPositions()
-            account_positions.set_from_response(account_positions_data)
-            repository.persist(account_positions)
 
             account: DriveWealthAccount = repository.find_one(
                 DriveWealthAccount,
@@ -40,16 +30,57 @@ class DriveWealthProvider(DriveWealthProviderBase):
             account.set_from_response(account_data)
             repository.persist(account)
 
-            if account.trading_account_id is None:
-                continue
+            self.sync_trading_account(account_ref_id=account_ref_id)
 
-            trading_account = repository.find_one(
-                TradingAccount, {"id": account.trading_account_id})
-            if trading_account is None:
-                continue
+    def sync_trading_account(self,
+                             account_ref_id: str = None,
+                             trading_account_id: int = None,
+                             fetch_account_info: bool = False):
+        repository = self.repository
 
-            account.update_trading_account(trading_account)
-            account_money.update_trading_account(trading_account)
-            account_positions.update_trading_account(trading_account)
+        _filter = {}
+        if account_ref_id:
+            _filter["ref_id"] = account_ref_id
+        if trading_account_id:
+            _filter["trading_account_id"] = trading_account_id
+        if not _filter:
+            raise Exception("At least one of the filters must be specified")
+        account: DriveWealthAccount = repository.find_one(
+            DriveWealthAccount, _filter)
 
-            repository.persist(trading_account)
+        if not account:
+            if not account_ref_id:
+                return
+
+            account = DriveWealthAccount()
+            account_ref_id = account.ref_id
+            fetch_account_info = True
+
+        if fetch_account_info:
+            account_data = self.api.get_account(account_ref_id)
+            account.set_from_response(account_data)
+            repository.persist(account)
+
+        account_money_data = self.api.get_account_money(account_ref_id)
+        account_money = DriveWealthAccountMoney()
+        account_money.set_from_response(account_money_data)
+        repository.persist(account_money)
+
+        account_positions_data = self.api.get_account_positions(account_ref_id)
+        account_positions = DriveWealthAccountPositions()
+        account_positions.set_from_response(account_positions_data)
+        repository.persist(account_positions)
+
+        if account.trading_account_id is None:
+            return
+
+        trading_account = repository.find_one(
+            TradingAccount, {"id": account.trading_account_id})
+        if trading_account is None:
+            return
+
+        account.update_trading_account(trading_account)
+        account_money.update_trading_account(trading_account)
+        account_positions.update_trading_account(trading_account)
+
+        repository.persist(trading_account)

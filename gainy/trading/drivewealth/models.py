@@ -114,6 +114,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         if not data:
             return
         self.ref_id = data["id"]
+        self.drivewealth_user_id = data["userID"]
         self.status = data["status"]['name']
         self.ref_no = data["accountNo"]
         self.nickname = data["nickname"]

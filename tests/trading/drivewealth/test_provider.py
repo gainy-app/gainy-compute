@@ -7,7 +7,7 @@ from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, Dri
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, DriveWealthAccountPositions
 
 
-def test_sync_trading_accounts(monkeypatch):
+def test_sync_profile_trading_accounts(monkeypatch):
     cash_balance_list = 10
     cash_available_for_trade_list = 20
     cash_available_for_withdrawal_list = 30
@@ -67,7 +67,7 @@ def test_sync_trading_accounts(monkeypatch):
         mock_get_account_positions(account_ref_id, equity_value=equity_value))
 
     service = DriveWealthProvider(drivewealth_repository, api)
-    service.sync_trading_accounts(profile_id)
+    service.sync_profile_trading_accounts(profile_id)
 
     assert DriveWealthAccount in persisted_objects
     assert DriveWealthAccountMoney in persisted_objects
