@@ -34,7 +34,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
     def sync_trading_account(self,
                              account_ref_id: str = None,
                              trading_account_id: int = None,
-                             fetch_account_info: bool = False):
+                             fetch_info: bool = False):
         repository = self.repository
 
         _filter = {}
@@ -53,9 +53,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
             account = DriveWealthAccount()
             account_ref_id = account.ref_id
-            fetch_account_info = True
+            fetch_info = True
 
-        if fetch_account_info:
+        if fetch_info:
             account_data = self.api.get_account(account_ref_id)
             account.set_from_response(account_data)
             repository.persist(account)

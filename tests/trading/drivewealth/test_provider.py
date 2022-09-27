@@ -123,7 +123,7 @@ def test_sync_trading_account(monkeypatch):
     service = DriveWealthProvider(drivewealth_repository, api)
     service.sync_trading_account(account_ref_id=account_ref_id,
                                  trading_account_id=trading_account_id,
-                                 fetch_account_info=True)
+                                 fetch_info=True)
 
     assert DriveWealthAccount in persisted_objects
     assert DriveWealthAccountMoney in persisted_objects

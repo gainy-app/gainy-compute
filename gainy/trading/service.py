@@ -16,7 +16,7 @@ class TradingService:
 
     def sync_trading_account(self, account: TradingAccount):
         self._get_provider_service().sync_trading_account(
-            trading_account_id=account.id, fetch_account_info=True)
+            trading_account_id=account.id, fetch_info=True)
 
     def _get_provider_service(self):
         return self.drivewealth_provider

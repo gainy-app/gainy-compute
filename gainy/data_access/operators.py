@@ -34,3 +34,9 @@ class OperatorLt(Operator):
 
     def __init__(self, param):
         super().__init__("<", param)
+
+
+class OperatorIn(Operator):
+
+    def __init__(self, param):
+        super().__init__("in", param)
