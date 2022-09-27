@@ -1,6 +1,6 @@
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
-    mock_get_account_positions
+    mock_get_account_positions, mock_get_account
 from gainy.trading.models import TradingAccount
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
@@ -11,14 +11,71 @@ def test_sync_profile_trading_accounts(monkeypatch):
     cash_balance_list = 10
     cash_available_for_trade_list = 20
     cash_available_for_withdrawal_list = 30
+    profile_id = 5
+    account_id = "account_ref_id"
+    user_ref_id = "user_ref_id"
+    trading_account_id = "trading_account_id"
+
+    account = DriveWealthAccount()
+    monkeypatch.setattr(account, "trading_account_id", trading_account_id)
+
+    user = DriveWealthUser()
+    monkeypatch.setattr(user, "ref_id", user_ref_id)
+
+    persisted_objects = {}
+    drivewealth_repository = DriveWealthRepository(None)
+    monkeypatch.setattr(drivewealth_repository, "persist",
+                        mock_persist(persisted_objects))
+    monkeypatch.setattr(
+        drivewealth_repository, "find_one",
+        mock_find([
+            (DriveWealthAccount, {
+                "ref_id": account_id
+            }, account),
+            (DriveWealthUser, {
+                "profile_id": profile_id
+            }, user),
+        ]))
+
+    api = DriveWealthApi(drivewealth_repository)
+    monkeypatch.setattr(
+        api, "get_user_accounts",
+        mock_get_user_accounts(
+            user_ref_id,
+            account_id,
+            cash_balance=cash_balance_list,
+            cash_available_for_trade=cash_available_for_trade_list,
+            cash_available_for_withdrawal=cash_available_for_withdrawal_list))
+
+    service = DriveWealthProvider(drivewealth_repository, api)
+
+    def mock_sync_trading_account(account_ref_id):
+        assert account_ref_id == account_id
+
+    monkeypatch.setattr(service, "sync_trading_account",
+                        mock_sync_trading_account)
+    service.sync_profile_trading_accounts(profile_id)
+
+    assert DriveWealthAccount in persisted_objects
+
+    assert persisted_objects[DriveWealthAccount][0] == account
+    assert account.ref_id == account_id
+    assert account.cash_balance == cash_balance_list
+    assert account.cash_available_for_trade == cash_available_for_trade_list
+    assert account.cash_available_for_withdrawal == cash_available_for_withdrawal_list
+
+
+def test_sync_trading_account(monkeypatch):
+    cash_balance_list = 10
+    cash_available_for_trade_list = 20
+    cash_available_for_withdrawal_list = 30
     cash_balance = 1
     cash_available_for_trade = 2
     cash_available_for_withdrawal = 3
     equity_value = 4
-    profile_id = 5
     account_ref_id = "account_ref_id"
     user_ref_id = "user_ref_id"
-    trading_account_id = "trading_account_id"
+    trading_account_id = 5
 
     trading_account = TradingAccount()
 
@@ -36,11 +93,9 @@ def test_sync_profile_trading_accounts(monkeypatch):
         drivewealth_repository, "find_one",
         mock_find([
             (DriveWealthAccount, {
-                "ref_id": account_ref_id
+                "ref_id": account_ref_id,
+                "trading_account_id": trading_account_id,
             }, account),
-            (DriveWealthUser, {
-                "profile_id": profile_id
-            }, user),
             (TradingAccount, {
                 "id": trading_account_id
             }, trading_account),
@@ -48,9 +103,8 @@ def test_sync_profile_trading_accounts(monkeypatch):
 
     api = DriveWealthApi(drivewealth_repository)
     monkeypatch.setattr(
-        api, "get_user_accounts",
-        mock_get_user_accounts(
-            user_ref_id,
+        api, "get_account",
+        mock_get_account(
             account_ref_id,
             cash_balance=cash_balance_list,
             cash_available_for_trade=cash_available_for_trade_list,
@@ -67,7 +121,9 @@ def test_sync_profile_trading_accounts(monkeypatch):
         mock_get_account_positions(account_ref_id, equity_value=equity_value))
 
     service = DriveWealthProvider(drivewealth_repository, api)
-    service.sync_profile_trading_accounts(profile_id)
+    service.sync_trading_account(account_ref_id=account_ref_id,
+                                 trading_account_id=trading_account_id,
+                                 fetch_account_info=True)
 
     assert DriveWealthAccount in persisted_objects
     assert DriveWealthAccountMoney in persisted_objects

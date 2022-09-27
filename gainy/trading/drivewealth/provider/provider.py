@@ -26,7 +26,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
             account: DriveWealthAccount = repository.find_one(
                 DriveWealthAccount,
                 {"ref_id": account_ref_id}) or DriveWealthAccount()
-            account.drivewealth_user_id = user_ref_id
             account.set_from_response(account_data)
             repository.persist(account)
 
