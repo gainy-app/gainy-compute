@@ -81,6 +81,7 @@ def test_sync_trading_account(monkeypatch):
 
     account = DriveWealthAccount()
     monkeypatch.setattr(account, "trading_account_id", trading_account_id)
+    monkeypatch.setattr(account, "ref_id", account_ref_id)
 
     user = DriveWealthUser()
     monkeypatch.setattr(user, "ref_id", user_ref_id)
