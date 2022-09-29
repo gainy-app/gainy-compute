@@ -47,12 +47,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account: DriveWealthAccount = repository.find_one(
             DriveWealthAccount, _filter)
 
-        if not account:
+        if account:
+            account_ref_id = account.ref_id
+        else:
             if not account_ref_id:
                 return
 
             account = DriveWealthAccount()
-            account_ref_id = account.ref_id
             fetch_info = True
 
         if fetch_info:
