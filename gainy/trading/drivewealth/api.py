@@ -27,7 +27,7 @@ class DriveWealthApi:
         self.repository = repository
 
     def get_account(self, account_id: str):
-        return self._make_request("GET", f"/accounts/{account_id}")
+        return self._make_request("GET", f"/accounts/{account_id}")["account"]
 
     def get_account_money(self, account_id: str):
         return self._make_request("GET",
