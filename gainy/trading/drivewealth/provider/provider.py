@@ -1,5 +1,6 @@
 from gainy.trading.drivewealth import DriveWealthRepository
-from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount
+from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
+    DriveWealthUser
 
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
@@ -14,6 +15,16 @@ class DriveWealthProvider(DriveWealthProviderBase):
     def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi):
         super().__init__(repository)
         self.api = api
+
+    def sync_user(self, user_ref_id):
+        user: DriveWealthUser = self.repository.find_one(
+            DriveWealthUser, {"ref_id": user_ref_id})
+        if not user:
+            return
+
+        data = self.api.get_user(user_ref_id)
+        user.set_from_response(data)
+        self.repository.persist(user)
 
     def sync_profile_trading_accounts(self, profile_id: int):
         repository = self.repository
@@ -59,6 +70,10 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if fetch_info:
             account_data = self.api.get_account(account_ref_id)
             account.set_from_response(account_data)
+            if not repository.find_one(
+                    DriveWealthUser, {"ref_id": account.drivewealth_user_id}):
+                self.sync_user(account.drivewealth_user_id)
+
             repository.persist(account)
 
         account_money_data = self.api.get_account_money(account_ref_id)
