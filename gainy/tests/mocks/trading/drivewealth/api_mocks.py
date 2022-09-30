@@ -1,4 +1,5 @@
 def _get_account_data(account_ref_id,
+                      user_id="user_id",
                       cash_balance=None,
                       cash_available_for_trade=None,
                       cash_available_for_withdrawal=None):
@@ -33,7 +34,7 @@ def _get_account_data(account_ref_id,
         },
         "commissionID": "4dafc263-f73a-4972-bed0-3af9a6ee3d7d",
         "beneficiaries": False,
-        "userID": "bf98c335-57ad-4337-ae9f-ed1fcfb447af",
+        "userID": user_id,
         "restricted": False,
         "goodFaithViolations": 0,
         "patternDayTrades": 0,
@@ -82,6 +83,7 @@ def mock_get_user_accounts(user_ref_id,
 
 
 def mock_get_account(account_ref_id,
+                     user_id="user_id",
                      cash_balance=None,
                      cash_available_for_trade=None,
                      cash_available_for_withdrawal=None):
@@ -90,6 +92,7 @@ def mock_get_account(account_ref_id,
         assert _account_ref_id == account_ref_id
         return _get_account_data(
             account_ref_id=account_ref_id,
+            user_id=user_id,
             cash_balance=cash_balance,
             cash_available_for_trade=cash_available_for_trade,
             cash_available_for_withdrawal=cash_available_for_withdrawal)

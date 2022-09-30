@@ -96,7 +96,6 @@ def test_sync_trading_account(monkeypatch):
         mock_find([
             (DriveWealthUser, {
                 "ref_id": user_ref_id,
-                "trading_account_id": trading_account_id,
             }, user),
             (DriveWealthAccount, {
                 "ref_id": account_ref_id,
@@ -112,6 +111,7 @@ def test_sync_trading_account(monkeypatch):
         api, "get_account",
         mock_get_account(
             account_ref_id,
+            user_ref_id,
             cash_balance=cash_balance_list,
             cash_available_for_trade=cash_available_for_trade_list,
             cash_available_for_withdrawal=cash_available_for_withdrawal_list))
