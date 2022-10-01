@@ -80,6 +80,11 @@ class DriveWealthUser(BaseDriveWealthModel):
     def table_name(self) -> str:
         return "drivewealth_users"
 
+    def set_from_response(self, data):
+        self.ref_id = data["id"]
+        self.status = data["status"]["name"]
+        self.data = data
+
 
 class DriveWealthAccount(BaseDriveWealthModel):
     ref_id = None
@@ -109,6 +114,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         if not data:
             return
         self.ref_id = data["id"]
+        self.drivewealth_user_id = data["userID"]
         self.status = data["status"]['name']
         self.ref_no = data["accountNo"]
         self.nickname = data["nickname"]

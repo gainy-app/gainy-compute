@@ -34,3 +34,15 @@ class OperatorLt(Operator):
 
     def __init__(self, param):
         super().__init__("<", param)
+
+
+class OperatorIn(Operator):
+
+    def __init__(self, param):
+        super().__init__(None, param)
+
+    def to_sql(self, field_name: str) -> Tuple[sql.SQL, Dict[str, Any]]:
+        _sql = sql.SQL(f" = ANY (%({field_name})s)")
+        _params = {field_name: self.param}
+
+        return _sql, _params

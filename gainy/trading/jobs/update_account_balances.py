@@ -22,10 +22,9 @@ class UpdateAccountBalancesJob:
             TradingAccount)
         for account in trading_accounts:
             start_time = time.time()
-            self.service.sync_trading_accounts(account.profile_id)
+            self.service.sync_trading_account(account)
 
-            logger.info("Synced accounts of profile %s in %f",
-                        account.profile_id,
+            logger.info("Synced account %d in %f", account.id,
                         time.time() - start_time)
 
 
