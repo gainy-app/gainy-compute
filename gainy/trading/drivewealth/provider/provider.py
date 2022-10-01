@@ -18,9 +18,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
     def sync_user(self, user_ref_id):
         user: DriveWealthUser = self.repository.find_one(
-            DriveWealthUser, {"ref_id": user_ref_id})
-        if not user:
-            return
+            DriveWealthUser, {"ref_id": user_ref_id}) or DriveWealthUser()
 
         data = self.api.get_user(user_ref_id)
         user.set_from_response(data)
