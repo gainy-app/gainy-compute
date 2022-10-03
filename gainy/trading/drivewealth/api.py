@@ -89,6 +89,7 @@ class DriveWealthApi:
 
         status_code = response.status_code
         logging_extra = {
+            "headers": headers,
             "post_data": post_data,
             "status_code": status_code,
             "response_data": response_data,
