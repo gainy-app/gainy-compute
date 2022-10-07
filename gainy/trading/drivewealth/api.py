@@ -2,7 +2,7 @@ import os
 import requests
 
 from gainy.data_access.db_lock import LockAcquisitionTimeout
-from gainy.exceptions import ApiException
+from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
 from gainy.trading.drivewealth.models import DriveWealthAuthToken
 from gainy.trading.drivewealth.repository import DriveWealthRepository
@@ -105,12 +105,8 @@ class DriveWealthApi:
             logger.error("[DRIVEWEALTH] %s %s" % (method, url),
                          extra=logging_extra)
 
-            if response_data is not None and 'message' in response_data:
-                raise ApiException(
-                    "%s: %s" %
-                    (response_data["errorCode"], response_data["message"]))
-            else:
-                raise ApiException("Failed: %d" % status_code)
+            raise DriveWealthApiException.create_from_response(
+                response_data, status_code)
 
         logger.info("[DRIVEWEALTH] %s %s" % (method, url), extra=logging_extra)
 
