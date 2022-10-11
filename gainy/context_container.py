@@ -9,6 +9,7 @@ from gainy.billing.stripe.api import StripeApi
 from gainy.billing.stripe.provider import StripePaymentProvider
 from gainy.billing.stripe.repository import StripeRepository
 from gainy.data_access.repository import Repository
+from gainy.optimization.collection.repository import CollectionOptimizerRepository
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.trading import TradingService, TradingRepository
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository, DriveWealthApi
@@ -40,6 +41,10 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def recommendation_repository(self) -> RecommendationRepository:
         return RecommendationRepository(self.db_conn)
+
+    @cached_property
+    def collection_optimizer_repository(self) -> CollectionOptimizerRepository:
+        return CollectionOptimizerRepository(self.db_conn)
 
     # Stripe
     @cached_property
