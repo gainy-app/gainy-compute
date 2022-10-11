@@ -2,6 +2,9 @@ shell:
 	docker-compose run python make in-docker-configure
 	docker-compose run --rm python /bin/bash
 
+down:
+	docker-compose down
+
 clean:
 	- docker-compose down --rmi local -v --remove-orphans
 

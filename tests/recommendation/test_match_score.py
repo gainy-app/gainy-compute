@@ -31,8 +31,11 @@ def test_ticker_match_score():
         with context_container.db_conn.cursor(
                 cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
-                "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s",
-                {"profile_id": profile_id})
+                "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s and symbol = %(symbol)s",
+                {
+                    "profile_id": profile_id,
+                    "symbol": 'AAPL'
+                })
 
             ticker_match_score: Dict[str, Any] = cursor.fetchone()
 
