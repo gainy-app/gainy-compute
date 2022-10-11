@@ -12,8 +12,17 @@ logger = get_logger(__name__)
 
 
 class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
-    def __init__(self, repository: CollectionOptimizerRepository, tickers, date_today: datetime.date, lookback=9, benchmark='SPY',
-                 industry_type='gic_sector', penalties=None, target_beta=1, bounds=(0, 1)) -> None:
+
+    def __init__(self,
+                 repository: CollectionOptimizerRepository,
+                 tickers,
+                 date_today: datetime.date,
+                 lookback=9,
+                 benchmark='SPY',
+                 industry_type='gic_sector',
+                 penalties=None,
+                 target_beta=1,
+                 bounds=(0, 1)) -> None:
         """
         Penalties - penalty coefficients dictionary
             - hs - HHI index penalty for stocks
@@ -26,10 +35,12 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
         """
 
         penalties = penalties.copy() or {'hs': 1.0, 'hi': 1.0, 'b': 1.0}
-        super().__init__(repository, tickers, date_today, lookback, benchmark, industry_type, penalties, target_beta)
+        super().__init__(repository, tickers, date_today, lookback, benchmark,
+                         industry_type, penalties, target_beta)
 
         # Override params
-        if bounds[1] * len(tickers) > 1:  # To avoid lack of solution for short list
+        if bounds[1] * len(
+                tickers) > 1:  # To avoid lack of solution for short list
             self.bounds = bounds
         else:
             self.bounds = (bounds[0], 1)
@@ -53,7 +64,13 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
         # Define functions for optimization
 
         def portfolio_sd(weights):
-            logger.debug('portfolio_sd', extra={"weights": weights, "res": np.sqrt(np.transpose(weights) @ sigma @ weights)})
+            logger.debug('portfolio_sd',
+                         extra={
+                             "weights":
+                             weights,
+                             "res":
+                             np.sqrt(np.transpose(weights) @ sigma @ weights)
+                         })
             return np.sqrt(np.transpose(weights) @ sigma @ weights)
 
         # Risk contribution of assets
@@ -71,46 +88,56 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
             portvol = portfolio_sd(weights)
             risk_target = np.asmatrix(np.multiply(portvol, w_t))
             asset_RC = risk_contribution(weights)
-            RB = sum(np.square(asset_RC - risk_target.T))[0, 0]  # sum of squared error
+            RB = sum(np.square(asset_RC -
+                               risk_target.T))[0, 0]  # sum of squared error
             return RB
 
         def obj_fun(weights):
             RB = risk_budget_obj(weights)
-            fnc = RB + self.hhi_stock(weights) + self.hhi_ind(weights, industries) + self.beta_pen(weights, betas)
+            fnc = RB + self.hhi_stock(weights) + self.hhi_ind(
+                weights, industries) + self.beta_pen(weights, betas)
             return fnc
 
         # Constraints
 
-        constraints = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}  # Fully invested
+        constraints = {
+            'type': 'eq',
+            'fun': lambda x: np.sum(x) - 1
+        }  # Fully invested
         bounds = tuple([self.bounds] * len(tickers))
 
         opt_res = sco.minimize(
             fun=obj_fun,  # Objective
-            x0=np.repeat(1 / len(tickers), len(tickers)),  # Initial guess - equal weighted
+            x0=np.repeat(1 / len(tickers),
+                         len(tickers)),  # Initial guess - equal weighted
             method='SLSQP',
             bounds=bounds,
-            constraints=constraints
-        )
-        out = pd.DataFrame({'Weight': opt_res.x}, index=tickers).sort_values('Weight', ascending=False)
+            constraints=constraints)
+        out = pd.DataFrame({
+            'Weight': opt_res.x
+        }, index=tickers).sort_values('Weight', ascending=False)
 
         weights = np.repeat(1 / len(tickers), len(tickers))
 
-        logger.info('Finished Risk budget optimization', extra={
-              "Success": opt_res.success,
-              "Weights": out.to_dict('records'),
-              "Objective function components with equal weights": {
-                  "Risk budget": risk_budget_obj(weights),
-                  "Stock HHI": self.hhi_stock(weights),
-                  "Industry HHI": self.hhi_ind(weights, industries),
-                  "Beta penalty": self.beta_pen(weights, betas),
-              },
-              "Objective function components with optimized weights": {
-                  "Risk contribution": risk_contribution(opt_res.x),
-                  "Risk budget": risk_budget_obj(opt_res.x),
-                  "Stock HHI": self.hhi_stock(opt_res.x),
-                  "Industry HHI": self.hhi_ind(opt_res.x, industries),
-                  "Beta penalty": self.beta_pen(opt_res.x, betas),
-              }
-        })
+        logger.info('Finished Risk budget optimization',
+                    extra={
+                        "Success": opt_res.success,
+                        "Weights": out.to_dict('records'),
+                        "Objective function components with equal weights": {
+                            "Risk budget": risk_budget_obj(weights),
+                            "Stock HHI": self.hhi_stock(weights),
+                            "Industry HHI": self.hhi_ind(weights, industries),
+                            "Beta penalty": self.beta_pen(weights, betas),
+                        },
+                        "Objective function components with optimized weights":
+                        {
+                            "Risk contribution": risk_contribution(opt_res.x),
+                            "Risk budget": risk_budget_obj(opt_res.x),
+                            "Stock HHI": self.hhi_stock(opt_res.x),
+                            "Industry HHI":
+                            self.hhi_ind(opt_res.x, industries),
+                            "Beta penalty": self.beta_pen(opt_res.x, betas),
+                        }
+                    })
 
         return out.Weight.to_dict()

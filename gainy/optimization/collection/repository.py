@@ -8,6 +8,7 @@ from psycopg2.extras import RealDictCursor
 
 
 class CollectionOptimizerRepository:
+
     def __init__(self, db_conn: connection):
         self.db_conn = db_conn
 
@@ -50,7 +51,9 @@ class CollectionOptimizerRepository:
 
         return pd.DataFrame(data)
 
-    def get_last_ticker_price_df(self, symbols: list, max_date=None) -> pd.DataFrame:
+    def get_last_ticker_price_df(self,
+                                 symbols: list,
+                                 max_date=None) -> pd.DataFrame:
         if max_date is None:
             max_date = datetime.today().strftime('%Y-%m-%d')
 
@@ -88,7 +91,8 @@ class CollectionOptimizerRepository:
             data = cursor.fetchall()
 
         df = pd.DataFrame(data)
-        df = df.pivot(index='date', columns='ticker', values='price').rename_axis(None, axis=1)
+        df = df.pivot(index='date', columns='ticker',
+                      values='price').rename_axis(None, axis=1)
         df.index = pd.to_datetime(df.index)
 
         return df
