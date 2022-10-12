@@ -39,19 +39,33 @@ class OptimizeCollectionsJob:
             collection_ids = self.repository.enumerate_collection_ids()
 
         for collection_id in collection_ids:
-            opt_res = self._optimize_collection(collection_id, date)
-            df = self._opt_res_to_df(collection_id, opt_res, date)
-            df.to_csv(output_filename,
-                      index=False,
-                      mode='a',
-                      header=(not os.path.exists(output_filename)))
+            try:
+                opt_res = self._optimize_collection(collection_id, date)
+                df = self._opt_res_to_df(collection_id, opt_res, date)
+                df.to_csv(output_filename,
+                          index=False,
+                          mode='a',
+                          header=(not os.path.exists(output_filename)))
+            except Exception as e:
+                logging_extra = {"collection_id": collection_id, "date": date}
+                logger.exception(e, extra=logging_extra)
+
+                raise e
 
     def _optimize_collection(self, collection_id: int, date: datetime.date):
+        logging_extra = {"collection_id": collection_id, "date": date}
+
         tickers = self.repository.get_collection_tickers(collection_id)
-        logger.info("Using tickers %s", tickers)
+        if not tickers:
+            raise Exception("No tickers found for collection %d" %
+                            collection_id)
+        logger.info("Using tickers %s", tickers, extra=logging_extra)
 
         tickers = self.tickers_filter.filter(tickers)
-        logger.info("Tickers after filtering %s", tickers)
+        if not tickers:
+            raise Exception("No tickers after filtering for collection %d" %
+                            collection_id)
+        logger.info("Tickers after filtering %s", tickers, extra=logging_extra)
 
         optimizer = PortfolioRiskBudgetCollectionOptimizer(self.repository,
                                                            tickers,
@@ -60,7 +74,7 @@ class OptimizeCollectionsJob:
                                                            lookback=9,
                                                            **self.params)
         opt_res = optimizer.optimize()
-        logger.info("Optimization result %s", opt_res)
+        logger.info("Optimization result %s", opt_res, extra=logging_extra)
 
         return opt_res
 
