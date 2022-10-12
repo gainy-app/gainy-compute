@@ -5,6 +5,7 @@ import traceback
 import os
 
 import github3
+from github3.exceptions import NotFoundError
 from github3.git import Reference, Commit
 from github3.pulls import ShortPullRequest
 from github3.repos import Repository
@@ -50,14 +51,15 @@ def execute(repo_owner,
                                                        ref.object.sha)
         logger_extra["branch_ref"] = branch_ref.as_dict()
 
-        contents = repo.file_contents(dest_path)
-        if contents:
+        try:
+            contents = repo.file_contents(dest_path)
             resp = contents.update(title, file_content, branch=branch_name)
-        else:
+        except NotFoundError:
             resp = repo.create_file(dest_path,
                                     title,
                                     file_content,
                                     branch=branch_name)
+
         logger_extra["content"] = resp["content"].as_dict()
         logger_extra["commit"] = resp["commit"].as_dict()
 
@@ -74,6 +76,7 @@ def execute(repo_owner,
         logger.info('Finished', extra=logger_extra)
     except Exception as e:
         logger.exception(e, extra=logger_extra)
+        raise e
 
 
 def cli(args=None):

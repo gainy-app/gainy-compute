@@ -115,3 +115,12 @@ class CollectionOptimizerRepository:
         with self.db_conn.cursor() as cursor:
             cursor.execute(query)
             yield from map(itemgetter(0), cursor)
+
+    def get_collection_name(self, collection_id: int) -> str:
+        query = f"select name from collections where id = %(id)s"
+
+        params = {"id": collection_id}
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            return cursor.fetchone()[0]

@@ -69,7 +69,8 @@ class OptimizeCollectionsJob:
         opt_res = pd.DataFrame.from_dict(opt_res, orient="index").reset_index()
         opt_res.columns = ['symbol', 'weight']
         opt_res['date'] = datetime.datetime.strftime(date, "%Y-%m-%d")
-        opt_res['ttf_id'] = collection_id
+        opt_res['ttf_name'] = self.repository.get_collection_name(
+            collection_id)
         opt_res['optimized_at'] = datetime.datetime.now()
 
         return opt_res
