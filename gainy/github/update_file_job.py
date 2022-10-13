@@ -69,12 +69,10 @@ def execute(repo_owner,
             resp = None
 
         if not resp:
-            print(resp)
             resp = repo.create_file(dest_path,
                                     title,
                                     file_content,
                                     branch=branch_name)
-            print(resp)
 
         logger_extra["content"] = resp["content"].as_dict()
         logger_extra["commit"] = resp["commit"].as_dict()
