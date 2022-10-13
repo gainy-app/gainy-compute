@@ -1,17 +1,14 @@
-from gainy.utils import db_connect
-from gainy.recommendation.compute import generate_all_match_scores
+from typing import Any, Dict
+
+from gainy.context_container import ContextContainer
 from psycopg2.extras import RealDictCursor
 
 
 def test_ticker_match_score():
-    with db_connect() as db_conn:
-        with db_conn.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO app.profiles (email, first_name, last_name, gender, created_at, user_id, avatar_url, legal_address) VALUES ('test3@example.com', 'fn', 'ln', 0, '2021-10-20 16:02:34.514475 +00:00', 'AO0OQyz0jyL5lNUpvKbpVdAPvlI3', '', 'legal_address') returning id"
-            )
+    profile_id = 1
 
-            profile_id = cursor.fetchone()[0]
-
+    with ContextContainer() as context_container:
+        with context_container.db_conn.cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO app.profile_holdings (iso_currency_code, quantity, security_id, profile_id, account_id, ref_id,
@@ -28,19 +25,25 @@ def test_ticker_match_score():
                 VALUES ('2022-08-22', null, 83, '0_83', 'AAPL', 1);
                 """, {"profile_id": profile_id})
 
-        generate_all_match_scores(db_conn, [profile_id])
-        with db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(
-                "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s",
-                {"profile_id": profile_id})
+        context_container.recommendation_repository.generate_match_scores(
+            [profile_id])
 
-            ticker_match_score = cursor.fetchone()
+        with context_container.db_conn.cursor(
+                cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                "SELECT * from app.profile_ticker_match_score where profile_id = %(profile_id)s and symbol = %(symbol)s",
+                {
+                    "profile_id": profile_id,
+                    "symbol": 'AAPL'
+                })
+
+            ticker_match_score: Dict[str, Any] = cursor.fetchone()
 
             cursor.execute(
                 "SELECT * from app.profile_collection_match_score where profile_id = %(profile_id)s",
                 {"profile_id": profile_id})
 
-            collection_match_score = cursor.fetchone()
+            collection_match_score: Dict[str, Any] = cursor.fetchone()
 
     assert ticker_match_score["profile_id"] == profile_id
     assert ticker_match_score["symbol"] == 'AAPL'

@@ -12,6 +12,8 @@ class ResourceType(enum.Enum):
     GENERAL = 0
     PROFILE_RECOMMENDATIONS = 1
     WEBSOCKETS = 2
+    DRIVEWEALTH_AUTH_TOKEN = 3
+    INVOICE = 4
 
 
 class LockAcquisitionTimeout(Exception):
@@ -34,7 +36,7 @@ class DatabaseLock:
                 "SELECT pg_try_advisory_lock(%(resource_type)s, %(resource_id)s)",
                 {
                     "resource_type": self.resource_type.value,
-                    "resource_id": resource_id
+                    "resource_id": resource_id or -1
                 })
             return cursor.fetchone()[0]
 
@@ -55,7 +57,7 @@ class DatabaseLock:
                 "SELECT pg_advisory_unlock(%(resource_type)s, %(resource_id)s)",
                 {
                     "resource_type": self.resource_type.value,
-                    "resource_id": resource_id
+                    "resource_id": resource_id or -1
                 })
 
 

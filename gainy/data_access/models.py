@@ -1,6 +1,16 @@
 from abc import ABC, abstractmethod
+from decimal import Decimal
+import json
 from typing import List, Any, Dict
 from gainy.data_access.db_lock import ResourceType
+
+
+class DecimalEncoder(json.JSONEncoder):
+
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
 
 
 class classproperty(property):
@@ -11,8 +21,25 @@ class classproperty(property):
 
 class BaseModel(ABC):
 
+    def __init__(self, row: dict = None):
+        if row:
+            self.set_from_dict(row)
+
+    def set_from_dict(self, row: dict = None):
+        if not row:
+            return
+
+        for field, value in row.items():
+            if hasattr(self, field):
+                setattr(self, field, value)
+
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__
+
+    def refresh_entity(self, new_entity):
+        if not new_entity:
+            return
+        self.set_from_dict(new_entity.__dict__)
 
     @property
     @abstractmethod

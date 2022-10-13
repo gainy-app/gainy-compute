@@ -1,6 +1,5 @@
 import json
 from gainy.data_access.models import BaseModel, classproperty
-from gainy.recommendation.match_score import MatchScore
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import ResourceVersion
 
