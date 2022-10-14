@@ -110,7 +110,7 @@ class CollectionOptimizerRepository:
         return df.set_index('ticker').industry.to_dict()
 
     def enumerate_collection_ids(self) -> Iterable[int]:
-        query = "select distinct id from collections where enabled = '1'"
+        query = "select distinct id from collections where enabled = '1' and optimization_enabled = 1"
 
         with self.db_conn.cursor() as cursor:
             cursor.execute(query)

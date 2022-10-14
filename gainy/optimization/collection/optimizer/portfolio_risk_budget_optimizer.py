@@ -64,13 +64,6 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
         # Define functions for optimization
 
         def portfolio_sd(weights):
-            logger.debug('portfolio_sd',
-                         extra={
-                             "weights":
-                             weights,
-                             "res":
-                             np.sqrt(np.transpose(weights) @ sigma @ weights)
-                         })
             return np.sqrt(np.transpose(weights) @ sigma @ weights)
 
         # Risk contribution of assets
@@ -78,10 +71,16 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
             # function that calculates asset contribution to total risk
             w = np.matrix(weights)
             portvol = portfolio_sd(weights)
+
             # Marginal Risk Contribution
             MRC = sigma * w.T
+
             # Risk Contribution
-            RC = np.multiply(MRC, w.T) / portvol
+            RC = np.multiply(MRC, w.T)
+
+            if abs(portvol) > 1e-10:
+                RC /= portvol
+
             return RC
 
         def risk_budget_obj(weights):
@@ -122,7 +121,7 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
         logger.info('Finished Risk budget optimization',
                     extra={
                         "Success": opt_res.success,
-                        "Weights": out.to_dict('records'),
+                        "Weights": out.Weight.to_dict(),
                         "Objective function components with equal weights": {
                             "Risk budget": risk_budget_obj(weights),
                             "Stock HHI": self.hhi_stock(weights),
