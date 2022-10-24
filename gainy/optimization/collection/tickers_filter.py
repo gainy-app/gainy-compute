@@ -37,7 +37,7 @@ class CollectionTickerFilter:
         df['Flag'] = np.NaN
 
         df.loc[df.marketcap < min_market_cap, 'Flag'] = str(
-            df.loc[df.marketcap < min_market_cap, 'Flag'].values) + '- MC'
+            df.loc[df.marketcap < min_market_cap, 'Flag'].values) + '-MC'
         df.loc[df.adjusted_close < min_price, 'Flag'] = str(
             df.loc[df.adjusted_close < min_price, 'Flag'].values) + '-Price'
         df.loc[df.vol_doll < min_volume, 'Flag'] = str(
@@ -47,7 +47,7 @@ class CollectionTickerFilter:
         df.loc[df.max_date < maxdt,
                'Flag'] = str(df.loc[df.max_date < maxdt, 'Flag']) + '-Date'
 
-        # df.Flag = df.Flag.str.replace('\[nan\]-', '')
-        logger.debug("Filtering data", extra={"data": df.to_dict('records')})
+        logger.info("Filtering data",
+                    extra={"data": dict(zip(df.ticker, df.Flag))})
 
         return df.loc[df.Flag.isna(), 'ticker'].tolist()

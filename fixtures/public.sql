@@ -112,20 +112,21 @@ create table if not exists drivewealth_monthly_usage
 
 create table if not exists collections
 (
-    id            integer not null
+    id                   integer not null
         constraint pk_collections
             primary key,
-    name          varchar,
-    description   varchar,
-    enabled       varchar,
-    personalized  varchar,
-    image_url     varchar,
-    influencer_id integer,
-    size          integer,
-    updated_at    timestamp
+    name                 varchar,
+    description          varchar,
+    enabled              varchar,
+    personalized         varchar,
+    image_url            varchar,
+    influencer_id        integer,
+    size                 integer,
+    optimization_enabled integer,
+    updated_at           timestamp
 );
-insert into collections (id, name, description, enabled, personalized, image_url, influencer_id, size, updated_at)
-values  (83, 'Big Tech', 'The largest companies operating in the tech sector. These companies are the drivers of technological advances. The stocks offer high returns when the market favors growth stocks and tech. On the other hand, they tend to be crowded and prone to high volatility. ', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Big%20Tech.jpg', null, 18, '2022-10-10 05:26:34.223409');
+insert into collections (id, name, description, enabled, personalized, image_url, influencer_id, size, optimization_enabled, updated_at)
+values  (83, 'Big Tech', 'The largest companies operating in the tech sector. These companies are the drivers of technological advances. The stocks offer high returns when the market favors growth stocks and tech. On the other hand, they tend to be crowded and prone to high volatility. ', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Big%20Tech.jpg', null, 18, 1, '2022-10-10 05:26:34.223409');
 
 create table if not exists ticker_metrics
 (

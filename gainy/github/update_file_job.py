@@ -6,7 +6,7 @@ import os
 
 import github3
 from github3.exceptions import NotFoundError
-from github3.git import Reference, Commit
+from github3.git import Reference
 from github3.pulls import ShortPullRequest
 from github3.repos import Repository
 
@@ -15,6 +15,9 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
+GITHUB_APP_INSTALLATION_ID = os.getenv("GITHUB_APP_INSTALLATION_ID")
+GITHUB_APP_PRIVATE_KEY = os.getenv("GITHUB_APP_PRIVATE_KEY")
 
 
 def execute(repo_owner,
@@ -42,7 +45,15 @@ def execute(repo_owner,
         with open(src_path, "rb") as f:
             file_content = f.read()
 
-        gh = github3.login(token=GITHUB_TOKEN)
+        if GITHUB_TOKEN:
+            gh = github3.login(token=GITHUB_TOKEN)
+        elif GITHUB_APP_PRIVATE_KEY and GITHUB_APP_ID and GITHUB_APP_INSTALLATION_ID:
+            gh = github3.GitHub()
+            gh.login_as_app_installation(
+                bytes(GITHUB_APP_PRIVATE_KEY, 'utf-8'), int(GITHUB_APP_ID),
+                int(GITHUB_APP_INSTALLATION_ID))
+        else:
+            raise Exception('Failed to authenticate.')
 
         repo: Repository = gh.repository(repo_owner, repo_name)
         ref: Reference = repo.ref(f'heads/{base_branch_name}')
@@ -55,6 +66,9 @@ def execute(repo_owner,
             contents = repo.file_contents(dest_path)
             resp = contents.update(title, file_content, branch=branch_name)
         except NotFoundError:
+            resp = None
+
+        if not resp:
             resp = repo.create_file(dest_path,
                                     title,
                                     file_content,
@@ -69,9 +83,10 @@ def execute(repo_owner,
                                                   body=message)
         logger_extra["pull"] = pull.as_dict()
 
-        pull: ShortPullRequest = pull.create_review_requests(
-            reviewers, team_reviewers)
-        logger_extra["pull"] = pull.as_dict()
+        if reviewers or team_reviewers:
+            pull: ShortPullRequest = pull.create_review_requests(
+                reviewers, team_reviewers)
+            logger_extra["pull"] = pull.as_dict()
 
         logger.info('Finished', extra=logger_extra)
     except Exception as e:

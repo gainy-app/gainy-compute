@@ -97,7 +97,7 @@ class SharpeCollectionOptimizer(AbstractCollectionOptimizer):
         logger.info('Finished Sharpe optimization',
                     extra={
                         "Success": opt_res.success,
-                        "Weights": out.to_dict('records'),
+                        "Weights": out.Weight.to_dict(),
                         "Objective function components with equal weights": {
                             "Value":
                             numerator(weights) / portfolio_sd(weights),

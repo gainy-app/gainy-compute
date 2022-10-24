@@ -56,7 +56,7 @@ class AbstractCollectionOptimizer(ABC):
 
         if missing.shape[0] > 0:
             logger.warning(
-                "The following tickers have less than 80% of price observations: %s. They will be dropped",
+                "The following tickers have less than 80%% of price observations: %s. They will be dropped",
                 missing.index.values)
             rets = rets.drop(missing.index, axis=1)
 
@@ -64,8 +64,8 @@ class AbstractCollectionOptimizer(ABC):
         missing_tickers = list(set(tickers) - set(rets.columns))
         if len(missing_tickers) > 0:
             logger.warning(
-                f"\nWe do not support the following tickers {missing_tickers}.\nThey will be dropped from the optimization\n"
-            )
+                "We do not support the following tickers %s. They will be dropped from the optimization",
+                missing_tickers)
 
         return rets
 
