@@ -63,21 +63,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
                 return
 
             account = DriveWealthAccount()
+            account.ref_id = account_ref_id
             fetch_info = True
 
         if fetch_info:
-            account_data = self.api.get_account(account_ref_id)
-            account.set_from_response(account_data)
-            if not repository.find_one(
-                    DriveWealthUser, {"ref_id": account.drivewealth_user_id}):
-                self.sync_user(account.drivewealth_user_id)
+            self._sync_account(account)
 
-            repository.persist(account)
-
-        account_money_data = self.api.get_account_money(account_ref_id)
-        account_money = DriveWealthAccountMoney()
-        account_money.set_from_response(account_money_data)
-        repository.persist(account_money)
+        account_money = self._sync_account_money(account_ref_id)
 
         account_positions_data = self.api.get_account_positions(account_ref_id)
         account_positions = DriveWealthAccountPositions()
@@ -97,3 +89,21 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account_positions.update_trading_account(trading_account)
 
         repository.persist(trading_account)
+
+    def _sync_account(self, account: DriveWealthAccount):
+        account_data = self.api.get_account(account.ref_id)
+        account.set_from_response(account_data)
+
+        if not self.repository.find_one(
+                DriveWealthUser, {"ref_id": account.drivewealth_user_id}):
+            self.sync_user(account.drivewealth_user_id)
+
+        self.repository.persist(account)
+
+    def _sync_account_money(self,
+                            account_ref_id: str) -> DriveWealthAccountMoney:
+        account_money_data = self.api.get_account_money(account_ref_id)
+        account_money = DriveWealthAccountMoney()
+        account_money.set_from_response(account_money_data)
+        self.repository.persist(account_money)
+        return account_money

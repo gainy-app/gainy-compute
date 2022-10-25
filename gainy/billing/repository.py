@@ -35,7 +35,7 @@ class BillingRepository(Repository):
                     from drivewealth_monthly_usage_extended
                              left join app.invoices using (profile_id, period_id)
                     where drivewealth_monthly_usage_extended.period_end < now()
-                      and invoices is null
+                      and invoices.profile_id is null
                     on conflict do nothing""", {
                     "min_fee":
                     MIN_FEE,

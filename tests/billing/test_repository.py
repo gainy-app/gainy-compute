@@ -85,7 +85,7 @@ def test_iterate_unpaid_invoices_due():
                     "period_end": period_end,
                     "status_pending": InvoiceStatus.PENDING,
                     "status_paid": InvoiceStatus.PAID,
-                    "status_failed": InvoiceStatus.PAYMENT_FAILED
+                    "status_failed": InvoiceStatus.FAILED
                 })
 
         invoices = list(
