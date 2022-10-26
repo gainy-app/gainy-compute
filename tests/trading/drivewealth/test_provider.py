@@ -1,10 +1,12 @@
-from gainy.tests.mocks.repository_mocks import mock_find, mock_persist
+from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
-    mock_get_account_positions, mock_get_account
+    mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, CASH_VALUE, FUND1_ID, FUND2_ID, FUND2_VALUE, \
+    FUND1_VALUE
 from gainy.trading.models import TradingAccount
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
-from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, DriveWealthAccountPositions
+from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
+    DriveWealthAccountPositions, DriveWealthPortfolio
 
 
 def test_sync_profile_trading_accounts(monkeypatch):
@@ -159,3 +161,25 @@ def test_sync_trading_account(monkeypatch):
     assert trading_account.cash_available_for_trade == cash_available_for_trade
     assert trading_account.cash_available_for_withdrawal == cash_available_for_withdrawal
     assert trading_account.equity_value == equity_value
+
+
+def test_update_portfolio(monkeypatch):
+    portfolio = DriveWealthPortfolio()
+    drivewealth_repository = DriveWealthRepository(None)
+    api = DriveWealthApi(None)
+
+    def mock_get_portfolio_status(_portfolio):
+        assert _portfolio == portfolio
+        return PORTFOLIO_STATUS
+
+    monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+
+    service = DriveWealthProvider(drivewealth_repository, api)
+
+    portfolio_status = service._get_portfolio_status(portfolio)
+
+    assert portfolio_status
+    assert portfolio_status.cash_value == CASH_VALUE
+    assert portfolio_status.get_fund_value(FUND1_ID) == FUND1_VALUE
+    assert portfolio_status.get_fund_value(FUND2_ID) == FUND2_VALUE

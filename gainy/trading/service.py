@@ -14,9 +14,8 @@ class TradingService:
     def sync_profile_trading_accounts(self, profile_id):
         self._get_provider_service().sync_profile_trading_accounts(profile_id)
 
-    def sync_trading_account(self, account: TradingAccount):
-        self._get_provider_service().sync_trading_account(
-            trading_account_id=account.id, fetch_info=True)
+    def sync_balances(self, account: TradingAccount):
+        self._get_provider_service().sync_balances(account)
 
     def _get_provider_service(self):
         return self.drivewealth_provider

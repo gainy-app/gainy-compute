@@ -1,6 +1,8 @@
+from typing import List
+
 from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser
+    DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus
 
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
@@ -39,6 +41,11 @@ class DriveWealthProvider(DriveWealthProviderBase):
             repository.persist(account)
 
             self.sync_trading_account(account_ref_id=account_ref_id)
+
+    def sync_balances(self, account: TradingAccount):
+        self.sync_trading_account(trading_account_id=account.id,
+                                  fetch_info=True)
+        self.sync_portfolios(account.profile_id)
 
     def sync_trading_account(self,
                              account_ref_id: str = None,
@@ -89,6 +96,29 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account_positions.update_trading_account(trading_account)
 
         repository.persist(trading_account)
+
+    def sync_portfolios(self, profile_id):
+        repository = self.repository
+
+        portfolios: List[DriveWealthPortfolio] = repository.find_all(
+            DriveWealthPortfolio, {"profile_id": profile_id})
+        for portfolio in portfolios:
+            self._sync_portfolio(portfolio)
+            self._get_portfolio_status(portfolio)
+
+    def _sync_portfolio(self, portfolio: DriveWealthPortfolio):
+        data = self.api.get_portfolio(portfolio)
+        portfolio.set_from_response(data)
+        self.repository.persist(portfolio)
+
+    def _get_portfolio_status(
+            self,
+            portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
+        data = self.api.get_portfolio_status(portfolio)
+        portfolio_status = DriveWealthPortfolioStatus()
+        portfolio_status.set_from_response(data)
+        self.repository.persist(portfolio_status)
+        return portfolio_status
 
     def _sync_account(self, account: DriveWealthAccount):
         account_data = self.api.get_account(account.ref_id)
