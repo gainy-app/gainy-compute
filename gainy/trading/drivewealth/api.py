@@ -102,6 +102,7 @@ class DriveWealthApi:
                       method,
                       url,
                       post_data=None,
+                      get_data=None,
                       force_token_refresh=False):
         headers = {"dw-client-app-key": DRIVEWEALTH_APP_KEY}
 
@@ -110,6 +111,7 @@ class DriveWealthApi:
 
         response = requests.request(method,
                                     DRIVEWEALTH_API_URL + url,
+                                    params=get_data,
                                     json=post_data,
                                     headers=headers)
 
@@ -121,6 +123,7 @@ class DriveWealthApi:
         status_code = response.status_code
         logging_extra = {
             "headers": headers,
+            "get_data": get_data,
             "post_data": post_data,
             "status_code": status_code,
             "response_data": response_data,

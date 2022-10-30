@@ -101,6 +101,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
     cash_available_for_withdrawal = None
     cash_balance = None
     data = None
+    is_artificial = False
     created_at = None
     updated_at = None
 
@@ -271,9 +272,12 @@ class DriveWealthPortfolioStatusHolding:
 class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     id = None
     drivewealth_portfolio_id = None
+    equity_value: Decimal = None
     cash_value: Decimal = None
     cash_actual_weight: Decimal = None
     cash_target_weight: Decimal = None
+    last_portfolio_rebalance_at: datetime.datetime = None
+    next_portfolio_rebalance_at: datetime.datetime = None
     holdings: Dict[str, DriveWealthPortfolioStatusHolding] = None
     data = None
     created_at = None
@@ -301,6 +305,8 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         if not self.data:
             return
 
+        self.last_portfolio_rebalance_at = self.data["lastPortfolioRebalance"]
+        self.next_portfolio_rebalance_at = self.data["nextPortfolioRebalance"]
         self.equity_value = self.data["equity"]
 
         for i in self.data["holdings"]:
@@ -394,8 +400,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     cash_target_weight: Decimal = None
     holdings: Dict[str, Decimal] = None
     data = None
-    waiting_rebalance_since = None
-    last_rebalance_at = None
+    is_artificial = False
+    waiting_rebalance_since: Optional[datetime.datetime] = None
+    last_rebalance_at: Optional[datetime.datetime] = None
     created_at = None
     updated_at = None
 
@@ -494,3 +501,11 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
             return True
 
         return self.waiting_rebalance_since < self.last_rebalance_at
+
+    def update_from_status(self, portfolio_status: DriveWealthPortfolioStatus):
+        if self.last_rebalance_at:
+            self.last_rebalance_at = max(
+                self.last_rebalance_at,
+                portfolio_status.last_portfolio_rebalance_at)
+        else:
+            self.last_rebalance_at = portfolio_status.last_portfolio_rebalance_at

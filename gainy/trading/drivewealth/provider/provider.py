@@ -63,6 +63,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account: DriveWealthAccount = repository.find_one(
             DriveWealthAccount, _filter)
 
+        if account and account.is_artificial:
+            return
+
         if account:
             account_ref_id = account.ref_id
         else:
@@ -103,8 +106,12 @@ class DriveWealthProvider(DriveWealthProviderBase):
         portfolios: List[DriveWealthPortfolio] = repository.find_all(
             DriveWealthPortfolio, {"profile_id": profile_id})
         for portfolio in portfolios:
+            if portfolio.is_artificial:
+                return
             self._sync_portfolio(portfolio)
-            self._get_portfolio_status(portfolio)
+            portfolio_status = self._get_portfolio_status(portfolio)
+            portfolio.update_from_status(portfolio_status)
+            repository.persist(portfolio)
 
     def _sync_portfolio(self, portfolio: DriveWealthPortfolio):
         data = self.api.get_portfolio(portfolio)
