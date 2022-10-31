@@ -12,6 +12,10 @@ FUND2_TARGET_WEIGHT = Decimal(0.59)
 PORTFOLIO_STATUS = {
     "id":
     "portfolio_24338197-62da-4ac8-a0c9-3204e396f9c7",
+    "lastPortfolioRebalance":
+    None,
+    "nextPortfolioRebalance":
+    None,
     "equity":
     Decimal(110045.62),
     "holdings": [{
