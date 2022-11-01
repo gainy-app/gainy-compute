@@ -469,6 +469,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def normalize_weights(self):
         weight_sum = Decimal(self.cash_target_weight)
         for k, i in self.holdings.items():
+            self.holdings[k] = round(i, 6)
             weight_sum += i
 
         logger.info('normalize_weights pre', extra={
@@ -479,7 +480,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
         self.cash_target_weight /= weight_sum
         for k, i in self.holdings.items():
-            self.holdings[k] = i / weight_sum
+            self.holdings[k] = round(i / weight_sum, 6)
 
         weight_sum = Decimal(self.cash_target_weight)
         for k, i in self.holdings.items():
