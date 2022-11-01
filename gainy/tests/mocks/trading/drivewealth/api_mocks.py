@@ -1,3 +1,66 @@
+from decimal import Decimal
+
+CASH_VALUE = 11001
+CASH_TARGET_WEIGHT = Decimal(0.11)
+
+FUND1_ID = "fund_b567f1d3-486e-4e5f-aacd-0d551113ebf6"
+FUND1_VALUE = Decimal(33604.12)
+FUND1_TARGET_WEIGHT = Decimal(0.3)
+FUND2_ID = "fund_9a51b36f-faac-41a7-8c9d-b15bb29a05fc"
+FUND2_VALUE = Decimal(65440.5)
+FUND2_TARGET_WEIGHT = Decimal(0.59)
+PORTFOLIO_STATUS = {
+    "id":
+    "portfolio_24338197-62da-4ac8-a0c9-3204e396f9c7",
+    "lastPortfolioRebalance":
+    None,
+    "nextPortfolioRebalance":
+    None,
+    "equity":
+    Decimal(110045.62),
+    "holdings": [{
+        "id": None,
+        "type": "CASH_RESERVE",
+        "target": CASH_TARGET_WEIGHT,
+        "actual": 0.1,
+        "value": CASH_VALUE,
+    }, {
+        "id":
+        FUND1_ID,
+        "type":
+        "FUND",
+        "target":
+        FUND1_TARGET_WEIGHT,
+        "actual":
+        0.3054,
+        "value":
+        FUND1_VALUE,
+        "holdings": [{
+            "instrumentID": "5b85fabb-d57c-44e6-a7f6-a3efc760226c",
+            "symbol": "TSLA",
+            "target": 0.55,
+            "actual": 0.6823,
+            "openQty": 62.5213,
+            "value": 22928.9
+        }, {
+            "instrumentID": "a67422af-8504-43df-9e63-7361eb0bd99e",
+            "symbol": "AAPL",
+            "target": 0.45,
+            "actual": 0.3177,
+            "openQty": 62.4942,
+            "value": 10675.22
+        }]
+    }, {
+        "id": FUND2_ID,
+        "type": "FUND",
+        "target": FUND2_TARGET_WEIGHT,
+        "actual": 0.5947,
+        "value": FUND2_VALUE,
+        "holdings": []
+    }]
+}
+
+
 def _get_account_data(account_ref_id,
                       user_id="user_id",
                       cash_balance=None,

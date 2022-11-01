@@ -3,6 +3,7 @@ from typing import Iterable
 import time
 
 from gainy.context_container import ContextContainer
+from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.models import TradingAccount
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
@@ -22,10 +23,13 @@ class UpdateAccountBalancesJob:
             TradingAccount)
         for account in trading_accounts:
             start_time = time.time()
-            self.service.sync_trading_account(account)
 
-            logger.info("Synced account %d in %f", account.id,
-                        time.time() - start_time)
+            try:
+                self.service.sync_balances(account)
+                logger.info("Synced account %d in %f", account.id,
+                            time.time() - start_time)
+            except DriveWealthApiException as e:
+                logger.exception(e)
 
 
 def cli():

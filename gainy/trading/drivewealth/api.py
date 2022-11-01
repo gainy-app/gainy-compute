@@ -4,7 +4,7 @@ import requests
 from gainy.data_access.db_lock import LockAcquisitionTimeout
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
-from gainy.trading.drivewealth.models import DriveWealthAuthToken
+from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.utils import get_logger
 
@@ -43,6 +43,37 @@ class DriveWealthApi:
     def get_user_accounts(self, user_id: str):
         return self._make_request("GET", f"/users/{user_id}/accounts")
 
+    def get_portfolio(self, portfolio: DriveWealthPortfolio):
+        return self._make_request("GET",
+                                  f"/managed/portfolios/{portfolio.ref_id}")
+
+    def get_portfolio_status(self, portfolio: DriveWealthPortfolio):
+        return self._make_request(
+            "GET", f"/accounts/{portfolio.drivewealth_account_id}/portfolio")
+
+    def update_fund(self, fund: DriveWealthFund):
+        data = self._make_request("PATCH", f"/managed/funds/{fund.ref_id}", {
+            'holdings': fund.holdings,
+        })
+        fund.set_from_response(data)
+
+    def update_portfolio(self, portfolio: DriveWealthPortfolio):
+        # noinspection PyTypeChecker
+        holdings = [{
+            "type": "CASH_RESERVE",
+            "target": portfolio.cash_target_weight,
+        }] + [{
+            "type": "FUND",
+            "id": fund_id,
+            "target": weight,
+        } for fund_id, weight in portfolio.holdings.items()]
+
+        data = self._make_request("PATCH",
+                                  f"/managed/portfolios/{portfolio.ref_id}", {
+                                      'holdings': holdings,
+                                  })
+        portfolio.set_from_response(data)
+
     def get_auth_token(self):
         return self._make_request(
             "POST", "/auth", {
@@ -71,6 +102,7 @@ class DriveWealthApi:
                       method,
                       url,
                       post_data=None,
+                      get_data=None,
                       force_token_refresh=False):
         headers = {"dw-client-app-key": DRIVEWEALTH_APP_KEY}
 
@@ -79,6 +111,7 @@ class DriveWealthApi:
 
         response = requests.request(method,
                                     DRIVEWEALTH_API_URL + url,
+                                    params=get_data,
                                     json=post_data,
                                     headers=headers)
 
@@ -90,6 +123,7 @@ class DriveWealthApi:
         status_code = response.status_code
         logging_extra = {
             "headers": headers,
+            "get_data": get_data,
             "post_data": post_data,
             "status_code": status_code,
             "response_data": response_data,

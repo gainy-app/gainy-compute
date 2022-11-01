@@ -4,7 +4,7 @@ from gainy.trading.jobs.update_account_balances import UpdateAccountBalancesJob
 from gainy.trading.models import TradingAccount
 
 
-def mock_sync_trading_account(visited_trading_accounts=None):
+def mock_sync_balances(visited_trading_accounts=None):
 
     def mock(account):
         if visited_trading_accounts is not None:
@@ -28,8 +28,8 @@ def test_update_account_balances_job(monkeypatch):
 
     visited_trading_accounts = {}
     trading_service = TradingService(None)
-    monkeypatch.setattr(trading_service, "sync_trading_account",
-                        mock_sync_trading_account(visited_trading_accounts))
+    monkeypatch.setattr(trading_service, "sync_balances",
+                        mock_sync_balances(visited_trading_accounts))
 
     UpdateAccountBalancesJob(trading_repository, trading_service).run()
 
