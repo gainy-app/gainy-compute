@@ -1,3 +1,4 @@
+import dateutil.parser
 import datetime
 from abc import ABC
 import json
@@ -7,10 +8,14 @@ from typing import Any, Dict, List, Optional
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
 from gainy.trading.models import TradingAccount
+from gainy.utils import get_logger
+
+logger = get_logger(__name__)
 
 PRECISION = 1e-3
 ONE = Decimal(1)
 ZERO = Decimal(0)
+DW_WEIGHT_PRECISION = 4
 
 
 class BaseDriveWealthModel(BaseModel, ABC):
@@ -254,6 +259,10 @@ class DriveWealthPortfolioStatusHolding:
         return self.data["actual"]
 
     @property
+    def target_weight(self) -> str:
+        return self.data["target"]
+
+    @property
     def holdings(self) -> List[DriveWealthPortfolioStatusFundHolding]:
         return [
             DriveWealthPortfolioStatusFundHolding(i)
@@ -305,9 +314,11 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         if not self.data:
             return
 
-        self.last_portfolio_rebalance_at = self.data["lastPortfolioRebalance"]
-        self.next_portfolio_rebalance_at = self.data["nextPortfolioRebalance"]
-        self.equity_value = self.data["equity"]
+        if self.data["lastPortfolioRebalance"]:
+            self.last_portfolio_rebalance_at = dateutil.parser.parse(self.data["lastPortfolioRebalance"])
+        if self.data["nextPortfolioRebalance"]:
+            self.next_portfolio_rebalance_at = dateutil.parser.parse(self.data["nextPortfolioRebalance"])
+        self.equity_value = Decimal(self.data["equity"])
 
         for i in self.data["holdings"]:
             if i["type"] == "CASH_RESERVE":
@@ -328,6 +339,12 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             return Decimal(0)
 
         return Decimal(self.holdings[fund_ref_id].actual_weight)
+
+    def get_fund_target_weight(self, fund_ref_id) -> Decimal:
+        if not self.holdings or fund_ref_id not in self.holdings:
+            return Decimal(0)
+
+        return Decimal(self.holdings[fund_ref_id].target_weight)
 
     def get_fund(self,
                  fund_ref_id) -> Optional[DriveWealthPortfolioStatusHolding]:
@@ -398,6 +415,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     profile_id = None
     drivewealth_account_id = None
     cash_target_weight: Decimal = None
+    cash_target_value: Decimal = None
     holdings: Dict[str, Decimal] = None
     data = None
     is_artificial = False
@@ -410,6 +428,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["created_at", "updated_at"]
+
+    def __init__(self, row: dict = None):
+        super().__init__(row)
 
     def set_from_response(self, data=None):
         if not data:
@@ -456,16 +477,79 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.cash_target_weight = min(ONE, max(ZERO, cash_weight))
 
         fund_weight += weight_delta
-        self.set_fund_weight(fund, min(ONE, max(ZERO, fund_weight)))
+        self.set_fund_weight(fund.ref_id, min(ONE, max(ZERO, fund_weight)))
+        self.normalize_weights()
+
+    def rebalance_cash(self, weight_delta: Decimal):
+        old_cash_weight = cash_weight = self.cash_target_weight
+        funds_weight_sum = 1 - self.cash_target_weight
+
+        if cash_weight + weight_delta < -PRECISION:
+            raise Exception('cash weight can not be negative')
+        if cash_weight + weight_delta > 1 + PRECISION:
+            raise Exception('cash weight can not be greater than 1')
+
+        logger.debug('rebalance_cash weight_delta=%f', weight_delta)
+        cash_weight += weight_delta
+        self.cash_target_weight = min(ONE, max(ZERO, cash_weight))
+        logger.debug('Change cash weight from %f to %f', old_cash_weight, self.cash_target_weight)
+
+        if funds_weight_sum < PRECISION:
+            self.normalize_weights()
+            return
+
+        for fund_ref_id in self.holdings.keys():
+            old_fund_weight = fund_weight = self.get_fund_weight(fund_ref_id)
+            fund_weight_delta = weight_delta * fund_weight / funds_weight_sum
+            logger.debug('fund %s ', fund_ref_id, extra={
+                "fund_weight_delta": fund_weight_delta,
+                "weight_delta": weight_delta,
+                "fund_weight": fund_weight,
+                "funds_weight_sum": funds_weight_sum,
+            })
+
+            if fund_weight - fund_weight_delta < -PRECISION:
+                raise Exception('fund weight can not be negative')
+            if fund_weight - fund_weight_delta > 1 + PRECISION:
+                raise Exception('fund weight can not be greater than 1')
+
+            fund_weight -= fund_weight_delta
+            fund_weight = min(ONE, max(ZERO, fund_weight))
+            logger.debug('Set fund %s weight from %f to %f', fund_ref_id, old_fund_weight, fund_weight)
+
+            self.set_fund_weight(fund_ref_id, fund_weight)
+
+        self.normalize_weights()
 
     def normalize_weights(self):
+        self.cash_target_weight = round(self.cash_target_weight, DW_WEIGHT_PRECISION)
+        weight_sum = Decimal(self.cash_target_weight)
+        for k, i in self.holdings.items():
+            self.holdings[k] = round(i, DW_WEIGHT_PRECISION)
+            weight_sum += i
+
+        logger.info('normalize_weights pre', extra={
+            "weight_sum": weight_sum,
+            "cash_target_weight": self.cash_target_weight,
+            "holdings": self.holdings.values(),
+        })
+
+        self.cash_target_weight = round(self.cash_target_weight / weight_sum, DW_WEIGHT_PRECISION)
+        for k, i in self.holdings.items():
+            self.holdings[k] = round(i / weight_sum, DW_WEIGHT_PRECISION)
+
         weight_sum = Decimal(self.cash_target_weight)
         for k, i in self.holdings.items():
             weight_sum += i
 
-        self.cash_target_weight /= weight_sum
-        for k, i in self.holdings.items():
-            self.holdings[k] = i / weight_sum
+        self.cash_target_weight += 1 - weight_sum
+        weight_sum += 1 - weight_sum
+
+        logger.info('normalize_weights post', extra={
+            "weight_sum": weight_sum,
+            "cash_target_weight": self.cash_target_weight,
+            "holdings": self.holdings.values(),
+        })
 
     def get_fund_weight(self, fund_ref_id: str) -> Decimal:
         if not self.holdings or fund_ref_id not in self.holdings:
@@ -473,11 +557,11 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
         return self.holdings[fund_ref_id]
 
-    def set_fund_weight(self, fund: DriveWealthFund, weight: Decimal):
+    def set_fund_weight(self, fund_ref_id: str, weight: Decimal):
         if not self.holdings:
             self.holdings = {}
 
-        self.holdings[fund.ref_id] = weight
+        self.holdings[fund_ref_id] = weight
 
     def to_dict(self) -> dict:
         return {

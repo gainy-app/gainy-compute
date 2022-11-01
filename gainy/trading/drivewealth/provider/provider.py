@@ -113,6 +113,37 @@ class DriveWealthProvider(DriveWealthProviderBase):
             portfolio.update_from_status(portfolio_status)
             repository.persist(portfolio)
 
+    def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio):
+        portfolio_status = self._get_portfolio_status(portfolio)
+        portfolio.update_from_status(portfolio_status)
+        self.repository.persist(portfolio)
+        if portfolio_status.equity_value < ONE:
+            return
+
+        if abs(portfolio.cash_target_value -
+               portfolio_status.cash_value) < Decimal(0.01):
+            return
+
+        cash_delta = portfolio.cash_target_value - portfolio_status.cash_value
+        cash_weight_delta = cash_delta / portfolio_status.equity_value
+
+        logging_extra = {
+            "portfolio_status": portfolio_status.to_dict(),
+            "portfolio": portfolio.to_dict(),
+            "cash_delta": cash_delta,
+            "cash_weight_delta": cash_weight_delta,
+        }
+        logger.info('rebalance_portfolio_cash step0', extra=logging_extra)
+
+        portfolio.set_target_weights_from_status_actual_weights(portfolio_status)
+        logging_extra["portfolio"] = portfolio.to_dict()
+        logger.info('rebalance_portfolio_cash step1', extra=logging_extra)
+
+        portfolio.rebalance_cash(cash_weight_delta)
+        self.repository.persist(portfolio)
+        logging_extra["portfolio"] = portfolio.to_dict()
+        logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
+
     def _sync_portfolio(self, portfolio: DriveWealthPortfolio):
         data = self.api.get_portfolio(portfolio)
         portfolio.set_from_response(data)
