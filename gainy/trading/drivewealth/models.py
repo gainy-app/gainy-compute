@@ -8,6 +8,9 @@ from typing import Any, Dict, List, Optional
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
 from gainy.trading.models import TradingAccount
+from gainy.utils import get_logger
+
+logger = get_logger(__name__)
 
 PRECISION = 1e-3
 ONE = Decimal(1)
