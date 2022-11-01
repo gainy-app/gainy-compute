@@ -468,9 +468,25 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         for k, i in self.holdings.items():
             weight_sum += i
 
+        logger.info('normalize_weights pre', extra={
+            "weight_sum": weight_sum,
+            "cash_target_weight": self.cash_target_weight,
+            "holdings": self.holdings.values(),
+        })
+
         self.cash_target_weight /= weight_sum
         for k, i in self.holdings.items():
             self.holdings[k] = i / weight_sum
+
+        weight_sum = Decimal(self.cash_target_weight)
+        for k, i in self.holdings.items():
+            weight_sum += i
+
+        logger.info('normalize_weights post', extra={
+            "weight_sum": weight_sum,
+            "cash_target_weight": self.cash_target_weight,
+            "holdings": self.holdings.values(),
+        })
 
     def get_fund_weight(self, fund_ref_id: str) -> Decimal:
         if not self.holdings or fund_ref_id not in self.holdings:
