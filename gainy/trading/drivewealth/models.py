@@ -342,12 +342,6 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
         return Decimal(self.holdings[fund_ref_id].actual_weight)
 
-    def get_fund_target_weight(self, fund_ref_id) -> Decimal:
-        if not self.holdings or fund_ref_id not in self.holdings:
-            return Decimal(0)
-
-        return Decimal(self.holdings[fund_ref_id].target_weight)
-
     def get_fund(self,
                  fund_ref_id) -> Optional[DriveWealthPortfolioStatusHolding]:
         if not self.holdings or fund_ref_id not in self.holdings:
