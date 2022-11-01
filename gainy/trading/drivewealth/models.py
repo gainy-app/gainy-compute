@@ -1,3 +1,4 @@
+import dateutil.parser
 import datetime
 from abc import ABC
 import json
@@ -305,8 +306,10 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         if not self.data:
             return
 
-        self.last_portfolio_rebalance_at = self.data["lastPortfolioRebalance"]
-        self.next_portfolio_rebalance_at = self.data["nextPortfolioRebalance"]
+        if self.data["lastPortfolioRebalance"]:
+            self.last_portfolio_rebalance_at = dateutil.parser.parse(self.data["lastPortfolioRebalance"])
+        if self.data["nextPortfolioRebalance"]:
+            self.next_portfolio_rebalance_at = dateutil.parser.parse(self.data["nextPortfolioRebalance"])
         self.equity_value = self.data["equity"]
 
         for i in self.data["holdings"]:
