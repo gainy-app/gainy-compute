@@ -1,3 +1,5 @@
+import enum
+
 import dateutil.parser
 import datetime
 from abc import ABC
@@ -639,3 +641,34 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
                 portfolio_status.last_portfolio_rebalance_at)
         else:
             self.last_rebalance_at = portfolio_status.last_portfolio_rebalance_at
+
+
+class DriveWealthInstrumentStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+
+
+class DriveWealthInstrument(BaseDriveWealthModel):
+    ref_id = None
+    symbol = None
+    status = None
+    data = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+
+        self.ref_id = data.get("id") or data.get("instrumentID")
+        self.symbol = data["symbol"]
+        self.status = data["status"]
+        self.data = data
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_instruments"

@@ -33,6 +33,10 @@ def _get_token(monkeypatch):
 
 def test_get_token(monkeypatch):
     threads_count = 5
+    with db_connect() as db_conn:
+        with db_conn.cursor() as cursor:
+            cursor.execute("delete from app.drivewealth_auth_tokens")
+            db_conn.commit()
 
     with multiprocessing.dummy.Pool(threads_count) as pool:
         result = pool.map(_get_token, [monkeypatch] * threads_count)

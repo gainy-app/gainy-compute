@@ -1,22 +1,20 @@
-from typing import List
+from typing import List, Optional
 
 from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus
+    DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, PRECISION, ONE, DriveWealthInstrument, \
+    DriveWealthFund
 
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
-from gainy.trading.models import TradingAccount
+from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
+from gainy.trading.models import TradingAccount, TradingCollectionVersion
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
-
-    def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi):
-        super().__init__(repository)
-        self.api = api
 
     def sync_user(self, user_ref_id):
         user: DriveWealthUser = self.repository.find_one(
@@ -100,28 +98,15 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         repository.persist(trading_account)
 
-    def sync_portfolios(self, profile_id):
-        repository = self.repository
-
-        portfolios: List[DriveWealthPortfolio] = repository.find_all(
-            DriveWealthPortfolio, {"profile_id": profile_id})
-        for portfolio in portfolios:
-            if portfolio.is_artificial:
-                return
-            self._sync_portfolio(portfolio)
-            portfolio_status = self._get_portfolio_status(portfolio)
-            portfolio.update_from_status(portfolio_status)
-            repository.persist(portfolio)
-
     def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio):
-        portfolio_status = self._get_portfolio_status(portfolio)
+        portfolio_status = self.get_portfolio_status(portfolio)
         portfolio.update_from_status(portfolio_status)
         self.repository.persist(portfolio)
         if portfolio_status.equity_value < ONE:
             return
 
         if abs(portfolio.cash_target_value -
-               portfolio_status.cash_value) < Decimal(0.01):
+               portfolio_status.cash_value) < PRECISION:
             return
 
         cash_delta = portfolio.cash_target_value - portfolio_status.cash_value
@@ -145,19 +130,30 @@ class DriveWealthProvider(DriveWealthProviderBase):
         logging_extra["portfolio"] = portfolio.to_dict()
         logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
 
-    def _sync_portfolio(self, portfolio: DriveWealthPortfolio):
-        data = self.api.get_portfolio(portfolio)
-        portfolio.set_from_response(data)
+    def reconfigure_collection_holdings(
+            self, collection_version: TradingCollectionVersion):
+        helper = DriveWealthProviderRebalanceHelper(self)
+
+        user = self._get_user(collection_version.profile_id)
+        account = self._get_trading_account(user.ref_id)
+        profile_id = collection_version.profile_id
+        portfolio = helper.upsert_portfolio(profile_id, account)
+        chosen_fund = helper.upsert_fund(profile_id, collection_version)
+
+        self.rebalance_portfolio_cash(portfolio)
+        helper.handle_cash_amount_change(
+            collection_version.target_amount_delta, portfolio, chosen_fund)
+
+        self.api.update_portfolio(portfolio)
+        portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
-    def _get_portfolio_status(
-            self,
-            portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
-        data = self.api.get_portfolio_status(portfolio)
-        portfolio_status = DriveWealthPortfolioStatus()
-        portfolio_status.set_from_response(data)
-        self.repository.persist(portfolio_status)
-        return portfolio_status
+        chosen_fund.normalize_weights()
+        self.api.update_fund(chosen_fund)
+        self.repository.persist(chosen_fund)
+
+    def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
+        return self.repository.get_user_accounts(user_ref_id)[0]
 
     def _sync_account(self, account: DriveWealthAccount):
         account_data = self.api.get_account(account.ref_id)

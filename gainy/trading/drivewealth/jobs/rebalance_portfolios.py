@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List
 
 import time
 
@@ -6,6 +6,7 @@ from gainy.context_container import ContextContainer
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthApi, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio
+from gainy.trading.models import TradingCollectionVersion
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -28,8 +29,13 @@ class RebalancePortfoliosJob:
             try:
                 # rebalance portfolio for it to have the wanted amount of cash
                 self.provider.rebalance_portfolio_cash(portfolio)
-                # rebalance portfolio for it to have the wanted amount of cash
-                self.provider.rebalance_portfolio_cash(portfolio)
+
+                trading_collection_versions: List[
+                    TradingCollectionVersion] = self.repo.find_all(
+                        TradingCollectionVersion,
+                        {"profile_id": portfolio.profile_id})
+                for trading_collection_version in trading_collection_versions:
+                    self.provider.rebalance_portfolio_cash(portfolio)
 
                 self.api.update_portfolio(portfolio)
                 portfolio.set_pending_rebalance()

@@ -29,6 +29,8 @@ class DriveWealthApi:
     def get_user(self, user_id: str):
         return self._make_request("GET", f"/users/{user_id}")
 
+    # Accounts
+
     def get_account(self, account_id: str):
         return self._make_request("GET", f"/accounts/{account_id}")["account"]
 
@@ -40,9 +42,16 @@ class DriveWealthApi:
         return self._make_request("GET",
                                   f"/accounts/{account_id}/summary/positions")
 
+    def update_account(self, account_ref_id, portfolio_ref_id):
+        return self._make_request("PATCH", f"/accounts/{account_ref_id}",
+                                  {"ria": {
+                                      "portfolioID": portfolio_ref_id
+                                  }})
+
     def get_user_accounts(self, user_id: str):
         return self._make_request("GET", f"/users/{user_id}/accounts")
 
+    # Portfolios
     def get_portfolio(self, portfolio: DriveWealthPortfolio):
         return self._make_request("GET",
                                   f"/managed/portfolios/{portfolio.ref_id}")
@@ -51,11 +60,20 @@ class DriveWealthApi:
         return self._make_request(
             "GET", f"/accounts/{portfolio.drivewealth_account_id}/portfolio")
 
-    def update_fund(self, fund: DriveWealthFund):
-        data = self._make_request("PATCH", f"/managed/funds/{fund.ref_id}", {
-            'holdings': fund.holdings,
-        })
-        fund.set_from_response(data)
+    def create_portfolio(self, portfolio: DriveWealthPortfolio, name,
+                         client_portfolio_id, description):
+        data = self._make_request(
+            "POST", "/managed/portfolios", {
+                'userID': DRIVEWEALTH_RIA_ID,
+                'name': name,
+                'clientPortfolioID': client_portfolio_id,
+                'description': description,
+                'holdings': [{
+                    "type": "CASH_RESERVE",
+                    "target": 1
+                }],
+            })
+        portfolio.set_from_response(data)
 
     def update_portfolio(self, portfolio: DriveWealthPortfolio):
         # noinspection PyTypeChecker
@@ -73,6 +91,38 @@ class DriveWealthApi:
                                       'holdings': holdings,
                                   })
         portfolio.set_from_response(data)
+
+    # Funds
+
+    def create_fund(self, fund: DriveWealthFund, name, client_fund_id,
+                    description):
+        data = self._make_request(
+            "POST", "/managed/funds", {
+                'userID': DRIVEWEALTH_RIA_ID,
+                'name': name,
+                'clientFundID': client_fund_id,
+                'description': description,
+                'holdings': fund.holdings,
+            })
+        fund.set_from_response(data)
+
+    def update_fund(self, fund: DriveWealthFund):
+        data = self._make_request("PATCH", f"/managed/funds/{fund.ref_id}", {
+            'holdings': fund.holdings,
+        })
+        fund.set_from_response(data)
+
+    # Instrument
+
+    def get_instrument_details(self, ref_id: str = None, symbol: str = None):
+        if ref_id:
+            return self._make_request("GET", f"/instruments/{ref_id}")
+        if symbol:
+            return self._make_request("GET", f"/instruments/{symbol}")
+
+        raise Exception('Either ref_id or symbol must be specified.')
+
+    # Token
 
     def get_auth_token(self):
         return self._make_request(
