@@ -1,5 +1,7 @@
+import datetime
 from typing import List, Optional
 
+from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
@@ -8,6 +10,8 @@ from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
+
+DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
 
 
 class DriveWealthProviderBase:
@@ -38,6 +42,21 @@ class DriveWealthProviderBase:
     def get_portfolio_status(
             self,
             portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
+
+        portfolio_status: DriveWealthPortfolioStatus = self.repository.find_one(
+            DriveWealthPortfolioStatus, {
+                "drivewealth_portfolio_id":
+                portfolio.ref_id,
+                "created_at":
+                OperatorGt(
+                    datetime.datetime.now(datetime.timezone.utc) -
+                    datetime.timedelta(
+                        seconds=DRIVE_WEALTH_PORTFOLIO_STATUS_TTL)),
+            }, [("created_at", "DESC")])
+
+        if portfolio_status:
+            return portfolio_status
+
         data = self.api.get_portfolio_status(portfolio)
         portfolio_status = DriveWealthPortfolioStatus()
         portfolio_status.set_from_response(data)

@@ -208,3 +208,78 @@ create table app.payment_methods
     updated_at    timestamp with time zone default now() not null,
     provider      varchar                                not null
 );
+
+CREATE TABLE if not exists "app"."trading_collection_versions"
+(
+    "id"                  serial      NOT NULL,
+    "profile_id"          int         not null,
+    "collection_id"       int         not null,
+    "status"              varchar,
+    "target_amount_delta" numeric     not null,
+    "weights"             json,
+    "created_at"          timestamptz NOT NULL DEFAULT now(),
+    "updated_at"          timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id"),
+    FOREIGN KEY ("profile_id") REFERENCES "app"."profiles" ("id") ON UPDATE cascade ON DELETE cascade
+);
+
+CREATE TABLE "app"."drivewealth_users"
+(
+    "ref_id"     varchar NOT NULL,
+    "profile_id" integer          unique,
+    "status"     varchar NOT NULL,
+    "data"       json    NOT NULL,
+    "created_at"  timestamptz NOT NULL DEFAULT now(),
+    "updated_at"  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("ref_id"),
+    FOREIGN KEY ("profile_id") REFERENCES "app"."profiles" ("id") ON UPDATE restrict ON DELETE restrict
+);
+
+CREATE TABLE "app"."trading_accounts"
+(
+    "id"                            serial      NOT NULL,
+    "profile_id"                    integer     NOT NULL unique,
+    "name"                          varchar,
+    "cash_available_for_trade"      integer,
+    "cash_available_for_withdrawal" integer,
+    "cash_balance"                  integer,
+    "created_at"                    timestamptz NOT NULL DEFAULT now(),
+    "updated_at"                    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id"),
+    FOREIGN KEY ("profile_id") REFERENCES "app"."profiles" ("id") ON UPDATE cascade ON DELETE cascade
+);
+
+CREATE TABLE "app"."drivewealth_accounts"
+(
+
+    "ref_id"                        varchar     NOT NULL,
+    "drivewealth_user_id"           varchar     NOT NULL,
+    "trading_account_id"            integer,
+    "status"                        varchar,
+    "ref_no"                        varchar,
+    "nickname"                      varchar,
+    "cash_available_for_trade"      integer,
+    "cash_available_for_withdrawal" integer,
+    "cash_balance"                  integer,
+    "data"                          json        NOT NULL,
+    "created_at"                    timestamptz NOT NULL DEFAULT now(),
+    "updated_at"                    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("ref_id"),
+    FOREIGN KEY ("drivewealth_user_id") REFERENCES "app"."drivewealth_users" ("ref_id") ON UPDATE cascade ON DELETE cascade,
+    FOREIGN KEY ("trading_account_id") REFERENCES "app"."trading_accounts" ("id") ON UPDATE set null ON DELETE set null
+);
+
+CREATE TABLE if not exists "app"."drivewealth_portfolios"
+(
+    "ref_id"                 varchar     NOT NULL,
+    "profile_id"             int         NOT NULL,
+    "drivewealth_account_id" varchar     NOT NULL,
+    "holdings"               json,
+    "data"                   json,
+    "cash_target_weight"     numeric,
+    "created_at"             timestamptz NOT NULL DEFAULT now(),
+    "updated_at"             timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("ref_id"),
+    FOREIGN KEY ("profile_id") REFERENCES "app"."profiles" ("id") ON UPDATE restrict ON DELETE restrict,
+    FOREIGN KEY ("drivewealth_account_id") REFERENCES "app"."drivewealth_accounts" ("ref_id") ON UPDATE cascade ON DELETE cascade
+);

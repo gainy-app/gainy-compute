@@ -131,26 +131,30 @@ class DriveWealthProvider(DriveWealthProviderBase):
         logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
 
     def reconfigure_collection_holdings(
-            self, collection_version: TradingCollectionVersion):
+            self, collection_versions: List[TradingCollectionVersion]):
         helper = DriveWealthProviderRebalanceHelper(self)
 
-        user = self._get_user(collection_version.profile_id)
-        account = self._get_trading_account(user.ref_id)
-        profile_id = collection_version.profile_id
-        portfolio = helper.upsert_portfolio(profile_id, account)
-        chosen_fund = helper.upsert_fund(profile_id, collection_version)
+        portfolios = set()
 
-        self.rebalance_portfolio_cash(portfolio)
-        helper.handle_cash_amount_change(
-            collection_version.target_amount_delta, portfolio, chosen_fund)
+        for collection_version in collection_versions:
+            user = self._get_user(collection_version.profile_id)
+            account = self._get_trading_account(user.ref_id)
+            profile_id = collection_version.profile_id
+            portfolio = helper.upsert_portfolio(profile_id, account)
 
-        self.api.update_portfolio(portfolio)
-        portfolio.set_pending_rebalance()
-        self.repository.persist(portfolio)
+            chosen_fund = helper.upsert_fund(profile_id, collection_version)
 
-        chosen_fund.normalize_weights()
-        self.api.update_fund(chosen_fund)
-        self.repository.persist(chosen_fund)
+            if portfolio not in portfolios:
+                portfolios.add(portfolio)
+                self.rebalance_portfolio_cash(portfolio)
+
+            helper.handle_cash_amount_change(
+                collection_version.target_amount_delta, portfolio, chosen_fund)
+
+        for portfolio in portfolios:
+            self.api.update_portfolio(portfolio)
+            portfolio.set_pending_rebalance()
+            self.repository.persist(portfolio)
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]

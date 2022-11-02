@@ -21,8 +21,8 @@ publish: build
 
 in-docker-configure:
 	apt update && apt install -y postgresql-client
-	PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAM} -P pager -c "CREATE SCHEMA IF NOT EXISTS $$PUBLIC_SCHEMA_NAME;"
-	find ./fixtures -iname '*.sql' | sort | while read -r i; do PGOPTIONS="--search_path=$$PUBLIC_SCHEMA_NAME" PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAM} -P pager -f "$$i"; done
+	PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAME} -P pager -c "CREATE SCHEMA IF NOT EXISTS $$PUBLIC_SCHEMA_NAME;"
+	find ./fixtures -iname '*.sql' | sort | while read -r i; do PGOPTIONS="--search_path=$$PUBLIC_SCHEMA_NAME" PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAME} -P pager -f "$$i"; done
 
 in-docker-test: in-docker-configure
 	poetry run gainy_recommendation --batch_size=100

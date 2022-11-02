@@ -34,6 +34,7 @@ class TradingAccount(BaseModel):
 
 class TradingCollectionVersionStatus(enum.Enum):
     PENDING = "PENDING"
+    PENDING_EXECUTION = "PENDING_EXECUTION"
     EXECUTED_FULLY = "EXECUTED_FULLY"
     FAILED = "FAILED"
 
@@ -83,3 +84,12 @@ class TradingCollectionVersion(BaseModel):
         if status == TradingCollectionVersionStatus.EXECUTED_FULLY:
             # TODO set from actual autopilot execution data
             self.executed_at = datetime.datetime.now()
+
+    def is_pending(self) -> bool:
+        return self.status in [
+            TradingCollectionVersionStatus.PENDING,
+            TradingCollectionVersionStatus.PENDING_EXECUTION
+        ]
+
+    def is_executed(self) -> bool:
+        return self.status == TradingCollectionVersionStatus.EXECUTED_FULLY

@@ -31,8 +31,8 @@ class DriveWealthProviderRebalanceHelper:
 
             portfolio = DriveWealthPortfolio()
             portfolio.profile_id = profile_id
-            data = self.api.create_portfolio(portfolio, name,
-                                             client_portfolio_id, description)
+            self.api.create_portfolio(portfolio, name, client_portfolio_id,
+                                      description)
 
         if not portfolio.drivewealth_account_id:
             self.api.update_account(account.ref_id, portfolio.ref_id)
