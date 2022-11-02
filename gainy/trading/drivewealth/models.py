@@ -405,6 +405,41 @@ class DriveWealthFund(BaseDriveWealthModel):
     def table_name(self) -> str:
         return "drivewealth_funds"
 
+    def normalize_weights(self):
+        weight_sum = Decimal(0)
+        for k, i in enumerate(self.holdings):
+            new_target = round(Decimal(i['target']), DW_WEIGHT_PRECISION)
+            self.holdings[k]['target'] = new_target
+            weight_sum += new_target
+
+        logger.info('normalize_weights pre',
+                    extra={
+                        "weight_sum": weight_sum,
+                        "holdings": self.holdings,
+                    })
+
+        weight_threshold = Decimal(10)**(-DW_WEIGHT_PRECISION)
+        for k, i in enumerate(self.holdings):
+            new_target = round(i['target'] / weight_sum, DW_WEIGHT_PRECISION)
+            self.holdings[k]['target'] = new_target
+        self.holdings = list(
+            filter(lambda x: x['target'] >= weight_threshold, self.holdings))
+
+        weight_sum = Decimal(0)
+        for i in self.holdings:
+            weight_sum += i['target']
+
+        if self.holdings:
+            self.holdings[0]['target'] += 1 - weight_sum
+            weight_sum += 1 - weight_sum
+
+        logger.info('normalize_weights post',
+                    extra={
+                        "weight_threshold": weight_threshold,
+                        "weight_sum": weight_sum,
+                        "holdings": self.holdings,
+                    })
+
 
 class DriveWealthPortfolio(BaseDriveWealthModel):
     ref_id = None
