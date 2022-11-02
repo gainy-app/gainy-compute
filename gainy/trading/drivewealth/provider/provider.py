@@ -135,7 +135,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         }
         logger.info('rebalance_portfolio_cash step0', extra=logging_extra)
 
-        portfolio.set_target_weights_from_status_actual_weights(portfolio_status)
+        portfolio.set_target_weights_from_status_actual_weights(
+            portfolio_status)
         logging_extra["portfolio"] = portfolio.to_dict()
         logger.info('rebalance_portfolio_cash step1', extra=logging_extra)
 

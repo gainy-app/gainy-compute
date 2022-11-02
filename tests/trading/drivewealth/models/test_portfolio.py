@@ -39,10 +39,12 @@ def test_rebalance_cash(monkeypatch, weight_delta):
 
     assert abs(weight_sum + portfolio.cash_target_weight - 1) < PRECISION
 
-    assert abs(portfolio.cash_target_weight - (CASH_TARGET_WEIGHT + weight_delta)) < PRECISION
+    assert abs(portfolio.cash_target_weight -
+               (CASH_TARGET_WEIGHT + weight_delta)) < PRECISION
     for fund_ref_id in portfolio.holdings.keys():
         fund_weight = portfolio.get_fund_weight(fund_ref_id)
         if weight_sum < PRECISION:
             assert abs(fund_weight) < PRECISION
         else:
-            assert abs(fund_relative_weight[fund_ref_id] - fund_weight / weight_sum) < PRECISION
+            assert abs(fund_relative_weight[fund_ref_id] -
+                       fund_weight / weight_sum) < PRECISION

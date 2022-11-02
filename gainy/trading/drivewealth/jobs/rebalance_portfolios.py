@@ -13,7 +13,8 @@ logger = get_logger(__name__)
 
 class RebalancePortfoliosJob:
 
-    def __init__(self, repo: DriveWealthRepository, provider: DriveWealthProvider, api: DriveWealthApi):
+    def __init__(self, repo: DriveWealthRepository,
+                 provider: DriveWealthProvider, api: DriveWealthApi):
         self.repo = repo
         self.provider = provider
         self.api = api
