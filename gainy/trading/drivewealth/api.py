@@ -134,7 +134,10 @@ class DriveWealthApi:
             if status_code == 401 and response_data.get(
                     "errorCode") == "L075" and not force_token_refresh:
                 logger.info('[DRIVEWEALTH] token expired', extra=logging_extra)
-                return self._make_request(method, url, post_data, True)
+                return self._make_request(method,
+                                          url,
+                                          post_data,
+                                          force_token_refresh=True)
 
             logger.error("[DRIVEWEALTH] %s %s" % (method, url),
                          extra=logging_extra)
