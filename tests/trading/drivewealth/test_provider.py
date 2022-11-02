@@ -6,7 +6,8 @@ from gainy.trading.models import TradingAccount
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
-    DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
+    DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
+    DriveWealthPortfolioStatus
 
 
 def test_sync_profile_trading_accounts(monkeypatch):
@@ -165,19 +166,22 @@ def test_sync_trading_account(monkeypatch):
 
 def test_update_portfolio(monkeypatch):
     portfolio = DriveWealthPortfolio()
+
     drivewealth_repository = DriveWealthRepository(None)
-    api = DriveWealthApi(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+
+    provider = DriveWealthProvider(drivewealth_repository, None)
 
     def mock_get_portfolio_status(_portfolio):
         assert _portfolio == portfolio
-        return PORTFOLIO_STATUS
+        status = DriveWealthPortfolioStatus()
+        status.set_from_response(PORTFOLIO_STATUS)
+        return status
 
-    monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
-    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(provider, "get_portfolio_status",
+                        mock_get_portfolio_status)
 
-    service = DriveWealthProvider(drivewealth_repository, api)
-
-    portfolio_status = service.get_portfolio_status(portfolio)
+    portfolio_status = provider.get_portfolio_status(portfolio)
 
     assert portfolio_status
     assert portfolio_status.cash_value == CASH_VALUE

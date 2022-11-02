@@ -9,7 +9,8 @@ from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProvi
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.trading.drivewealth.models import DriveWealthInstrumentStatus, DriveWealthInstrument
+from gainy.trading.drivewealth.models import DriveWealthInstrumentStatus, DriveWealthInstrument, \
+    DriveWealthPortfolioStatus
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion
 
@@ -259,16 +260,19 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(_PORTFOLIO)
     drivewealth_repository = DriveWealthRepository(None)
-    api = DriveWealthApi(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+
+    provider = DriveWealthProvider(drivewealth_repository, None)
 
     def mock_get_portfolio_status(_portfolio):
         assert _portfolio == portfolio
-        return PORTFOLIO_STATUS
+        status = DriveWealthPortfolioStatus()
+        status.set_from_response(PORTFOLIO_STATUS)
+        return status
 
-    monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
-    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(provider, "get_portfolio_status",
+                        mock_get_portfolio_status)
 
-    provider = DriveWealthProvider(drivewealth_repository, api)
     helper = DriveWealthProviderRebalanceHelper(provider)
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", FUND1_ID)
@@ -300,17 +304,21 @@ def get_test_handle_cash_amount_change_amounts_ko():
 def test_handle_cash_amount_change_ko(amount, monkeypatch):
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(_PORTFOLIO)
+
     drivewealth_repository = DriveWealthRepository(None)
-    api = DriveWealthApi(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+
+    provider = DriveWealthProvider(drivewealth_repository, None)
 
     def mock_get_portfolio_status(_portfolio):
         assert _portfolio == portfolio
-        return PORTFOLIO_STATUS
+        status = DriveWealthPortfolioStatus()
+        status.set_from_response(PORTFOLIO_STATUS)
+        return status
 
-    monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
-    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(provider, "get_portfolio_status",
+                        mock_get_portfolio_status)
 
-    provider = DriveWealthProvider(drivewealth_repository, api)
     helper = DriveWealthProviderRebalanceHelper(provider)
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", FUND1_ID)
