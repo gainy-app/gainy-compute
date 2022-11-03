@@ -81,6 +81,14 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
             if abs(portvol) > 1e-10:
                 RC /= portvol
 
+            logger.info('risk_contribution',
+                        extra={
+                            "weights": weights,
+                            "portvol": portvol,
+                            "MRC": MRC,
+                            "RC": RC,
+                        })
+
             return RC
 
         def risk_budget_obj(weights):
@@ -89,6 +97,14 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
             asset_RC = risk_contribution(weights)
             RB = sum(np.square(asset_RC -
                                risk_target.T))[0, 0]  # sum of squared error
+            logger.info('risk_budget_obj',
+                        extra={
+                            "weights": weights,
+                            "portvol": portvol,
+                            "risk_target": risk_target,
+                            "asset_RC": asset_RC,
+                            "RB": RB,
+                        })
             return RB
 
         def obj_fun(weights):
