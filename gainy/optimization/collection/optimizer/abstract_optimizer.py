@@ -33,7 +33,7 @@ class AbstractCollectionOptimizer(ABC):
         self.penalties = penalties
         self.target_beta = target_beta
 
-    def _get_stock_returns(self, tickers=None):
+    def _get_stock_returns(self, tickers=None) -> pd.DataFrame:
         """
         Returns stock returns for the selected lookback window
         """
@@ -77,6 +77,9 @@ class AbstractCollectionOptimizer(ABC):
         tickers = self.tickers
 
         rets = self._get_stock_returns(tickers + [self.benchmark])
+        rets.index = rets.index.strftime('%Y-%m-%d')
+        logger.info('rets', extra={"rets": rets.to_dict('index')})
+
         bm = rets[self.benchmark]
         rets = rets.drop(self.benchmark, axis=1)
 
@@ -102,6 +105,8 @@ class AbstractCollectionOptimizer(ABC):
             coef = truncate[0] if coef < truncate[0] else truncate[
                 1] if coef > truncate[1] else coef
             betas[ticker] = coef
+
+        logger.info('betas', extra={"betas": betas})
 
         return {'Covariance': cov, 'Industry': industries, 'Betas': betas}
 
