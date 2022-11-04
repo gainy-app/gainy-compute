@@ -1,13 +1,15 @@
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, CASH_VALUE, FUND1_ID, FUND2_ID, FUND2_VALUE, \
-    FUND1_VALUE
+    FUND1_VALUE, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, FUND1_TARGET_WEIGHT
 from gainy.trading.models import TradingAccount
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
     DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
     DriveWealthPortfolioStatus
+
+_ACCOUNT_ID = "bf98c335-57ad-4337-ae9f-ed1fcfb447af.1662377145557"
 
 
 def test_sync_profile_trading_accounts(monkeypatch):
@@ -226,3 +228,55 @@ def test_sync_instrument(monkeypatch):
     assert instrument.symbol == instrument_symbol
     assert instrument.status == instrument_status
     assert instrument.data == instrument_data
+
+
+def test_ensure_portfolio(monkeypatch):
+    profile_id = 1
+
+    user = DriveWealthUser()
+    monkeypatch.setattr(user, "ref_id", USER_ID)
+    account = DriveWealthAccount()
+    monkeypatch.setattr(account, "ref_id", _ACCOUNT_ID)
+
+    def mock_get_user(_profile_id):
+        assert _profile_id == profile_id
+        return user
+
+    def mock_get_profile_portfolio(_profile_id):
+        assert _profile_id == profile_id
+        return None
+
+    def mock_get_user_accounts(_user_ref_id):
+        assert _user_ref_id == USER_ID
+        return [account]
+
+    drivewealth_repository = DriveWealthRepository(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(drivewealth_repository, "get_user", mock_get_user)
+    monkeypatch.setattr(drivewealth_repository, "get_profile_portfolio",
+                        mock_get_profile_portfolio)
+    monkeypatch.setattr(drivewealth_repository, "get_user_accounts",
+                        mock_get_user_accounts)
+
+    api = DriveWealthApi(None)
+
+    def mock_create_portfolio(portfolio, _name, _client_portfolio_id,
+                              _description):
+        assert _client_portfolio_id == profile_id
+        portfolio.set_from_response(PORTFOLIO)
+
+    monkeypatch.setattr(api, "create_portfolio", mock_create_portfolio)
+
+    def mock_update_account(_account_ref_id, _portfolio_ref_id):
+        assert _account_ref_id == _ACCOUNT_ID
+        assert _portfolio_ref_id == PORTFOLIO_REF_ID
+
+    monkeypatch.setattr(api, "update_account", mock_update_account)
+
+    provider = DriveWealthProvider(drivewealth_repository, api)
+    portfolio = provider.ensure_portfolio(profile_id)
+
+    assert portfolio.ref_id == PORTFOLIO_REF_ID
+    assert portfolio.drivewealth_account_id == _ACCOUNT_ID
+    assert portfolio.data == PORTFOLIO
+    assert portfolio.get_fund_weight(FUND1_ID) == FUND1_TARGET_WEIGHT

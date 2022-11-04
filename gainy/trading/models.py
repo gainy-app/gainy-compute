@@ -7,6 +7,19 @@ from typing import Dict
 from gainy.data_access.models import BaseModel, classproperty, DecimalEncoder
 
 
+class TradingMoneyFlowStatus(enum.Enum):
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
+class TradingCollectionVersionStatus(enum.Enum):
+    PENDING = "PENDING"
+    PENDING_EXECUTION = "PENDING_EXECUTION"
+    EXECUTED_FULLY = "EXECUTED_FULLY"
+    FAILED = "FAILED"
+
+
 class TradingAccount(BaseModel):
     id = None
     profile_id = None
@@ -30,13 +43,6 @@ class TradingAccount(BaseModel):
     @classproperty
     def table_name(self) -> str:
         return "trading_accounts"
-
-
-class TradingCollectionVersionStatus(enum.Enum):
-    PENDING = "PENDING"
-    PENDING_EXECUTION = "PENDING_EXECUTION"
-    EXECUTED_FULLY = "EXECUTED_FULLY"
-    FAILED = "FAILED"
 
 
 class TradingCollectionVersion(BaseModel):

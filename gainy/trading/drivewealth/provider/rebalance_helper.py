@@ -18,29 +18,6 @@ class DriveWealthProviderRebalanceHelper:
         self.repository = provider.repository
         self.api = provider.api
 
-    def upsert_portfolio(self, profile_id, account: DriveWealthAccount):
-        repository = self.repository
-        portfolio = repository.get_profile_portfolio(profile_id)
-
-        if portfolio:
-            self.provider.sync_portfolio(portfolio)
-        else:
-            name = f"Gainy profile #{profile_id}'s portfolio"
-            client_portfolio_id = profile_id  # TODO change to some other entity
-            description = name
-
-            portfolio = DriveWealthPortfolio()
-            portfolio.profile_id = profile_id
-            self.api.create_portfolio(portfolio, name, client_portfolio_id,
-                                      description)
-
-        if not portfolio.drivewealth_account_id:
-            self.api.update_account(account.ref_id, portfolio.ref_id)
-            portfolio.drivewealth_account_id = account.ref_id
-
-        repository.persist(portfolio)
-        return portfolio
-
     def upsert_fund(
             self, profile_id,
             collection_version: TradingCollectionVersion) -> DriveWealthFund:
@@ -77,9 +54,7 @@ class DriveWealthProviderRebalanceHelper:
         if not target_amount_delta:
             return 0
 
-        portfolio_status = self.provider.get_portfolio_status(portfolio)
-        portfolio.update_from_status(portfolio_status)
-        self.repository.persist(portfolio)
+        portfolio_status = self.provider.sync_portfolio_status(portfolio)
         if portfolio.is_pending_rebalance():
             cash_actual_weight = portfolio_status.cash_target_weight
             cash_value = cash_actual_weight * portfolio_status.equity_value

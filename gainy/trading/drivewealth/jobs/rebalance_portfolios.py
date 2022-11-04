@@ -22,38 +22,47 @@ class RebalancePortfoliosJob:
 
     def run(self):
         # todo thread safety
-        self.apply_trading_collection_versions()
-        self.rebalance_portfolio_cash()
 
-    def apply_trading_collection_versions(self):
-        for profile_id, trading_collection_versions in self._iterate_trading_collection_versions_by_profile_id(
+        for profile_id in self.repo.iterate_profiles_with_pending_trading_collection_versions(
         ):
             start_time = time.time()
             try:
-                self.provider.reconfigure_collection_holdings(
-                    trading_collection_versions)
+                portfolio = self.provider.ensure_portfolio(profile_id)
 
-                logger.info(
-                    "Reconfigured collection holdings %s for profiles %s, collections %s in %fs",
-                    list(map(lambda x: x.id, trading_collection_versions)),
-                    list(
-                        map(lambda x: x.profile_id,
-                            trading_collection_versions)),
-                    list(
-                        map(lambda x: x.collection_id,
-                            trading_collection_versions)),
-                    time.time() - start_time)
-
-                for trading_collection_version in trading_collection_versions:
-                    trading_collection_version.status = TradingCollectionVersionStatus.PENDING_EXECUTION
-                self.repo.persist(trading_collection_versions)
+                logger.info("Upsert portfolio %s for profile %d in %fs",
+                            portfolio.ref_id, profile_id,
+                            time.time() - start_time)
             except DriveWealthApiException as e:
                 logger.exception(e)
 
-    def rebalance_portfolio_cash(self):
-        portfolios: Iterable[DriveWealthPortfolio] = self.repo.iterate_all(
-            DriveWealthPortfolio)
-        for portfolio in portfolios:
+        for profile_id in self.repo.iterate_profiles_with_portfolio():
+            self.rebalance_portfolio_cash(profile_id)
+            self.apply_trading_collection_versions(profile_id)
+
+            for portfolio in self.repo.iterate_profile_portfolios(profile_id):
+                self.provider.send_portfolio_to_api(portfolio)
+
+    def apply_trading_collection_versions(self, profile_id: int):
+        for trading_collection_version in self._iterate_profile_pending_trading_collection_versions(
+                profile_id):
+            start_time = time.time()
+            try:
+                self.provider.reconfigure_collection_holdings(
+                    trading_collection_version)
+
+                logger.info(
+                    "Reconfigured collection holdings %s for profile %d, collections %s in %fs",
+                    trading_collection_version.id, profile_id,
+                    trading_collection_version.collection_id,
+                    time.time() - start_time)
+
+                trading_collection_version.status = TradingCollectionVersionStatus.PENDING_EXECUTION
+                self.repo.persist(trading_collection_version)
+            except DriveWealthApiException as e:
+                logger.exception(e)
+
+    def rebalance_portfolio_cash(self, profile_id):
+        for portfolio in self.repo.iterate_profile_portfolios(profile_id):
             start_time = time.time()
 
             try:
@@ -63,28 +72,13 @@ class RebalancePortfoliosJob:
             except DriveWealthApiException as e:
                 logger.exception(e)
 
-    def _iterate_trading_collection_versions_by_profile_id(
-            self) -> Iterable[Tuple[int, List[TradingCollectionVersion]]]:
-        trading_collection_versions: Iterable[
-            TradingCollectionVersion] = self.repo.iterate_all(
-                TradingCollectionVersion,
-                {"status": TradingCollectionVersionStatus.PENDING.name},
-                [("profile_id", "ASC")])
-
-        current_profile_id = None
-        profile_trading_collection_versions: List[
-            TradingCollectionVersion] = []
-        for trading_collection_version in trading_collection_versions:
-            if current_profile_id and trading_collection_version.profile_id != current_profile_id:
-                yield current_profile_id, profile_trading_collection_versions
-                profile_trading_collection_versions = []
-
-            current_profile_id = trading_collection_version.profile_id
-            profile_trading_collection_versions.append(
-                trading_collection_version)
-
-        if current_profile_id and profile_trading_collection_versions:
-            yield current_profile_id, profile_trading_collection_versions
+    def _iterate_profile_pending_trading_collection_versions(
+            self, profile_id: int) -> Iterable[TradingCollectionVersion]:
+        yield from self.repo.iterate_all(
+            TradingCollectionVersion, {
+                "profile_id": profile_id,
+                "status": TradingCollectionVersionStatus.PENDING.name
+            })
 
 
 def cli():

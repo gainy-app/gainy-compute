@@ -30,14 +30,18 @@ class DriveWealthProviderBase:
             if portfolio.is_artificial:
                 return
             self.sync_portfolio(portfolio)
-            portfolio_status = self.get_portfolio_status(portfolio)
-            portfolio.update_from_status(portfolio_status)
-            repository.persist(portfolio)
+            self.sync_portfolio_status(portfolio)
 
     def sync_portfolio(self, portfolio: DriveWealthPortfolio):
         data = self.api.get_portfolio(portfolio)
         portfolio.set_from_response(data)
         self.repository.persist(portfolio)
+
+    def sync_portfolio_status(self, portfolio: DriveWealthPortfolio):
+        portfolio_status = self.get_portfolio_status(portfolio)
+        portfolio.update_from_status(portfolio_status)
+        self.repository.persist(portfolio)
+        return portfolio_status
 
     def get_portfolio_status(
             self,
