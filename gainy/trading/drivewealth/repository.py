@@ -66,12 +66,12 @@ class DriveWealthRepository(Repository):
                     "profile_id":
                     portfolio.profile_id,
                     "trading_money_flow_statuses":
-                    (TradingMoneyFlowStatus.SUCCESS),
+                    (TradingMoneyFlowStatus.SUCCESS.name, ),
                     "trading_collection_version_statuses":
-                    (TradingCollectionVersionStatus.PENDING_EXECUTION,
-                     TradingCollectionVersionStatus.EXECUTED_FULLY),
+                    (TradingCollectionVersionStatus.PENDING_EXECUTION.name,
+                     TradingCollectionVersionStatus.EXECUTED_FULLY.name),
                 })
-            row = cursor.fetch_one()
+            row = cursor.fetchone()
 
             if row and row[0]:
                 cash_target_value = row[0]
@@ -80,11 +80,6 @@ class DriveWealthRepository(Repository):
 
         portfolio.cash_target_value = cash_target_value
         self.persist(portfolio)
-
-    def iterate_profile_portfolios(
-            self, profile_id: int) -> Iterable[DriveWealthPortfolio]:
-        yield from self.iterate_all(DriveWealthPortfolio,
-                                    {"profile_id": profile_id})
 
     def iterate_profiles_with_portfolio(self) -> Iterable[int]:
         query = "select distinct profile_id from app.drivewealth_portfolios"

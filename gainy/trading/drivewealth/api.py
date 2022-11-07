@@ -1,7 +1,12 @@
+import json
 import os
+
+import backoff
 import requests
+from backoff import full_jitter
 
 from gainy.data_access.db_lock import LockAcquisitionTimeout
+from gainy.data_access.models import DecimalEncoder
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund
@@ -159,11 +164,17 @@ class DriveWealthApi:
         if url != "/auth":
             headers["dw-auth-token"] = self._get_token(force_token_refresh)
 
-        response = requests.request(method,
-                                    DRIVEWEALTH_API_URL + url,
-                                    params=get_data,
-                                    json=post_data,
-                                    headers=headers)
+        if post_data:
+            post_data_json = json.dumps(post_data, cls=DecimalEncoder)
+            headers["content-type"] = "application/json"
+        else:
+            post_data_json = None
+
+        response = self._backoff_request(method,
+                                         DRIVEWEALTH_API_URL + url,
+                                         params=get_data,
+                                         data=post_data_json,
+                                         headers=headers)
 
         try:
             response_data = response.json()
@@ -175,6 +186,7 @@ class DriveWealthApi:
             "headers": headers,
             "get_data": get_data,
             "post_data": post_data,
+            "post_data_json": post_data_json,
             "status_code": status_code,
             "response_data": response_data,
             "requestId": response.headers.get("dw-request-id"),
@@ -198,3 +210,19 @@ class DriveWealthApi:
         logger.info("[DRIVEWEALTH] %s %s" % (method, url), extra=logging_extra)
 
         return response_data
+
+    @backoff.on_predicate(backoff.expo,
+                          predicate=lambda res: res.status_code == 429,
+                          max_tries=10,
+                          jitter=lambda v: v / 2 + full_jitter(v / 2))
+    def _backoff_request(self,
+                         method,
+                         url,
+                         params=None,
+                         data=None,
+                         headers=None):
+        return requests.request(method,
+                                url,
+                                params=params,
+                                data=data,
+                                headers=headers)

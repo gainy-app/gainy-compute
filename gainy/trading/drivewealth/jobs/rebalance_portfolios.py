@@ -1,11 +1,11 @@
-from typing import Iterable, List, Tuple
+from typing import Iterable
 
 import time
 
 from gainy.context_container import ContextContainer
-from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthApi, DriveWealthRepository
+from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
-from gainy.trading.drivewealth.models import DriveWealthPortfolio
+from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus
 from gainy.utils import get_logger
 
@@ -15,10 +15,9 @@ logger = get_logger(__name__)
 class RebalancePortfoliosJob:
 
     def __init__(self, repo: DriveWealthRepository,
-                 provider: DriveWealthProvider, api: DriveWealthApi):
+                 provider: DriveWealthProvider):
         self.repo = repo
         self.provider = provider
-        self.api = api
 
     def run(self):
         # todo thread safety
@@ -39,8 +38,8 @@ class RebalancePortfoliosJob:
             self.rebalance_portfolio_cash(profile_id)
             self.apply_trading_collection_versions(profile_id)
 
-            for portfolio in self.repo.iterate_profile_portfolios(profile_id):
-                self.provider.send_portfolio_to_api(portfolio)
+            portfolio = self.repo.get_profile_portfolio(profile_id)
+            self.provider.send_portfolio_to_api(portfolio)
 
     def apply_trading_collection_versions(self, profile_id: int):
         for trading_collection_version in self._iterate_profile_pending_trading_collection_versions(
@@ -58,19 +57,24 @@ class RebalancePortfoliosJob:
 
                 trading_collection_version.status = TradingCollectionVersionStatus.PENDING_EXECUTION
                 self.repo.persist(trading_collection_version)
+            except InsufficientFundsException as e:
+                trading_collection_version.status = TradingCollectionVersionStatus.FAILED
+                trading_collection_version.fail_reason = e.__class__
+                self.repo.persist(trading_collection_version)
             except DriveWealthApiException as e:
                 logger.exception(e)
 
     def rebalance_portfolio_cash(self, profile_id):
-        for portfolio in self.repo.iterate_profile_portfolios(profile_id):
-            start_time = time.time()
+        portfolio = self.repo.get_profile_portfolio(profile_id)
+        start_time = time.time()
 
-            try:
-                self.provider.rebalance_portfolio_cash(portfolio)
-                logger.info("Rebalanced portfolio %s in %fs", portfolio.ref_id,
-                            time.time() - start_time)
-            except DriveWealthApiException as e:
-                logger.exception(e)
+        try:
+            self.provider.rebalance_portfolio_cash(portfolio)
+            self.repo.persist(portfolio)
+            logger.info("Rebalanced portfolio %s in %fs", portfolio.ref_id,
+                        time.time() - start_time)
+        except DriveWealthApiException as e:
+            logger.exception(e)
 
     def _iterate_profile_pending_trading_collection_versions(
             self, profile_id: int) -> Iterable[TradingCollectionVersion]:
@@ -86,8 +90,7 @@ def cli():
         with ContextContainer() as context_container:
             job = RebalancePortfoliosJob(
                 context_container.drivewealth_repository,
-                context_container.drivewealth_provider,
-                context_container.drivewealth_api)
+                context_container.drivewealth_provider)
             job.run()
 
     except Exception as e:

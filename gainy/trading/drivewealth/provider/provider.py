@@ -1,5 +1,3 @@
-from typing import List
-
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, PRECISION, ONE
 
@@ -123,7 +121,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         logger.info('rebalance_portfolio_cash step1', extra=logging_extra)
 
         portfolio.rebalance_cash(cash_weight_delta)
-        self.repository.persist(portfolio)
         logging_extra["portfolio"] = portfolio.to_dict()
         logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
 

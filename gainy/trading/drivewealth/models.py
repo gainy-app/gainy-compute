@@ -14,7 +14,7 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
-PRECISION = 1e-3
+PRECISION = Decimal(10)**-3
 ONE = Decimal(1)
 ZERO = Decimal(0)
 DW_WEIGHT_PRECISION = 4
@@ -414,7 +414,7 @@ class DriveWealthFund(BaseDriveWealthModel):
             self.holdings[k]['target'] = new_target
             weight_sum += new_target
 
-        logger.info('normalize_weights pre',
+        logger.info('DriveWealthFund normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
                         "holdings": self.holdings,
@@ -435,7 +435,7 @@ class DriveWealthFund(BaseDriveWealthModel):
             self.holdings[0]['target'] += 1 - weight_sum
             weight_sum += 1 - weight_sum
 
-        logger.info('normalize_weights post',
+        logger.info('DriveWealthFund normalize_weights post',
                     extra={
                         "weight_threshold": weight_threshold,
                         "weight_sum": weight_sum,
@@ -462,6 +462,15 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["created_at", "updated_at"]
 
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
+
+        if not row:
+            return
+
+        for k, i in self.holdings.items():
+            self.holdings[k] = Decimal(i)
+
     def set_from_response(self, data=None):
         if not data:
             return
@@ -481,6 +490,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def set_target_weights_from_status_actual_weights(
             self, portfolio_status: DriveWealthPortfolioStatus):
         self.cash_target_weight = portfolio_status.cash_actual_weight
+
+        if not self.holdings:
+            self.holdings = {}
 
         for fund_ref_id, i in self.holdings.items():
             self.holdings[fund_ref_id] = ZERO
@@ -563,7 +575,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
             self.holdings[k] = round(i, DW_WEIGHT_PRECISION)
             weight_sum += i
 
-        logger.info('normalize_weights pre',
+        logger.info('DriveWealthPortfolio normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
                         "cash_target_weight": self.cash_target_weight,
@@ -591,7 +603,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.cash_target_weight += 1 - weight_sum
         weight_sum += 1 - weight_sum
 
-        logger.info('normalize_weights post',
+        logger.info('DriveWealthPortfolio normalize_weights post',
                     extra={
                         "weight_threshold": weight_threshold,
                         "weight_sum": weight_sum,

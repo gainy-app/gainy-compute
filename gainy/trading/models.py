@@ -50,6 +50,7 @@ class TradingCollectionVersion(BaseModel):
     profile_id = None
     collection_id = None
     status: TradingCollectionVersionStatus = None
+    fail_reason: str = None
     target_amount_delta = None
     weights: Dict[str, Decimal] = None
     created_at = None
