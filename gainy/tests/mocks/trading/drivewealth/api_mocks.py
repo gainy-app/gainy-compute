@@ -1,28 +1,35 @@
 from decimal import Decimal
 
+USER_ID = "41dde78c-e31b-43e5-9418-44ae08098738"
 CASH_VALUE = 11001
 CASH_TARGET_WEIGHT = Decimal(0.11)
+CASH_ACTUAL_WEIGHT = Decimal(0.1)
+
+PORTFOLIO_REF_ID = "portfolio_24338197-62da-4ac8-a0c9-3204e396f9c7"
+PORTFOLIO_STATUS_EQUITY_VALUE = Decimal(110045.62)
 
 FUND1_ID = "fund_b567f1d3-486e-4e5f-aacd-0d551113ebf6"
 FUND1_VALUE = Decimal(33604.12)
 FUND1_TARGET_WEIGHT = Decimal(0.3)
+FUND1_ACTUAL_WEIGHT = Decimal(0.3054)
 FUND2_ID = "fund_9a51b36f-faac-41a7-8c9d-b15bb29a05fc"
 FUND2_VALUE = Decimal(65440.5)
 FUND2_TARGET_WEIGHT = Decimal(0.59)
+FUND2_ACTUAL_WEIGHT = Decimal(0.5947)
 PORTFOLIO_STATUS = {
     "id":
-    "portfolio_24338197-62da-4ac8-a0c9-3204e396f9c7",
+    PORTFOLIO_REF_ID,
     "lastPortfolioRebalance":
     None,
     "nextPortfolioRebalance":
     None,
     "equity":
-    Decimal(110045.62),
+    PORTFOLIO_STATUS_EQUITY_VALUE,
     "holdings": [{
         "id": None,
         "type": "CASH_RESERVE",
         "target": CASH_TARGET_WEIGHT,
-        "actual": 0.1,
+        "actual": CASH_ACTUAL_WEIGHT,
         "value": CASH_VALUE,
     }, {
         "id":
@@ -32,7 +39,7 @@ PORTFOLIO_STATUS = {
         "target":
         FUND1_TARGET_WEIGHT,
         "actual":
-        0.3054,
+        FUND1_ACTUAL_WEIGHT,
         "value":
         FUND1_VALUE,
         "holdings": [{
@@ -54,9 +61,29 @@ PORTFOLIO_STATUS = {
         "id": FUND2_ID,
         "type": "FUND",
         "target": FUND2_TARGET_WEIGHT,
-        "actual": 0.5947,
+        "actual": FUND2_ACTUAL_WEIGHT,
         "value": FUND2_VALUE,
         "holdings": []
+    }]
+}
+
+PORTFOLIO = {
+    "id":
+    PORTFOLIO_REF_ID,
+    "userID":
+    USER_ID,
+    "holdings": [{
+        "instrumentID": None,
+        "type": "CASH_RESERVE",
+        "target": CASH_TARGET_WEIGHT,
+    }, {
+        "instrumentID": FUND1_ID,
+        "type": "FUND",
+        "target": FUND1_TARGET_WEIGHT,
+    }, {
+        "instrumentID": FUND2_ID,
+        "type": "FUND",
+        "target": FUND2_TARGET_WEIGHT,
     }]
 }
 

@@ -1,7 +1,12 @@
+import json
 import os
+
+import backoff
 import requests
+from backoff import full_jitter
 
 from gainy.data_access.db_lock import LockAcquisitionTimeout
+from gainy.data_access.models import DecimalEncoder
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund
@@ -29,6 +34,8 @@ class DriveWealthApi:
     def get_user(self, user_id: str):
         return self._make_request("GET", f"/users/{user_id}")
 
+    # Accounts
+
     def get_account(self, account_id: str):
         return self._make_request("GET", f"/accounts/{account_id}")["account"]
 
@@ -40,9 +47,16 @@ class DriveWealthApi:
         return self._make_request("GET",
                                   f"/accounts/{account_id}/summary/positions")
 
+    def update_account(self, account_ref_id, portfolio_ref_id):
+        return self._make_request("PATCH", f"/accounts/{account_ref_id}",
+                                  {"ria": {
+                                      "portfolioID": portfolio_ref_id
+                                  }})
+
     def get_user_accounts(self, user_id: str):
         return self._make_request("GET", f"/users/{user_id}/accounts")
 
+    # Portfolios
     def get_portfolio(self, portfolio: DriveWealthPortfolio):
         return self._make_request("GET",
                                   f"/managed/portfolios/{portfolio.ref_id}")
@@ -51,11 +65,20 @@ class DriveWealthApi:
         return self._make_request(
             "GET", f"/accounts/{portfolio.drivewealth_account_id}/portfolio")
 
-    def update_fund(self, fund: DriveWealthFund):
-        data = self._make_request("PATCH", f"/managed/funds/{fund.ref_id}", {
-            'holdings': fund.holdings,
-        })
-        fund.set_from_response(data)
+    def create_portfolio(self, portfolio: DriveWealthPortfolio, name,
+                         client_portfolio_id, description):
+        data = self._make_request(
+            "POST", "/managed/portfolios", {
+                'userID': DRIVEWEALTH_RIA_ID,
+                'name': name,
+                'clientPortfolioID': client_portfolio_id,
+                'description': description,
+                'holdings': [{
+                    "type": "CASH_RESERVE",
+                    "target": 1
+                }],
+            })
+        portfolio.set_from_response(data)
 
     def update_portfolio(self, portfolio: DriveWealthPortfolio):
         # noinspection PyTypeChecker
@@ -73,6 +96,38 @@ class DriveWealthApi:
                                       'holdings': holdings,
                                   })
         portfolio.set_from_response(data)
+
+    # Funds
+
+    def create_fund(self, fund: DriveWealthFund, name, client_fund_id,
+                    description):
+        data = self._make_request(
+            "POST", "/managed/funds", {
+                'userID': DRIVEWEALTH_RIA_ID,
+                'name': name,
+                'clientFundID': client_fund_id,
+                'description': description,
+                'holdings': fund.holdings,
+            })
+        fund.set_from_response(data)
+
+    def update_fund(self, fund: DriveWealthFund):
+        data = self._make_request("PATCH", f"/managed/funds/{fund.ref_id}", {
+            'holdings': fund.holdings,
+        })
+        fund.set_from_response(data)
+
+    # Instrument
+
+    def get_instrument_details(self, ref_id: str = None, symbol: str = None):
+        if ref_id:
+            return self._make_request("GET", f"/instruments/{ref_id}")
+        if symbol:
+            return self._make_request("GET", f"/instruments/{symbol}")
+
+        raise Exception('Either ref_id or symbol must be specified.')
+
+    # Token
 
     def get_auth_token(self):
         return self._make_request(
@@ -109,11 +164,17 @@ class DriveWealthApi:
         if url != "/auth":
             headers["dw-auth-token"] = self._get_token(force_token_refresh)
 
-        response = requests.request(method,
-                                    DRIVEWEALTH_API_URL + url,
-                                    params=get_data,
-                                    json=post_data,
-                                    headers=headers)
+        if post_data:
+            post_data_json = json.dumps(post_data, cls=DecimalEncoder)
+            headers["content-type"] = "application/json"
+        else:
+            post_data_json = None
+
+        response = self._backoff_request(method,
+                                         DRIVEWEALTH_API_URL + url,
+                                         params=get_data,
+                                         data=post_data_json,
+                                         headers=headers)
 
         try:
             response_data = response.json()
@@ -125,6 +186,7 @@ class DriveWealthApi:
             "headers": headers,
             "get_data": get_data,
             "post_data": post_data,
+            "post_data_json": post_data_json,
             "status_code": status_code,
             "response_data": response_data,
             "requestId": response.headers.get("dw-request-id"),
@@ -148,3 +210,19 @@ class DriveWealthApi:
         logger.info("[DRIVEWEALTH] %s %s" % (method, url), extra=logging_extra)
 
         return response_data
+
+    @backoff.on_predicate(backoff.expo,
+                          predicate=lambda res: res.status_code == 429,
+                          max_tries=10,
+                          jitter=lambda v: v / 2 + full_jitter(v / 2))
+    def _backoff_request(self,
+                         method,
+                         url,
+                         params=None,
+                         data=None,
+                         headers=None):
+        return requests.request(method,
+                                url,
+                                params=params,
+                                data=data,
+                                headers=headers)

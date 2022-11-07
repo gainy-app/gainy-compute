@@ -1,3 +1,5 @@
+import enum
+
 import dateutil.parser
 import datetime
 from abc import ABC
@@ -12,7 +14,7 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
-PRECISION = 1e-3
+PRECISION = Decimal(10)**-3
 ONE = Decimal(1)
 ZERO = Decimal(0)
 DW_WEIGHT_PRECISION = 4
@@ -412,7 +414,7 @@ class DriveWealthFund(BaseDriveWealthModel):
             self.holdings[k]['target'] = new_target
             weight_sum += new_target
 
-        logger.info('normalize_weights pre',
+        logger.info('DriveWealthFund normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
                         "holdings": self.holdings,
@@ -433,7 +435,7 @@ class DriveWealthFund(BaseDriveWealthModel):
             self.holdings[0]['target'] += 1 - weight_sum
             weight_sum += 1 - weight_sum
 
-        logger.info('normalize_weights post',
+        logger.info('DriveWealthFund normalize_weights post',
                     extra={
                         "weight_threshold": weight_threshold,
                         "weight_sum": weight_sum,
@@ -446,6 +448,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     profile_id = None
     drivewealth_account_id = None
     cash_target_weight: Decimal = None
+    cash_target_value: Decimal = None
     holdings: Dict[str, Decimal] = None
     data = None
     is_artificial = False
@@ -458,6 +461,15 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
+
+        if not row:
+            return
+
+        for k, i in self.holdings.items():
+            self.holdings[k] = Decimal(i)
 
     def set_from_response(self, data=None):
         if not data:
@@ -478,6 +490,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def set_target_weights_from_status_actual_weights(
             self, portfolio_status: DriveWealthPortfolioStatus):
         self.cash_target_weight = portfolio_status.cash_actual_weight
+
+        if not self.holdings:
+            self.holdings = {}
 
         for fund_ref_id, i in self.holdings.items():
             self.holdings[fund_ref_id] = ZERO
@@ -507,6 +522,51 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.set_fund_weight(fund.ref_id, min(ONE, max(ZERO, fund_weight)))
         self.normalize_weights()
 
+    def rebalance_cash(self, weight_delta: Decimal):
+        old_cash_weight = cash_weight = self.cash_target_weight
+        funds_weight_sum = 1 - self.cash_target_weight
+
+        if cash_weight + weight_delta < -PRECISION:
+            raise Exception('cash weight can not be negative')
+        if cash_weight + weight_delta > 1 + PRECISION:
+            raise Exception('cash weight can not be greater than 1')
+
+        logger.debug('rebalance_cash weight_delta=%f', weight_delta)
+        cash_weight += weight_delta
+        self.cash_target_weight = min(ONE, max(ZERO, cash_weight))
+        logger.debug('Change cash weight from %f to %f', old_cash_weight,
+                     self.cash_target_weight)
+
+        if funds_weight_sum < PRECISION:
+            self.normalize_weights()
+            return
+
+        for fund_ref_id in self.holdings.keys():
+            old_fund_weight = fund_weight = self.get_fund_weight(fund_ref_id)
+            fund_weight_delta = weight_delta * fund_weight / funds_weight_sum
+            logger.debug('fund %s ',
+                         fund_ref_id,
+                         extra={
+                             "fund_weight_delta": fund_weight_delta,
+                             "weight_delta": weight_delta,
+                             "fund_weight": fund_weight,
+                             "funds_weight_sum": funds_weight_sum,
+                         })
+
+            if fund_weight - fund_weight_delta < -PRECISION:
+                raise Exception('fund weight can not be negative')
+            if fund_weight - fund_weight_delta > 1 + PRECISION:
+                raise Exception('fund weight can not be greater than 1')
+
+            fund_weight -= fund_weight_delta
+            fund_weight = min(ONE, max(ZERO, fund_weight))
+            logger.debug('Set fund %s weight from %f to %f', fund_ref_id,
+                         old_fund_weight, fund_weight)
+
+            self.set_fund_weight(fund_ref_id, fund_weight)
+
+        self.normalize_weights()
+
     def normalize_weights(self):
         self.cash_target_weight = round(self.cash_target_weight,
                                         DW_WEIGHT_PRECISION)
@@ -515,7 +575,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
             self.holdings[k] = round(i, DW_WEIGHT_PRECISION)
             weight_sum += i
 
-        logger.info('normalize_weights pre',
+        logger.info('DriveWealthPortfolio normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
                         "cash_target_weight": self.cash_target_weight,
@@ -543,7 +603,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.cash_target_weight += 1 - weight_sum
         weight_sum += 1 - weight_sum
 
-        logger.info('normalize_weights post',
+        logger.info('DriveWealthPortfolio normalize_weights post',
                     extra={
                         "weight_threshold": weight_threshold,
                         "weight_sum": weight_sum,
@@ -593,3 +653,34 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
                 portfolio_status.last_portfolio_rebalance_at)
         else:
             self.last_rebalance_at = portfolio_status.last_portfolio_rebalance_at
+
+
+class DriveWealthInstrumentStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+
+
+class DriveWealthInstrument(BaseDriveWealthModel):
+    ref_id = None
+    symbol = None
+    status = None
+    data = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+
+        self.ref_id = data.get("id") or data.get("instrumentID")
+        self.symbol = data["symbol"]
+        self.status = data["status"]
+        self.data = data
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_instruments"

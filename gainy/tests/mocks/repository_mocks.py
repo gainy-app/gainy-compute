@@ -5,7 +5,7 @@ def mock_find(options):
             if cls == _cls and fltr == _fltr:
                 return result
 
-        raise Exception('unknown find_one call: %s %s', _cls, _fltr)
+        raise Exception(f"unknown find_one call: {_cls}, {_fltr}")
 
     return mock
 
@@ -26,3 +26,14 @@ def mock_persist(persisted_objects: dict = None):
 
 def mock_noop(*args, **kwargs):
     pass
+
+
+def mock_record_calls(calls: list = None):
+
+    def mock(*args, **kwargs):
+        if calls is None:
+            return
+
+        calls.append((args, kwargs))
+
+    return mock
