@@ -3,7 +3,7 @@ from gainy.data_access.models import BaseModel
 
 def mock_find(options):
 
-    def mock(_cls, _fltr=None):
+    def mock(_cls, _fltr=None, _order=None):
         for cls, fltr, result in options:
             if cls == _cls and fltr == _fltr:
                 return result

@@ -100,9 +100,20 @@ def test_sync_trading_account(monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist",
                         mock_persist(persisted_objects))
+
+    def _mock_find(options):
+        _mock = mock_find(options)
+
+        def mock(_cls, _fltr=None, _order=None):
+            if _cls == DriveWealthAccountMoney:
+                return None
+            return _mock(_cls, _fltr, _order)
+
+        return mock
+
     monkeypatch.setattr(
         drivewealth_repository, "find_one",
-        mock_find([
+        _mock_find([
             (DriveWealthUser, {
                 "ref_id": user_ref_id,
             }, user),
