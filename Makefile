@@ -13,7 +13,6 @@ test-shell:
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run --rm test-python /bin/bash
 
 install:
-	apt update && apt install -y gcc python3-dev
 	poetry install
 
 build: install
