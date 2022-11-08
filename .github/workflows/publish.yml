@@ -29,9 +29,6 @@ jobs:
         if: github.event.inputs.prerelease && github.event.inputs.prerelease != 'false'
         run: poetry version $(poetry version -s)-alpha.$(date '+%s')
 
-      - name: Build
-        run: make build
-
       - name: Publish
         run: make publish
         env:
