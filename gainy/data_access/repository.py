@@ -25,7 +25,7 @@ class TableFilter:
                 value = OperatorEq(value)
 
             op_sql, op_params = value.to_sql(field)
-            conditions.append(sql.Identifier(field) + op_sql)
+            conditions.append(op_sql)
             params.update(op_params)
 
         condition = sql.SQL(" AND ").join(conditions)
