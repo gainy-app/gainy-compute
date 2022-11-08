@@ -192,14 +192,14 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
 
     provider = DriveWealthProvider(drivewealth_repository, None)
 
-    def mock_get_portfolio_status(_portfolio):
+    def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
         status = DriveWealthPortfolioStatus()
         status.set_from_response(PORTFOLIO_STATUS)
         return status
 
-    monkeypatch.setattr(provider, "get_portfolio_status",
-                        mock_get_portfolio_status)
+    monkeypatch.setattr(provider, "sync_portfolio_status",
+                        mock_sync_portfolio_status)
 
     helper = DriveWealthProviderRebalanceHelper(provider)
     fund = DriveWealthFund()
@@ -238,14 +238,14 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
 
     provider = DriveWealthProvider(drivewealth_repository, None)
 
-    def mock_get_portfolio_status(_portfolio):
+    def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
         status = DriveWealthPortfolioStatus()
         status.set_from_response(PORTFOLIO_STATUS)
         return status
 
-    monkeypatch.setattr(provider, "get_portfolio_status",
-                        mock_get_portfolio_status)
+    monkeypatch.setattr(provider, "sync_portfolio_status",
+                        mock_sync_portfolio_status)
 
     helper = DriveWealthProviderRebalanceHelper(provider)
     fund = DriveWealthFund()

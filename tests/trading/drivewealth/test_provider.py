@@ -429,7 +429,7 @@ def test_sync_portfolio_status(monkeypatch):
             return portfolio_status
         raise Exception(f"unknown args {args}")
 
-    monkeypatch.setattr(provider, "get_portfolio_status",
+    monkeypatch.setattr(provider, "_get_portfolio_status",
                         mock_get_portfolio_status)
 
     assert portfolio_status == provider.sync_portfolio_status(portfolio)
