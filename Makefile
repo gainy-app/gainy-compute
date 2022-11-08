@@ -8,21 +8,16 @@ down:
 clean:
 	- docker-compose down --rmi local -v --remove-orphans
 
-test-shell:
+test-shell: test-build
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run test-python make in-docker-configure
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run --rm test-python /bin/bash
 
-install:
-	poetry install
-
-build: install
+publish:
 	poetry build
-
-publish: build
 	poetry config repositories.gainy $(shell aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text)
 	poetry publish -n -u aws -p $(shell aws codeartifact get-authorization-token --domain gainy-app --query authorizationToken --output text) -r gainy
 
-in-docker-configure: install
+in-docker-configure:
 	apt update && apt install -y postgresql-client
 	PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAME} -P pager -c "CREATE SCHEMA IF NOT EXISTS $$PUBLIC_SCHEMA_NAME;"
 	find ./fixtures -iname '*.sql' | sort | while read -r i; do PGOPTIONS="--search_path=$$PUBLIC_SCHEMA_NAME" PGPASSWORD=${PG_PASSWORD} psql -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USERNAME} ${PG_DBNAME} -P pager -f "$$i"; done
