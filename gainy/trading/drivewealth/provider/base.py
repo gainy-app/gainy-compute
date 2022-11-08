@@ -38,12 +38,29 @@ class DriveWealthProviderBase:
         self.repository.persist(portfolio)
 
     def sync_portfolio_status(self, portfolio: DriveWealthPortfolio):
-        portfolio_status = self.get_portfolio_status(portfolio)
+        portfolio_status = self._get_portfolio_status(portfolio)
         portfolio.update_from_status(portfolio_status)
         self.repository.persist(portfolio)
         return portfolio_status
 
-    def get_portfolio_status(
+    def get_fund(self, profile_id: int,
+                 collection_id: int) -> Optional[DriveWealthFund]:
+        repository = self.repository
+        fund = repository.get_profile_fund(profile_id, collection_id)
+
+        if not fund:
+            return None
+
+        return fund
+
+    def sync_instrument(self, ref_id: str = None, symbol: str = None):
+        data = self.api.get_instrument_details(ref_id=ref_id, symbol=symbol)
+        instrument = DriveWealthInstrument()
+        instrument.set_from_response(data)
+        self.repository.persist(instrument)
+        return instrument
+
+    def _get_portfolio_status(
             self,
             portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
 
@@ -66,23 +83,6 @@ class DriveWealthProviderBase:
         portfolio_status.set_from_response(data)
         self.repository.persist(portfolio_status)
         return portfolio_status
-
-    def get_fund(self, profile_id: int,
-                 collection_id: int) -> Optional[DriveWealthFund]:
-        repository = self.repository
-        fund = repository.get_profile_fund(profile_id, collection_id)
-
-        if not fund:
-            return None
-
-        return fund
-
-    def sync_instrument(self, ref_id: str = None, symbol: str = None):
-        data = self.api.get_instrument_details(ref_id=ref_id, symbol=symbol)
-        instrument = DriveWealthInstrument()
-        instrument.set_from_response(data)
-        self.repository.persist(instrument)
-        return instrument
 
     def _get_user(self, profile_id) -> DriveWealthUser:
         repository = self.repository

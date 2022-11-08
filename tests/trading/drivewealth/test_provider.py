@@ -458,7 +458,7 @@ def test_get_portfolio_status(monkeypatch):
     monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
 
     provider = DriveWealthProvider(repository, api)
-    portfolio_status = provider.get_portfolio_status(portfolio)
+    portfolio_status = provider._get_portfolio_status(portfolio)
 
     assert portfolio_status.drivewealth_portfolio_id == PORTFOLIO_STATUS["id"]
     assert DriveWealthPortfolioStatus in persisted_objects

@@ -1,3 +1,6 @@
+import datetime
+
+from gainy.data_access.operators import OperatorGt
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, PRECISION, ONE
 
@@ -7,6 +10,8 @@ from gainy.trading.models import TradingAccount, TradingCollectionVersion
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
+
+DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
@@ -72,7 +77,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if fetch_info:
             self._sync_account(account)
 
-        account_money = self._sync_account_money(account_ref_id)
+        account_money = self.sync_account_money(account_ref_id)
 
         account_positions_data = self.api.get_account_positions(account_ref_id)
         account_positions = DriveWealthAccountPositions()
@@ -167,6 +172,29 @@ class DriveWealthProvider(DriveWealthProviderBase):
         portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
+    def sync_account_money(self,
+                           account_ref_id: str) -> DriveWealthAccountMoney:
+
+        account_money: DriveWealthAccountMoney = self.repository.find_one(
+            DriveWealthAccountMoney, {
+                "drivewealth_account_id":
+                account_ref_id,
+                "created_at":
+                OperatorGt(
+                    datetime.datetime.now(datetime.timezone.utc) -
+                    datetime.timedelta(
+                        seconds=DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL)),
+            }, [("created_at", "DESC")])
+
+        if account_money:
+            return account_money
+
+        account_money_data = self.api.get_account_money(account_ref_id)
+        account_money = DriveWealthAccountMoney()
+        account_money.set_from_response(account_money_data)
+        self.repository.persist(account_money)
+        return account_money
+
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]
 
@@ -179,11 +207,3 @@ class DriveWealthProvider(DriveWealthProviderBase):
             self.sync_user(account.drivewealth_user_id)
 
         self.repository.persist(account)
-
-    def _sync_account_money(self,
-                            account_ref_id: str) -> DriveWealthAccountMoney:
-        account_money_data = self.api.get_account_money(account_ref_id)
-        account_money = DriveWealthAccountMoney()
-        account_money.set_from_response(account_money_data)
-        self.repository.persist(account_money)
-        return account_money
