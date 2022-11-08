@@ -1,3 +1,6 @@
+from gainy.data_access.models import BaseModel
+
+
 def mock_find(options):
 
     def mock(_cls, _fltr=None):
@@ -12,14 +15,18 @@ def mock_find(options):
 
 def mock_persist(persisted_objects: dict = None):
 
-    def mock(_entity):
+    def mock(entities):
         if persisted_objects is None:
             return
 
-        if _entity.__class__ not in persisted_objects:
-            persisted_objects[_entity.__class__] = []
+        if isinstance(entities, BaseModel):
+            entities = [entities]
 
-        persisted_objects[_entity.__class__].append(_entity)
+        for entity in entities:
+            if entity.__class__ not in persisted_objects:
+                persisted_objects[entity.__class__] = []
+
+            persisted_objects[entity.__class__].append(entity)
 
     return mock
 

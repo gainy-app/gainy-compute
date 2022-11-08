@@ -9,7 +9,6 @@ import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
 from gainy.utils import env, get_logger
-import psutil
 
 logger = get_logger(__name__)
 

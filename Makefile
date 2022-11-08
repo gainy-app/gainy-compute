@@ -8,14 +8,12 @@ down:
 clean:
 	- docker-compose down --rmi local -v --remove-orphans
 
-test-shell:
+test-shell: test-build
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run test-python make in-docker-configure
 	docker-compose -p gainy_compute_test -f docker-compose.test.yml run --rm test-python /bin/bash
 
-build:
+publish:
 	poetry build
-
-publish: build
 	poetry config repositories.gainy $(shell aws codeartifact get-repository-endpoint --domain gainy-app --repository gainy-app --format pypi --query repositoryEndpoint --output text)
 	poetry publish -n -u aws -p $(shell aws codeartifact get-authorization-token --domain gainy-app --query authorizationToken --output text) -r gainy
 
@@ -26,6 +24,7 @@ in-docker-configure:
 
 in-docker-test: in-docker-configure
 	poetry run gainy_recommendation --batch_size=100
+	poetry run gainy_optimize_collections -o /tmp/gainy_optimize_collections.csv
 	poetry run pytest tests/*
 
 test-build:

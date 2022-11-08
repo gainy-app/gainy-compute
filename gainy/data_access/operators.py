@@ -7,7 +7,7 @@ from psycopg2 import sql
 class OperatorInterface:
 
     @abstractmethod
-    def to_sql(self, field_name: str) -> Tuple[sql.SQL, Dict[str, Any]]:
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
         pass
 
 
@@ -17,8 +17,9 @@ class Operator(OperatorInterface):
         self.op = op
         self.param = param
 
-    def to_sql(self, field_name: str) -> Tuple[sql.SQL, Dict[str, Any]]:
-        _sql = sql.SQL(f" {self.op} %({field_name})s")
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
+        _sql = sql.SQL(f"{{field_name}} {self.op} %({field_name})s").format(
+            field_name=sql.Identifier(field_name))
         _params = {field_name: self.param}
 
         return _sql, _params
@@ -47,8 +48,21 @@ class OperatorIn(Operator):
     def __init__(self, param):
         super().__init__(None, param)
 
-    def to_sql(self, field_name: str) -> Tuple[sql.SQL, Dict[str, Any]]:
-        _sql = sql.SQL(f" = ANY (%({field_name})s)")
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
+        _sql = sql.SQL(f"{{field_name}} = ANY (%({field_name})s)").format(
+            field_name=sql.Identifier(field_name))
         _params = {field_name: self.param}
+
+        return _sql, _params
+
+
+class OperatorNot(OperatorInterface):
+
+    def __init__(self, operator: OperatorInterface):
+        self.operator = operator
+
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
+        _sql, _params = self.operator.to_sql(field_name)
+        _sql = sql.SQL(f"(NOT ({{_sql}}))").format(_sql=_sql)
 
         return _sql, _params
