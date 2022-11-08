@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gainy-compute"
-version = "0.4.8"
+version = "0.4.9"
 description = "All stuff related to data computations and ML models in Python"
 authors = [
     "Vasilii Khomutov <vasilii@gainy.app>",
@@ -35,11 +35,19 @@ requires = ["poetry-core>=1.1.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
+# ML
 gainy_industry_assignment = "gainy.industries.runner:cli"
 gainy_recommendation = "gainy.recommendation.job:cli"
+gainy_optimize_collections = "gainy.optimization.jobs.optimize_collections:cli"
+
+# Trading
 gainy_update_account_balances = "gainy.trading.jobs.update_account_balances:cli"
 gainy_rebalance_portfolios = "gainy.trading.drivewealth.jobs.rebalance_portfolios:cli"
+gainy_fetch_drivewealth_instruments = "gainy.trading.drivewealth.jobs.fetch_instruments:cli"
+
+# Billing
 gainy_create_invoices = "gainy.billing.jobs.create_invoices:cli"
 gainy_charge_invoices = "gainy.billing.jobs.charge_invoices:cli"
-gainy_optimize_collections = "gainy.optimization.jobs.optimize_collections:cli"
+
+# Misc
 gainy_github_update_file = "gainy.github.update_file_job:cli"

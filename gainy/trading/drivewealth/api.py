@@ -127,6 +127,11 @@ class DriveWealthApi:
 
         raise Exception('Either ref_id or symbol must be specified.')
 
+    def get_instruments(self, status: str = "ACTIVE"):
+        return self._make_request("GET",
+                                  f"/instruments",
+                                  get_data={"status": status})
+
     # Token
 
     def get_auth_token(self):
