@@ -168,6 +168,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         return portfolio
 
     def send_portfolio_to_api(self, portfolio: DriveWealthPortfolio):
+        if portfolio.is_artificial:
+            return
         self.api.update_portfolio(portfolio)
         portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
