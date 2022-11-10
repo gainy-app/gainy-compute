@@ -16,13 +16,15 @@ def test_ticker_match_score():
                 VALUES ('USD', 1, 49, %(profile_id)s, 486, 'dvqO7MRMx3HJQxLOxv0NCqj9PZjRY1TbVMzQa_ODbxOoxka6fPx3Xy4xkEIMDPJAPLpOfMPXEry',
                         '2021-12-13 06:34:51.423171 +00:00', '2022-04-08 07:02:36.062043 +00:00', 10);
                 INSERT INTO app.profile_scoring_settings (profile_id, created_at, risk_level, average_market_return, investment_horizon, unexpected_purchases_source, damage_of_failure, stock_market_risk_level, trading_experience, if_market_drops_20_i_will_buy, if_market_drops_40_i_will_buy, risk_score)
-                VALUES (%(profile_id)s, '2021-10-20 16:02:34.514475 +00:00', 0.5, 6, 0.5, 'checking_savings', 0.5, 'very_risky', 'never_tried', 0.5, 0.5, 2);
+                VALUES (%(profile_id)s, '2021-10-20 16:02:34.514475 +00:00', 0.5, 6, 0.5, 'checking_savings', 0.5, 'very_risky', 'never_tried', 0.5, 0.5, 2)
+                on conflict do nothing;
 
-                INSERT INTO app.profile_interests (profile_id, interest_id) VALUES (%(profile_id)s, 5);
-                INSERT INTO app.profile_categories (profile_id, category_id) VALUES (%(profile_id)s, 2), (%(profile_id)s, 5), (%(profile_id)s, 7);
+                INSERT INTO app.profile_interests (profile_id, interest_id) VALUES (%(profile_id)s, 5) on conflict do nothing;
+                INSERT INTO app.profile_categories (profile_id, category_id) VALUES (%(profile_id)s, 2), (%(profile_id)s, 5), (%(profile_id)s, 7) on conflict do nothing;
 
                 INSERT INTO collection_ticker_actual_weights (date, profile_id, collection_id, collection_uniq_id, symbol, weight)
-                VALUES ('2022-08-22', null, 83, '0_83', 'AAPL', 1);
+                VALUES ('2022-08-22', null, 83, '0_83', 'AAPL', 1)
+                on conflict do nothing;
                 """, {"profile_id": profile_id})
 
         context_container.recommendation_repository.generate_match_scores(

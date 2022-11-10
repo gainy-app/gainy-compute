@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import List
 
 from plaid.model.accounts_get_request import AccountsGetRequest
@@ -9,10 +10,17 @@ from gainy.plaid.models import PlaidAccount
 
 class PlaidClient:
 
-    def __init__(self):
-        self.client = get_plaid_client()
-        self.sandbox_client = get_plaid_client('sandbox')
-        self.development_client = get_plaid_client('development')
+    @cached_property
+    def _default_client(self):
+        return get_plaid_client()
+
+    @cached_property
+    def _sandbox_client(self):
+        return get_plaid_client('sandbox')
+
+    @cached_property
+    def _development_client(self):
+        return get_plaid_client('development')
 
     def get_item_accounts(self,
                           access_token,
@@ -31,8 +39,8 @@ class PlaidClient:
 
     def get_client(self, access_token):
         if access_token and access_token.find('sandbox') > -1:
-            return self.sandbox_client
+            return self._sandbox_client
         if access_token and access_token.find('development') > -1:
-            return self.development_client
+            return self._development_client
 
-        return self.client
+        return self._default_client

@@ -19,6 +19,10 @@ class UpdateAccountBalancesJob:
         self.service = service
 
     def run(self):
+        self._update_trading_accounts()
+        self._update_funding_accounts()
+
+    def _update_trading_accounts(self):
         trading_accounts: Iterable[TradingAccount] = self.repo.iterate_all(
             TradingAccount)
         for account in trading_accounts:
@@ -31,6 +35,7 @@ class UpdateAccountBalancesJob:
             except DriveWealthApiException as e:
                 logger.exception(e)
 
+    def _update_funding_accounts(self):
         funding_accounts: Iterable[FundingAccount] = self.repo.iterate_all(
             FundingAccount)
         for account in funding_accounts:

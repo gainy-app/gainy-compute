@@ -11,7 +11,8 @@ from gainy.billing.stripe.repository import StripeRepository
 from gainy.data_access.repository import Repository
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
 from gainy.recommendation.repository import RecommendationRepository
-from gainy.trading import TradingService, TradingRepository
+from gainy.trading.service import TradingService
+from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository, DriveWealthApi
 from gainy.utils import db_connect
 

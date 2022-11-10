@@ -2,7 +2,7 @@ from typing import Iterable, Dict
 
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
-from gainy.trading import TradingRepository
+from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount
 from gainy.utils import get_logger

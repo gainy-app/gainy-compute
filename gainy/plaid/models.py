@@ -15,7 +15,10 @@ class PlaidAccount:
     subtype = None
     type = None
 
-    def __init__(self, data):
+    def __init__(self, data=None):
+        if not data:
+            return
+
         self.account_id = data["account_id"]
         self.balance_available = data["balances"]["available"]
         self.balance_current = data["balances"]["current"]
