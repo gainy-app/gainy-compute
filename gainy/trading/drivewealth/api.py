@@ -191,7 +191,6 @@ class DriveWealthApi:
             "headers": headers,
             "get_data": get_data,
             "post_data": post_data,
-            "post_data_json": post_data_json,
             "status_code": status_code,
             "response_data": response_data,
             "requestId": response.headers.get("dw-request-id"),
