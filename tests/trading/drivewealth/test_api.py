@@ -2,7 +2,7 @@ import multiprocessing.dummy
 import time
 from datetime import datetime, timedelta, timezone
 
-from gainy.utils import db_connect
+from gainy.utils import db_connect, DATETIME_ISO8601_FORMAT_TZ
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository
 
 
@@ -16,7 +16,7 @@ def _get_token(monkeypatch):
 
         return {
             "authToken": f"authToken{time.time()}",
-            "expiresAt": expires_at.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "expiresAt": expires_at.strftime(DATETIME_ISO8601_FORMAT_TZ),
         }
 
     with db_connect() as db_conn:
