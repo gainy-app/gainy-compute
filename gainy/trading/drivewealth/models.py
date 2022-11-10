@@ -465,8 +465,8 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def set_from_dict(self, row: dict = None):
         super().set_from_dict(row)
 
-        if not row:
-            return
+        if not self.holdings:
+            self.holdings = {}
 
         for k, i in self.holdings.items():
             self.holdings[k] = Decimal(i)

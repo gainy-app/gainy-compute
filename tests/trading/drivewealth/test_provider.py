@@ -100,9 +100,20 @@ def test_sync_trading_account(monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist",
                         mock_persist(persisted_objects))
+
+    def _mock_find(options):
+        _mock = mock_find(options)
+
+        def mock(_cls, _fltr=None, _order=None):
+            if _cls == DriveWealthAccountMoney:
+                return None
+            return _mock(_cls, _fltr, _order)
+
+        return mock
+
     monkeypatch.setattr(
         drivewealth_repository, "find_one",
-        mock_find([
+        _mock_find([
             (DriveWealthUser, {
                 "ref_id": user_ref_id,
             }, user),
@@ -429,7 +440,7 @@ def test_sync_portfolio_status(monkeypatch):
             return portfolio_status
         raise Exception(f"unknown args {args}")
 
-    monkeypatch.setattr(provider, "get_portfolio_status",
+    monkeypatch.setattr(provider, "_get_portfolio_status",
                         mock_get_portfolio_status)
 
     assert portfolio_status == provider.sync_portfolio_status(portfolio)
@@ -458,7 +469,7 @@ def test_get_portfolio_status(monkeypatch):
     monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
 
     provider = DriveWealthProvider(repository, api)
-    portfolio_status = provider.get_portfolio_status(portfolio)
+    portfolio_status = provider._get_portfolio_status(portfolio)
 
     assert portfolio_status.drivewealth_portfolio_id == PORTFOLIO_STATUS["id"]
     assert DriveWealthPortfolioStatus in persisted_objects
