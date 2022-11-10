@@ -22,10 +22,6 @@ PLAID_HOSTS = {
     'production': plaid.Environment.Production,
 }
 
-if PLAID_ENV not in PLAID_HOSTS:
-    raise Exception('Wrong plaid env %s, available options are: %s' %
-                    (PLAID_ENV, ",".join(PLAID_HOSTS.keys())))
-
 DEFAULT_ENV = "development"
 
 
@@ -48,6 +44,10 @@ def get_purpose_products(purpose):
 def get_plaid_client(env=None):
     if env is None:
         env = PLAID_ENV
+
+    if env not in PLAID_HOSTS:
+        raise Exception('Wrong plaid env %s, available options are: %s' %
+                        (PLAID_ENV, ",".join(PLAID_HOSTS.keys())))
 
     host = PLAID_HOSTS[env]
     if env == 'development' and PLAID_DEVELOPMENT_SECRET:
