@@ -17,6 +17,7 @@ class TradingCollectionVersionStatus(enum.Enum):
     PENDING = "PENDING"
     PENDING_EXECUTION = "PENDING_EXECUTION"
     EXECUTED_FULLY = "EXECUTED_FULLY"
+    CANCELLED = "CANCELLED"
     FAILED = "FAILED"
 
 
