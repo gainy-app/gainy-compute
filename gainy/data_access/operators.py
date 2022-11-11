@@ -40,7 +40,7 @@ class OperatorLt(Operator):
 class OperatorGt(Operator):
 
     def __init__(self, param):
-        super().__init__("<", param)
+        super().__init__(">", param)
 
 
 class OperatorIn(Operator):
