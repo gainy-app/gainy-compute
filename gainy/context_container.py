@@ -10,6 +10,7 @@ from gainy.billing.stripe.provider import StripePaymentProvider
 from gainy.billing.stripe.repository import StripeRepository
 from gainy.data_access.repository import Repository
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
+from gainy.plaid.service import PlaidService
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.trading.service import TradingService
 from gainy.trading.repository import TradingRepository
@@ -46,6 +47,10 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def collection_optimizer_repository(self) -> CollectionOptimizerRepository:
         return CollectionOptimizerRepository(self.db_conn)
+
+    @cached_property
+    def plaid_service(self) -> PlaidService:
+        return PlaidService()
 
     # Stripe
     @cached_property
@@ -87,7 +92,8 @@ class ContextContainer(AbstractContextManager):
     # trading
     @cached_property
     def trading_service(self) -> TradingService:
-        return TradingService(self.drivewealth_provider)
+        return TradingService(self.trading_repository,
+                              self.drivewealth_provider, self.plaid_service)
 
     @cached_property
     def trading_repository(self):
