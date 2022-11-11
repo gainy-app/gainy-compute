@@ -4,7 +4,7 @@ import time
 
 from gainy.context_container import ContextContainer
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
-from gainy.trading.models import TradingAccount
+from gainy.trading.models import TradingAccount, FundingAccount
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
@@ -19,6 +19,10 @@ class UpdateAccountBalancesJob:
         self.service = service
 
     def run(self):
+        self._update_trading_accounts()
+        self._update_funding_accounts()
+
+    def _update_trading_accounts(self):
         trading_accounts: Iterable[TradingAccount] = self.repo.iterate_all(
             TradingAccount)
         for account in trading_accounts:
@@ -26,7 +30,20 @@ class UpdateAccountBalancesJob:
 
             try:
                 self.service.sync_balances(account)
-                logger.info("Synced account %d in %f", account.id,
+                logger.info("Synced trading account %d in %f", account.id,
+                            time.time() - start_time)
+            except DriveWealthApiException as e:
+                logger.exception(e)
+
+    def _update_funding_accounts(self):
+        funding_accounts: Iterable[FundingAccount] = self.repo.iterate_all(
+            FundingAccount)
+        for account in funding_accounts:
+            start_time = time.time()
+
+            try:
+                self.service.update_funding_accounts_balance([account])
+                logger.info("Synced funding account %d in %f", account.id,
                             time.time() - start_time)
             except DriveWealthApiException as e:
                 logger.exception(e)
