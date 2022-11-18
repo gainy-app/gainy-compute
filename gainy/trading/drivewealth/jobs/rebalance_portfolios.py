@@ -59,7 +59,7 @@ class RebalancePortfoliosJob:
                 self.repo.persist(trading_collection_version)
             except InsufficientFundsException as e:
                 trading_collection_version.status = TradingCollectionVersionStatus.FAILED
-                trading_collection_version.fail_reason = e.__class__
+                trading_collection_version.fail_reason = e.__class__.__name__
                 self.repo.persist(trading_collection_version)
             except DriveWealthApiException as e:
                 logger.exception(e)

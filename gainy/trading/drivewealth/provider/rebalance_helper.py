@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, Any, Optional, List
 
-from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthPortfolio, DriveWealthFund, PRECISION, \
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION, \
     DriveWealthInstrument, DriveWealthInstrumentStatus
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
