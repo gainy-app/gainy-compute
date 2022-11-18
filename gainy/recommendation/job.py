@@ -1,13 +1,7 @@
 import argparse
-import os
 import traceback
-from operator import itemgetter
-import psycopg2
-from psycopg2._psycopg import connection
-import sys
 import time
 import json
-from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.utils import db_connect, get_logger

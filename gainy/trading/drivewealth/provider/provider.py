@@ -156,14 +156,14 @@ class DriveWealthProvider(DriveWealthProviderBase):
             portfolio.profile_id = profile_id
             self.api.create_portfolio(portfolio, name, client_portfolio_id,
                                       description)
-            repository.persist(portfolio)
 
         if not portfolio.drivewealth_account_id:
             user = self._get_user(profile_id)
             account = self._get_trading_account(user.ref_id)
             self.api.update_account(account.ref_id, portfolio.ref_id)
             portfolio.drivewealth_account_id = account.ref_id
-            repository.persist(portfolio)
+
+        repository.persist(portfolio)
 
         return portfolio
 
