@@ -24,7 +24,7 @@ jobs:
 
       - name: Setup Poetry
         run: |
-          pip install poetry
+          python3.9 -mpip install poetry
           poetry env use $(which python3.9)
           poetry install
 
