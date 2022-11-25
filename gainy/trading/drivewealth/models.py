@@ -140,6 +140,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         trading_account.cash_available_for_trade = self.cash_available_for_trade
         trading_account.cash_available_for_withdrawal = self.cash_available_for_withdrawal
         trading_account.cash_balance = self.cash_balance
+        trading_account.account_no = self.ref_no
         pass
 
 

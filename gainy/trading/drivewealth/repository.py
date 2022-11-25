@@ -1,6 +1,7 @@
-from typing import List, Iterable
+from typing import List, Iterable, Tuple
 
 from gainy.data_access.repository import Repository
+from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio
 from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus
@@ -29,8 +30,26 @@ class DriveWealthRepository(Repository):
             "collection_id": collection_id,
         })
 
-    def get_profile_portfolio(self, profile_id: int) -> DriveWealthPortfolio:
-        return self.find_one(DriveWealthPortfolio, {"profile_id": profile_id})
+    def get_account(self, trading_account_id=None) -> DriveWealthAccount:
+        account = self.find_one(DriveWealthAccount,
+                                {"trading_account_id": trading_account_id})
+        if not account:
+            raise Exception("Could not link portfolio to account: no account")
+
+        return account
+
+    def get_profile_portfolio(self, profile_id: int,
+                              trading_account_id: int) -> DriveWealthPortfolio:
+        account = self.get_account(trading_account_id)
+        if not account:
+            raise EntityNotFoundException(DriveWealthFund)
+
+        params = {
+            "profile_id": profile_id,
+            "drivewealth_account_id": account.ref_id,
+        }
+
+        return self.find_one(DriveWealthPortfolio, params)
 
     def upsert_user_account(self, drivewealth_user_id,
                             data) -> DriveWealthAccount:
@@ -81,16 +100,9 @@ class DriveWealthRepository(Repository):
         portfolio.cash_target_value = cash_target_value
         self.persist(portfolio)
 
-    def iterate_profiles_with_portfolio(self) -> Iterable[int]:
-        query = "select distinct profile_id from app.drivewealth_portfolios"
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query)
-            for row in cursor:
-                yield row[0]
-
-    def iterate_profiles_with_pending_trading_collection_versions(
-            self) -> Iterable[int]:
-        query = "select distinct profile_id from app.trading_collection_versions where status = %(status)s"
+    def iterate_pending_trading_collection_versions(
+            self) -> Iterable[Tuple[int, int]]:
+        query = "select distinct profile_id, trading_account_id from app.trading_collection_versions where status = %(status)s"
         with self.db_conn.cursor() as cursor:
             cursor.execute(
                 query, {"status": TradingCollectionVersionStatus.PENDING.name})

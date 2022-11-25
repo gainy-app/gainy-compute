@@ -53,6 +53,7 @@ class TradingAccount(BaseModel):
     cash_available_for_withdrawal = None
     cash_balance = None
     equity_value = None
+    account_no = None
     created_at = None
     updated_at = None
 
@@ -78,6 +79,7 @@ class TradingCollectionVersion(BaseModel):
     fail_reason: str = None
     target_amount_delta = None
     weights: Dict[str, Decimal] = None
+    trading_account_id: int = None
     created_at = None
     executed_at = None
     updated_at = None

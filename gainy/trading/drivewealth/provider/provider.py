@@ -134,7 +134,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         helper = DriveWealthProviderRebalanceHelper(self)
 
         profile_id = collection_version.profile_id
-        portfolio = self.repository.get_profile_portfolio(profile_id)
+        portfolio = self.repository.get_profile_portfolio(
+            profile_id, collection_version.trading_account_id)
         if not portfolio:
             raise Exception('Portfolio not found')
 
@@ -143,9 +144,10 @@ class DriveWealthProvider(DriveWealthProviderBase):
             collection_version.target_amount_delta, portfolio, chosen_fund)
         self.repository.persist(portfolio)
 
-    def ensure_portfolio(self, profile_id):
+    def ensure_portfolio(self, profile_id, trading_account_id):
         repository = self.repository
-        portfolio = repository.get_profile_portfolio(profile_id)
+        portfolio = repository.get_profile_portfolio(profile_id,
+                                                     trading_account_id)
 
         if not portfolio:
             name = f"Gainy profile #{profile_id}'s portfolio"
@@ -158,8 +160,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
                                       description)
 
         if not portfolio.drivewealth_account_id:
-            user = self._get_user(profile_id)
-            account = self._get_trading_account(user.ref_id)
+            account = self.repository.get_account(trading_account_id)
             self.api.update_account(account.ref_id, portfolio.ref_id)
             portfolio.drivewealth_account_id = account.ref_id
 
