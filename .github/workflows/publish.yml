@@ -20,11 +20,10 @@ jobs:
         run: |
           sudo apt update && sudo apt install software-properties-common -y
           sudo add-apt-repository ppa:deadsnakes/ppa -y
-          sudo apt update && sudo apt install -y python3.9 python3.9-pip gnome-keyring
+          sudo apt update && sudo apt install -y python3.9 python3.9-distutils gnome-keyring
 
       - name: Setup Poetry
         run: |
-          python3.9 -mpip install distutils
           python3.9 -mpip install poetry
           poetry env use $(which python3.9)
           poetry install
