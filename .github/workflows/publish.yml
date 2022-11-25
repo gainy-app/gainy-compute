@@ -17,7 +17,8 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup Python
-        run: sudo apt update && sudo apt install -y python3.9 gnome-keyring
+#        run: sudo apt update && sudo apt install -y python3.9 gnome-keyring
+        run: sudo apt update && sudo apt install -y gnome-keyring
 
       - name: Setup Poetry
         run: |
