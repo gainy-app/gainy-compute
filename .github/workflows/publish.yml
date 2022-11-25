@@ -24,7 +24,8 @@ jobs:
 
       - name: Setup Poetry
         run: |
-          python3.9 -mpip install poetry distutils
+          python3.9 -mpip install distutils
+          python3.9 -mpip install poetry
           poetry env use $(which python3.9)
           poetry install
 
