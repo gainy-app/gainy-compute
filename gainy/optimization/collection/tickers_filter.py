@@ -29,9 +29,11 @@ class CollectionTickerFilter:
         df = df[['ticker', 'marketcap', 'avg_vol_mil']]
 
         lp = self.repository.get_last_ticker_price_df(tickers)
-
-        df = df.merge(lp, on='ticker', how='inner')
+        df = df.merge(lp, on='ticker', how='inner', copy=False)
         df['vol_doll'] = df.avg_vol_mil * df.adjusted_close
+
+        dw_ref_ids = self.repository.get_dw_ref_ids(tickers)
+        df = df.merge(dw_ref_ids, on='ticker', how='inner', copy=False)
 
         # Filtering logic
         df['Flag'] = np.NaN
@@ -42,6 +44,8 @@ class CollectionTickerFilter:
             df.loc[df.adjusted_close < min_price, 'Flag'].values) + '-Price'
         df.loc[df.vol_doll < min_volume, 'Flag'] = str(
             df.loc[df.vol_doll < min_volume, 'Flag'].values) + '-Volume'
+        df.loc[df.ref_id.isna(),
+               'Flag'] = str(df.loc[df.ref_id.isna(), 'Flag'].values) + '-DW'
 
         maxdt = df.max_date.max()
         df.loc[df.max_date < maxdt,

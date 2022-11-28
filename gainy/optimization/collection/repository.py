@@ -51,6 +51,22 @@ class CollectionOptimizerRepository:
 
         return pd.DataFrame(data)
 
+    def get_dw_ref_ids(self, symbols: list) -> pd.DataFrame:
+        query = """
+            SELECT symbol as ticker,
+                   ref_id
+            FROM app.drivewealth_instruments
+            WHERE symbol IN %(symbols)s
+        """
+
+        params = {"symbols": tuple(symbols)}
+
+        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, params)
+            data = cursor.fetchall()
+
+        return pd.DataFrame(data)
+
     def get_last_ticker_price_df(self,
                                  symbols: list,
                                  max_date=None) -> pd.DataFrame:
