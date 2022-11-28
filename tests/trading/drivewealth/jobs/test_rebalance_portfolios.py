@@ -1,15 +1,15 @@
 from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, mock_persist
 from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.jobs.rebalance_portfolios import RebalancePortfoliosJob
-from gainy.trading.drivewealth.models import DriveWealthPortfolio
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount
 from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus
 
 
 def mock_ensure_portfolio(portfolio, profile_ids: list = None):
 
-    def mock(profile_id):
+    def mock(profile_id, trading_account_id):
         if profile_ids is not None:
-            profile_ids.append(profile_id)
+            profile_ids.append((profile_id, trading_account_id))
 
         return portfolio
 
@@ -31,25 +31,18 @@ def test_rebalance_portfolios(monkeypatch):
     profile_id1 = 1
     profile_id2 = 2
 
+    trading_account_id_1 = 3
+
     portfolio1 = DriveWealthPortfolio()
     portfolio2 = DriveWealthPortfolio()
 
-    def mock_get_profile_portfolio(profile_id):
-        if profile_id == profile_id1:
-            return portfolio1
-        if profile_id == profile_id2:
-            return portfolio2
-        raise Exception(f"unknown profile_id {profile_id}")
-
     repository = DriveWealthRepository(None)
+    monkeypatch.setattr(repository,
+                        "iterate_pending_trading_collection_versions",
+                        lambda: [(profile_id1, trading_account_id_1)])
     monkeypatch.setattr(
-        repository,
-        "iterate_profiles_with_pending_trading_collection_versions",
-        lambda: [profile_id1])
-    monkeypatch.setattr(repository, "iterate_profiles_with_portfolio",
-                        lambda: [profile_id1, profile_id2])
-    monkeypatch.setattr(repository, "get_profile_portfolio",
-                        mock_get_profile_portfolio)
+        repository, "iterate_all",
+        mock_find([(DriveWealthPortfolio, None, [portfolio1, portfolio2])]))
 
     provider = DriveWealthProvider(repository, None)
     send_portfolio_to_api_calls = []
@@ -72,17 +65,17 @@ def test_rebalance_portfolios(monkeypatch):
 
     job.run()
 
-    assert profile_id1 in ensure_portfolio_profile_ids
-    assert profile_id1 in [
+    assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
+    assert portfolio1 in [
         args[0] for args, kwargs in rebalance_portfolio_cash_calls
     ]
-    assert profile_id2 in [
+    assert portfolio2 in [
         args[0] for args, kwargs in rebalance_portfolio_cash_calls
     ]
-    assert profile_id1 in [
+    assert portfolio1 in [
         args[0] for args, kwargs in apply_trading_collection_versions_calls
     ]
-    assert profile_id2 in [
+    assert portfolio2 in [
         args[0] for args, kwargs in apply_trading_collection_versions_calls
     ]
     assert portfolio1 in [
@@ -95,6 +88,13 @@ def test_rebalance_portfolios(monkeypatch):
 
 def test_apply_trading_collection_versions(monkeypatch):
     profile_id = 1
+    trading_account_id = 1
+
+    portfolio = DriveWealthPortfolio()
+    monkeypatch.setattr(portfolio, "profile_id", profile_id)
+
+    account = DriveWealthAccount()
+    monkeypatch.setattr(account, "trading_account_id", trading_account_id)
 
     trading_collection_version = TradingCollectionVersion()
 
@@ -103,8 +103,16 @@ def test_apply_trading_collection_versions(monkeypatch):
         repository, "iterate_all",
         mock_find([(TradingCollectionVersion, {
             "profile_id": profile_id,
+            "trading_account_id": trading_account_id,
             "status": TradingCollectionVersionStatus.PENDING.name
         }, [trading_collection_version])]))
+    monkeypatch.setattr(
+        repository, "find_one",
+        mock_find([
+            (DriveWealthAccount, {
+                "ref_id": portfolio.drivewealth_account_id
+            }, account),
+        ]))
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
@@ -115,7 +123,7 @@ def test_apply_trading_collection_versions(monkeypatch):
         mock_record_calls(reconfigure_collection_holdings_calls))
 
     RebalancePortfoliosJob(
-        repository, provider).apply_trading_collection_versions(profile_id)
+        repository, provider).apply_trading_collection_versions(portfolio)
 
     assert trading_collection_version in [
         args[0] for args, kwargs in reconfigure_collection_holdings_calls
@@ -126,7 +134,6 @@ def test_apply_trading_collection_versions(monkeypatch):
 
 
 def test_rebalance_portfolio_cash(monkeypatch):
-    profile_id = 1
     portfolio = DriveWealthPortfolio()
 
     repository = DriveWealthRepository(None)
@@ -147,7 +154,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
                         mock_record_calls(rebalance_portfolio_cash_calls))
 
     RebalancePortfoliosJob(repository,
-                           provider).rebalance_portfolio_cash(profile_id)
+                           provider).rebalance_portfolio_cash(portfolio)
 
     assert portfolio in [
         args[0] for args, kwargs in rebalance_portfolio_cash_calls
