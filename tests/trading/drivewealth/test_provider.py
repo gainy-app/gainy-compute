@@ -222,6 +222,7 @@ def test_sync_instrument(monkeypatch):
 
 def test_ensure_portfolio(monkeypatch):
     profile_id = 1
+    trading_account_id = 2
 
     user = DriveWealthUser()
     monkeypatch.setattr(user, "ref_id", USER_ID)
@@ -232,9 +233,14 @@ def test_ensure_portfolio(monkeypatch):
         assert _profile_id == profile_id
         return user
 
-    def mock_get_profile_portfolio(_profile_id):
-        assert _profile_id == profile_id
+    def mock_get_profile_portfolio(*args):
+        assert args[0] == profile_id
+        assert args[1] == trading_account_id
         return None
+
+    def _mock_get_account(*args):
+        assert args[0] == trading_account_id
+        return account
 
     def mock_get_user_accounts(_user_ref_id):
         assert _user_ref_id == USER_ID
@@ -247,6 +253,8 @@ def test_ensure_portfolio(monkeypatch):
                         mock_get_profile_portfolio)
     monkeypatch.setattr(drivewealth_repository, "get_user_accounts",
                         mock_get_user_accounts)
+    monkeypatch.setattr(drivewealth_repository, "get_account",
+                        _mock_get_account)
 
     api = DriveWealthApi(None)
 
@@ -264,7 +272,7 @@ def test_ensure_portfolio(monkeypatch):
     monkeypatch.setattr(api, "update_account", mock_update_account)
 
     provider = DriveWealthProvider(drivewealth_repository, api)
-    portfolio = provider.ensure_portfolio(profile_id)
+    portfolio = provider.ensure_portfolio(profile_id, trading_account_id)
 
     assert portfolio.ref_id == PORTFOLIO_REF_ID
     assert portfolio.drivewealth_account_id == _ACCOUNT_ID
@@ -299,9 +307,12 @@ def test_send_portfolio_to_api(monkeypatch):
 def test_reconfigure_collection_holdings(monkeypatch):
     profile_id = 1
     target_amount_delta = 2
+    trading_account_id = 3
 
     collection_version = TradingCollectionVersion()
     monkeypatch.setattr(collection_version, "profile_id", profile_id)
+    monkeypatch.setattr(collection_version, "trading_account_id",
+                        trading_account_id)
     monkeypatch.setattr(collection_version, "target_amount_delta",
                         target_amount_delta)
 
@@ -310,10 +321,10 @@ def test_reconfigure_collection_holdings(monkeypatch):
 
     repository = DriveWealthRepository(None)
 
-    def mock_get_profile_portfolio(profile_id):
-        if profile_id == profile_id:
-            return portfolio
-        raise Exception(f"unknown profile_id {profile_id}")
+    def mock_get_profile_portfolio(*args):
+        assert args[0] == profile_id
+        assert args[1] == trading_account_id
+        return portfolio
 
     monkeypatch.setattr(repository, "get_profile_portfolio",
                         mock_get_profile_portfolio)
