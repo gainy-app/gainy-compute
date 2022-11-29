@@ -6,6 +6,8 @@ import pandas as pd
 from psycopg2._psycopg import connection
 from psycopg2.extras import RealDictCursor
 
+from gainy.trading.drivewealth import normalize_symbol
+
 
 class CollectionOptimizerRepository:
 
@@ -50,6 +52,24 @@ class CollectionOptimizerRepository:
             data = cursor.fetchall()
 
         return pd.DataFrame(data)
+
+    def get_dw_ref_ids(self, symbols: list) -> pd.DataFrame:
+        query = """
+            SELECT symbol as ticker,
+                   ref_id
+            FROM app.drivewealth_instruments
+            WHERE symbol IN %(symbols)s
+        """
+
+        params = {"symbols": tuple(symbols)}
+
+        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, params)
+            data = cursor.fetchall()
+
+        df = pd.DataFrame(data, columns=['ticker', 'ref_id'])
+        df['ticker'] = df['ticker'].map(normalize_symbol)
+        return df
 
     def get_last_ticker_price_df(self,
                                  symbols: list,

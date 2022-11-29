@@ -1,8 +1,9 @@
 from decimal import Decimal
 from typing import Dict, Any, Optional, List
 
+from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION, \
-    DriveWealthInstrument, DriveWealthInstrumentStatus
+    DriveWealthInstrument
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import TradingCollectionVersion
@@ -112,23 +113,24 @@ class DriveWealthProviderRebalanceHelper:
             for holding in fund.holdings:
                 new_holdings[holding["instrumentID"]] = 0
 
-        # TODO check dw instruments symbols to match our symbols
+        weight_sum = Decimal(0)
         for symbol, weight in weights.items():
-            instrument = self._get_instrument(symbol)
-            new_holdings[instrument.ref_id] = weight
+            try:
+                instrument = self._get_instrument(symbol)
+                new_holdings[instrument.ref_id] = weight
+                weight_sum += weight
+            except EntityNotFoundException as e:
+                pass
 
         return [{
             "instrumentID": k,
-            "target": i,
+            "target": i / weight_sum,
         } for k, i in new_holdings.items()]
 
     def _get_instrument(self, symbol) -> DriveWealthInstrument:
-        instrument = self.repository.find_one(
-            DriveWealthInstrument, {
-                "symbol": symbol,
-                "status": DriveWealthInstrumentStatus.ACTIVE
-            })
+        instrument = self.repository.get_instrument_by_symbol(symbol)
+
         if instrument:
             return instrument
 
-        return self.provider.sync_instrument(symbol=symbol)
+        raise EntityNotFoundException(DriveWealthInstrument)

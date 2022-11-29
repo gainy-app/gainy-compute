@@ -2,6 +2,7 @@ from decimal import Decimal
 
 import pytest
 
+from gainy.exceptions import EntityNotFoundException
 from gainy.tests.mocks.repository_mocks import mock_noop, mock_find
 from gainy.tests.mocks.trading.drivewealth.api_mocks import CASH_TARGET_WEIGHT, FUND1_ID, FUND1_TARGET_WEIGHT, \
     PORTFOLIO_STATUS, CASH_VALUE, FUND1_VALUE, USER_ID, PORTFOLIO
@@ -10,7 +11,7 @@ from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthInstrumentStatus, DriveWealthInstrument, \
-    DriveWealthPortfolioStatus
+    DriveWealthPortfolioStatus, PRECISION
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion
 
@@ -158,21 +159,16 @@ def test_generate_new_fund_holdings(monkeypatch):
     _mock_get_instrument(monkeypatch, helper)
 
     new_holdings = helper._generate_new_fund_holdings(_FUND_WEIGHTS, fund)
+    new_holdings = {i["instrumentID"]: i["target"] for i in new_holdings}
 
-    assert new_holdings == [
-        {
-            "instrumentID": "A",
-            "target": 0,
-        },
-        {
-            "instrumentID": "B",
-            "target": 0.3,
-        },
-        {
-            "instrumentID": "C",
-            "target": 0.7,
-        },
-    ]
+    assert "A" in new_holdings
+    assert abs(new_holdings["A"]) < PRECISION
+
+    assert "B" in new_holdings
+    assert abs(new_holdings["B"] - Decimal(0.3)) < PRECISION
+
+    assert "C" in new_holdings
+    assert abs(new_holdings["C"] - Decimal(0.7)) < PRECISION
 
 
 def get_test_handle_cash_amount_change_amounts_ok():
@@ -271,28 +267,13 @@ def test_get_instrument(instrument_exists, monkeypatch):
     instrument = DriveWealthInstrument()
 
     if instrument_exists:
-        monkeypatch.setattr(
-            drivewealth_repository, 'find_one',
-            mock_find([
-                (DriveWealthInstrument, {
-                    "symbol": _symbol,
-                    "status": DriveWealthInstrumentStatus.ACTIVE
-                }, instrument),
-            ]))
+        monkeypatch.setattr(drivewealth_repository, 'get_instrument_by_symbol',
+                            lambda x: instrument)
+        assert helper._get_instrument(_symbol) == instrument
+
     else:
-        monkeypatch.setattr(
-            drivewealth_repository, 'find_one',
-            mock_find([
-                (DriveWealthInstrument, {
-                    "symbol": _symbol,
-                    "status": DriveWealthInstrumentStatus.ACTIVE
-                }, None),
-            ]))
+        monkeypatch.setattr(drivewealth_repository, 'get_instrument_by_symbol',
+                            lambda x: None)
 
-        def mock_sync_instrument(symbol):
-            assert symbol == _symbol
-            return instrument
-
-        monkeypatch.setattr(provider, 'sync_instrument', mock_sync_instrument)
-
-    assert helper._get_instrument(_symbol) == instrument
+        with pytest.raises(EntityNotFoundException):
+            helper._get_instrument(_symbol)
