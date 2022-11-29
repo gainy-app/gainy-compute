@@ -107,7 +107,7 @@ class DriveWealthRepository(Repository):
             cursor.execute(
                 query, {"status": TradingCollectionVersionStatus.PENDING.name})
             for row in cursor:
-                yield row[0]
+                yield row[0], row[1]
 
     # todo add to tests?
     def get_instrument_by_symbol(
