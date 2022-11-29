@@ -67,8 +67,8 @@ class CollectionOptimizerRepository:
             cursor.execute(query, params)
             data = cursor.fetchall()
 
-        df = pd.DataFrame(data)
-        df.ticker = df.ticker.map(normalize_symbol)
+        df = pd.DataFrame(data, columns=['ticker', 'ref_id'])
+        df['ticker'] = df['ticker'].map(normalize_symbol)
         return df
 
     def get_last_ticker_price_df(self,

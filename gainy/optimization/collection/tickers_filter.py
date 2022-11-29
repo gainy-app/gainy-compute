@@ -36,23 +36,19 @@ class CollectionTickerFilter:
         df = df.merge(dw_ref_ids, on='ticker', how='inner', copy=False)
 
         # Filtering logic
-        df['Flag'] = np.NaN
+        df['Flag'] = ''
+        df.loc[df.marketcap < min_market_cap, 'Flag'] += '-MC'
+        df.loc[df.adjusted_close < min_price, 'Flag'] += '-Price'
+        df.loc[df.vol_doll < min_volume, 'Flag'] += '-Volume'
 
-        df.loc[df.marketcap < min_market_cap, 'Flag'] = str(
-            df.loc[df.marketcap < min_market_cap, 'Flag'].values) + '-MC'
-        df.loc[df.adjusted_close < min_price, 'Flag'] = str(
-            df.loc[df.adjusted_close < min_price, 'Flag'].values) + '-Price'
-        df.loc[df.vol_doll < min_volume, 'Flag'] = str(
-            df.loc[df.vol_doll < min_volume, 'Flag'].values) + '-Volume'
-
-        df.loc[df.ref_id.isna(), 'Flag'] += '-DW'
-
-        # while in DW UAT environment
-        # idx = df.ticker in [
-        #     'CTXS', 'WRE', 'NLOK', 'LFC', 'DRE', 'ZEN', 'WULF', 'TEN', 'ARBK',
-        #     'HNRG'
-        # ]
-        # df.loc[idx, 'Flag'] = str(df.loc[idx, 'Flag'].values) + '-DW'
+        # df.loc[df.ref_id.isna(), 'Flag'] += '-DW'
+        # while in DW UAT environment we hard-code the list of unsupported tickers
+        # TODO remove after UAT
+        missing_tickers = [
+            'CTXS', 'WRE', 'NLOK', 'LFC', 'DRE', 'ZEN', 'WULF', 'TEN', 'ARBK',
+            'HNRG'
+        ]
+        df.loc[df.ticker.isin(missing_tickers), 'Flag'] += '-DW'
 
         maxdt = df.max_date.max()
         df.loc[df.max_date < maxdt,
@@ -61,4 +57,4 @@ class CollectionTickerFilter:
         logger.info("Filtering data",
                     extra={"data": dict(zip(df.ticker, df.Flag))})
 
-        return df.loc[df.Flag.isna(), 'ticker'].tolist()
+        return df.loc[df.Flag == '', 'ticker'].tolist()
