@@ -1,9 +1,9 @@
-from typing import List, Iterable, Tuple
+from typing import List, Iterable, Tuple, Optional
 
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
-    DriveWealthPortfolio
+    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
 from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus
 from gainy.utils import get_logger
 
@@ -107,4 +107,25 @@ class DriveWealthRepository(Repository):
             cursor.execute(
                 query, {"status": TradingCollectionVersionStatus.PENDING.name})
             for row in cursor:
-                yield row[0]
+                yield row[0], row[1]
+
+    # todo add to tests?
+    def get_instrument_by_symbol(
+            self, symbol: str) -> Optional[DriveWealthInstrument]:
+        query = """
+            select ref_id 
+            from app.drivewealth_instruments 
+            where normalize_drivewealth_symbol(symbol) = %(symbol)s 
+              and status = %(status)s"""
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, {
+                "symbol": symbol,
+                "status": DriveWealthInstrumentStatus.ACTIVE
+            })
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            return self.find_one(DriveWealthInstrument, {
+                "ref_id": row[0],
+            })
