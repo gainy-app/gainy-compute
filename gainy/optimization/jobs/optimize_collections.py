@@ -10,7 +10,10 @@ from gainy.context_container import ContextContainer
 from gainy.optimization.collection.optimizer.portfolio_risk_budget_optimizer import \
     PortfolioRiskBudgetCollectionOptimizer
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
-from gainy.optimization.collection import CollectionTickerFilter
+from gainy.optimization.collection import CollectionTickerFilter, InflationProofPortfolioRiskBudgetCollectionOptimizer
+from gainy.optimization.collection.ticker_chooser import TickersChooser
+from gainy.optimization.collection.ticker_chooser.inflation_proof_collection_ticker_chooser import \
+    INFLATION_PROOF_COLLECTION_ID
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -29,6 +32,7 @@ class OptimizeCollectionsJob:
 
     def __init__(self, repository: CollectionOptimizerRepository):
         self.repository = repository
+        self.tickers_chooser = TickersChooser(repository)
         self.tickers_filter = CollectionTickerFilter(repository)
 
     def run(self, collection_id: int, date: datetime.date,
@@ -52,10 +56,11 @@ class OptimizeCollectionsJob:
 
                 raise e
 
-    def _optimize_collection(self, collection_id: int, date: datetime.date):
+    def _optimize_collection(self, collection_id: int,
+                             date: datetime.date) -> dict:
         logging_extra = {"collection_id": collection_id, "date": date}
 
-        tickers = self.repository.get_collection_tickers(collection_id)
+        tickers = self.tickers_chooser.get_collection_tickers(collection_id)
         if not tickers:
             raise Exception("No tickers found for collection %d" %
                             collection_id)
@@ -67,13 +72,8 @@ class OptimizeCollectionsJob:
                             collection_id)
         logger.info("Tickers after filtering %s", tickers, extra=logging_extra)
 
-        optimizer = PortfolioRiskBudgetCollectionOptimizer(self.repository,
-                                                           tickers,
-                                                           date,
-                                                           benchmark='SPY',
-                                                           lookback=9,
-                                                           **self.params)
-        opt_res = optimizer.optimize()
+        optimizer = self._get_optimizer(collection_id, date)
+        opt_res = optimizer.optimize(tickers)
         logger.info("Optimization result %s", opt_res, extra=logging_extra)
 
         return opt_res
@@ -88,6 +88,21 @@ class OptimizeCollectionsJob:
         opt_res['optimized_at'] = datetime.datetime.now()
 
         return opt_res
+
+    def _get_optimizer(self, collection_id: int, date):
+        if collection_id == INFLATION_PROOF_COLLECTION_ID:
+            return InflationProofPortfolioRiskBudgetCollectionOptimizer(
+                self.repository,
+                date,
+                benchmark='SPY',
+                lookback=9,
+                **self.params)
+
+        return PortfolioRiskBudgetCollectionOptimizer(self.repository,
+                                                      date,
+                                                      benchmark='SPY',
+                                                      lookback=9,
+                                                      **self.params)
 
 
 def cli(args=None):

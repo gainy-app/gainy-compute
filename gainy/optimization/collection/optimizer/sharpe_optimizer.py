@@ -1,11 +1,8 @@
 import datetime
-from abc import ABC
 
 import pandas as pd
 import numpy as np
-from dateutil.relativedelta import relativedelta
 import scipy.optimize as sco
-from sklearn.linear_model import LinearRegression
 
 from gainy.optimization.collection.optimizer.abstract_optimizer import AbstractCollectionOptimizer
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
@@ -32,24 +29,19 @@ class SharpeCollectionOptimizer(AbstractCollectionOptimizer):
             - hi - HHI index penalty for industries
             - b - beta over target penalty
 
-        Bounds - tupple with minimum and maximum stock weight (default = (0,1))
+        Bounds - tuple with minimum and maximum stock weight (default = (0,1))
 
         TargetBeta - float with target portfolio beta (default = 1)
         """
 
         penalties = penalties.copy() or {'hs': 1.0, 'hi': 1.0, 'b': 1.0}
-        super().__init__(repository, tickers, date_today, lookback, benchmark,
+        super().__init__(repository, date_today, lookback, benchmark,
                          industry_type, penalties, target_beta)
 
-        # Override params
-        if bounds[1] * len(
-                tickers) > 1:  # To avoid lack of solution for short list
-            self.bounds = bounds
-        else:
-            self.bounds = (bounds[0], 1)
+        self.bounds = bounds
 
-    def optimize(self):
-        stock_metrics = self._get_stock_metrics()
+    def optimize(self, tickers):
+        stock_metrics = self._get_stock_metrics(tickers)
 
         r = stock_metrics['Numerator']
         cov = stock_metrics['Covariance']
@@ -82,6 +74,9 @@ class SharpeCollectionOptimizer(AbstractCollectionOptimizer):
             'fun': lambda x: np.sum(x) - 1
         }  # Fully invested
         bounds = tuple([self.bounds] * len(r))
+        # To avoid lack of solution for short list
+        if bounds[1] * len(tickers) <= 1:
+            bounds = (bounds[0], 1)
 
         opt_res = sco.minimize(
             fun=obj_fun,  # Objective

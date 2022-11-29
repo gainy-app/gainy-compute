@@ -15,7 +15,6 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
 
     def __init__(self,
                  repository: CollectionOptimizerRepository,
-                 tickers,
                  date_today: datetime.date,
                  lookback=9,
                  benchmark='SPY',
@@ -35,18 +34,13 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
         """
 
         penalties = penalties.copy() or {'hs': 1.0, 'hi': 1.0, 'b': 1.0}
-        super().__init__(repository, tickers, date_today, lookback, benchmark,
+        super().__init__(repository, date_today, lookback, benchmark,
                          industry_type, penalties, target_beta)
 
-        # Override params
-        if bounds[1] * len(
-                tickers) > 1:  # To avoid lack of solution for short list
-            self.bounds = bounds
-        else:
-            self.bounds = (bounds[0], 1)
+        self.bounds = bounds
 
-    def optimize(self):
-        stock_metrics = self._get_stock_metrics()
+    def optimize(self, tickers) -> dict:
+        stock_metrics = self._get_stock_metrics(tickers)
 
         cov = stock_metrics['Covariance']
         industries = stock_metrics['Industry']
@@ -119,7 +113,11 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
             'type': 'eq',
             'fun': lambda x: np.sum(x) - 1
         }  # Fully invested
+
         bounds = tuple([self.bounds] * len(tickers))
+        # To avoid lack of solution for short list
+        if bounds[1] * len(tickers) <= 1:
+            bounds = (bounds[0], 1)
 
         opt_res = sco.minimize(
             fun=obj_fun,  # Objective
