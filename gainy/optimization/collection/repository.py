@@ -6,6 +6,8 @@ import pandas as pd
 from psycopg2._psycopg import connection
 from psycopg2.extras import RealDictCursor
 
+from gainy.trading.drivewealth import normalize_symbol
+
 
 class CollectionOptimizerRepository:
 
@@ -65,7 +67,9 @@ class CollectionOptimizerRepository:
             cursor.execute(query, params)
             data = cursor.fetchall()
 
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        df.ticker = df.ticker.map(normalize_symbol)
+        return df
 
     def get_last_ticker_price_df(self,
                                  symbols: list,
