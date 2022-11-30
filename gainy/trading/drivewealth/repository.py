@@ -115,7 +115,7 @@ class DriveWealthRepository(Repository):
         query = """
             select ref_id 
             from app.drivewealth_instruments 
-            where normalize_drivewealth_symbol(symbol) = %(symbol)s 
+            where public.normalize_drivewealth_symbol(symbol) = %(symbol)s 
               and status = %(status)s"""
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, {
