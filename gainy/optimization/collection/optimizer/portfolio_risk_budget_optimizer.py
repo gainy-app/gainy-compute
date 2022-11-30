@@ -114,10 +114,11 @@ class PortfolioRiskBudgetCollectionOptimizer(AbstractCollectionOptimizer):
             'fun': lambda x: np.sum(x) - 1
         }  # Fully invested
 
-        bounds = tuple([self.bounds] * len(tickers))
         # To avoid lack of solution for short list
+        bounds = self.bounds
         if bounds[1] * len(tickers) <= 1:
             bounds = (bounds[0], 1)
+        bounds = tuple([bounds] * len(tickers))
 
         opt_res = sco.minimize(
             fun=obj_fun,  # Objective

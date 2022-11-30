@@ -73,10 +73,12 @@ class SharpeCollectionOptimizer(AbstractCollectionOptimizer):
             'type': 'eq',
             'fun': lambda x: np.sum(x) - 1
         }  # Fully invested
-        bounds = tuple([self.bounds] * len(r))
+
         # To avoid lack of solution for short list
+        bounds = self.bounds
         if bounds[1] * len(tickers) <= 1:
             bounds = (bounds[0], 1)
+        bounds = tuple([self.bounds] * len(r))
 
         opt_res = sco.minimize(
             fun=obj_fun,  # Objective

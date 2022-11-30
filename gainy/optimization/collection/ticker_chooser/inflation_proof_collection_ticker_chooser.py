@@ -1,5 +1,4 @@
-import pandas as pd
-from psycopg2.extras import RealDictCursor
+from operator import itemgetter
 
 from gainy.optimization.collection.ticker_chooser import AbstractCollectionTickerChooser
 
@@ -15,24 +14,21 @@ class InflationProofCollectionTickerChooser(AbstractCollectionTickerChooser):
         ]
 
         query = f"""
-            SELECT ticker_metrics.symbol, 
-                   ticker_metrics.market_capitalization, 
-                   base_tickers.gic_group
-            FROM base_tickers
-                     LEFT JOIN ticker_metrics using (symbol)
-            where base_tickers.gic_group IN %(groups_to_select)s
+            select distinct symbol
+            from (
+                     SELECT symbol,
+                            row_number() over (partition by gic_group order by market_capitalization desc nulls last) as rn
+                     FROM tickers
+                              LEFT JOIN ticker_metrics using (symbol)
+                     where tickers.gic_group IN %(groups_to_select)s
+                 ) t
+            where rn <= 5
         """
 
-        with self.repository.db_conn.cursor(
-                cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, {"groups_to_select": groups_to_select})
-            data = cursor.fetchall()
-
-        df = pd.DataFrame(data)
-        df = df.sort_values(
-            ['gic_group', 'market_capitalization'],
-            ascending=False).groupby('gic_group').head(5).reset_index()
-        return list(df.symbol)
+        with self.repository.db_conn.cursor() as cursor:
+            cursor.execute(query,
+                           {"groups_to_select": tuple(groups_to_select)})
+            return list(map(itemgetter(0), cursor.fetchall()))
 
     def supports_collection(self, collection_id: int) -> bool:
         return collection_id == INFLATION_PROOF_COLLECTION_ID

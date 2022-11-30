@@ -10,9 +10,9 @@ logger = get_logger(__name__)
 class InflationProofPortfolioRiskBudgetCollectionOptimizer(
         PortfolioRiskBudgetCollectionOptimizer):
 
-    def __init__(self, repository: CollectionOptimizerRepository, tickers,
+    def __init__(self, repository: CollectionOptimizerRepository,
                  date_today: datetime.date, **kwargs) -> None:
-        super().__init__(repository, tickers, date_today, **kwargs)
+        super().__init__(repository, date_today, **kwargs)
 
     def optimize(self, tickers) -> dict:
         # Keep optimizing while there are still weights less than weight_threshold
@@ -24,6 +24,13 @@ class InflationProofPortfolioRiskBudgetCollectionOptimizer(
             min_weight = min(opt_res.values())
 
             if min_weight >= weight_threshold:
+                logger.info('Inflation proof optimization stopped',
+                            extra={
+                                "iteration": i,
+                                "opt_res": opt_res,
+                                "tickers": tickers,
+                                "min_weight": min_weight,
+                            })
                 return opt_res
 
             tickers = [
