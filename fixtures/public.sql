@@ -126,7 +126,9 @@ create table if not exists collections
     updated_at           timestamp
 );
 insert into collections (id, name, description, enabled, personalized, image_url, influencer_id, size, optimization_enabled, updated_at)
-values  (83, 'Big Tech', 'The largest companies operating in the tech sector. These companies are the drivers of technological advances. The stocks offer high returns when the market favors growth stocks and tech. On the other hand, they tend to be crowded and prone to high volatility. ', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Big%20Tech.jpg', null, 18, 1, '2022-10-10 05:26:34.223409');
+values  (83, 'Big Tech', 'The largest companies operating in the tech sector. These companies are the drivers of technological advances. The stocks offer high returns when the market favors growth stocks and tech. On the other hand, they tend to be crowded and prone to high volatility. ', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Big%20Tech.jpg', null, 18, 1, '2022-10-10 05:26:34.223409'),
+        (275, 'Inflation Proof', 'An optimized selection of the largest stocks in sectors that have historically outperformed the market during periods of high inflation and increased probability of rising interest rates. Includes stocks in Energy, Real Estate, Banks, Insurance, Utilities, Food & Staples, and Retail.', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Inflation%20Proof.jpg', null, 1, 20, '2022-11-29 07:01:25.205732')
+on conflict do nothing;
 
 create table if not exists ticker_metrics
 (

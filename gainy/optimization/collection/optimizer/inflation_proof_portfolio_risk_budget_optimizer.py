@@ -1,6 +1,6 @@
 import datetime
 
-from gainy.optimization.collection import PortfolioRiskBudgetCollectionOptimizer
+from gainy.optimization.collection.optimizer.portfolio_risk_budget_optimizer import PortfolioRiskBudgetCollectionOptimizer
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
 from gainy.utils import get_logger
 
