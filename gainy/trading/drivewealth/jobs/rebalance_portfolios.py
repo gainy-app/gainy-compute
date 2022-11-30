@@ -34,13 +34,16 @@ class RebalancePortfoliosJob:
                     "Upsert portfolio %s for profile %d account %d in %fs",
                     portfolio.ref_id, profile_id, trading_account_id,
                     time.time() - start_time)
-            except DriveWealthApiException as e:
+            except Exception as e:
                 logger.exception(e)
 
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
-            self.rebalance_portfolio_cash(portfolio)
-            self.apply_trading_collection_versions(portfolio)
-            self.provider.send_portfolio_to_api(portfolio)
+            try:
+                self.rebalance_portfolio_cash(portfolio)
+                self.apply_trading_collection_versions(portfolio)
+                self.provider.send_portfolio_to_api(portfolio)
+            except Exception as e:
+                logger.exception(e)
 
     def apply_trading_collection_versions(self,
                                           portfolio: DriveWealthPortfolio):
