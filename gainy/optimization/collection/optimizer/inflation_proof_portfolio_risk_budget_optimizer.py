@@ -23,7 +23,7 @@ class InflationProofPortfolioRiskBudgetCollectionOptimizer(
             opt_res = super().optimize(tickers)
             min_weight = min(opt_res.values())
 
-            if min_weight >= weight_threshold:
+            if min_weight > weight_threshold:
                 logger.info('Inflation proof optimization stopped',
                             extra={
                                 "iteration": i,
