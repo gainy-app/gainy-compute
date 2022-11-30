@@ -115,11 +115,12 @@ class DriveWealthProviderRebalanceHelper:
 
         weight_sum = Decimal(0)
         for symbol, weight in weights.items():
+            weight = Decimal(weight)
             try:
                 instrument = self._get_instrument(symbol)
                 new_holdings[instrument.ref_id] = weight
                 weight_sum += weight
-            except EntityNotFoundException as e:
+            except EntityNotFoundException:
                 pass
 
         return [{
