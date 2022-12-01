@@ -58,7 +58,7 @@ class DriveWealthProviderBase:
             return
 
         dw_account: DriveWealthAccount = self.repository.find_one(
-            DriveWealthAccount, {"id": portfolio.drivewealth_account_id})
+            DriveWealthAccount, {"ref_id": portfolio.drivewealth_account_id})
         if not dw_account or not dw_account.trading_account_id:
             return
 
