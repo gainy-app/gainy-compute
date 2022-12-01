@@ -1,10 +1,13 @@
+import datetime
+
 from typing import List, Iterable, Tuple, Optional
 
+from gainy.data_access.operators import OperatorLt
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
-from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus
+from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus, TradingCollectionVersion
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -66,7 +69,7 @@ class DriveWealthRepository(Repository):
         query = """
             select sum(amount)
             from (
-                     select amount
+                     select amount + coalesce(fees_total_amount, 0)
                      from app.trading_money_flow
                      where profile_id = %(profile_id)s
                        and status in %(trading_money_flow_statuses)s
@@ -84,8 +87,10 @@ class DriveWealthRepository(Repository):
                 query, {
                     "profile_id":
                     portfolio.profile_id,
-                    "trading_money_flow_statuses":
-                    (TradingMoneyFlowStatus.SUCCESS.name, ),
+                    "trading_money_flow_statuses": (
+                        TradingMoneyFlowStatus.APPROVED.name,
+                        TradingMoneyFlowStatus.SUCCESS.name,
+                    ),
                     "trading_collection_version_statuses":
                     (TradingCollectionVersionStatus.PENDING_EXECUTION.name,
                      TradingCollectionVersionStatus.EXECUTED_FULLY.name),
@@ -99,15 +104,6 @@ class DriveWealthRepository(Repository):
 
         portfolio.cash_target_value = cash_target_value
         self.persist(portfolio)
-
-    def iterate_pending_trading_collection_versions(
-            self) -> Iterable[Tuple[int, int]]:
-        query = "select distinct profile_id, trading_account_id from app.trading_collection_versions where status = %(status)s"
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(
-                query, {"status": TradingCollectionVersionStatus.PENDING.name})
-            for row in cursor:
-                yield row[0], row[1]
 
     # todo add to tests?
     def get_instrument_by_symbol(
@@ -129,3 +125,24 @@ class DriveWealthRepository(Repository):
             return self.find_one(DriveWealthInstrument, {
                 "ref_id": row[0],
             })
+
+    def iterate_trading_collection_versions(
+        self,
+        profile_id: int = None,
+        trading_account_id: int = None,
+        status: TradingCollectionVersionStatus = None,
+        pending_execution_to: datetime.datetime = None
+    ) -> Iterable[TradingCollectionVersion]:
+
+        params = {}
+        if profile_id:
+            params["profile_id"] = profile_id
+        if trading_account_id:
+            params["trading_account_id"] = trading_account_id
+        if status:
+            params["status"] = status.name
+        if pending_execution_to:
+            params["pending_execution_since"] = OperatorLt(
+                pending_execution_to)
+
+        yield from self.iterate_all(TradingCollectionVersion, params)

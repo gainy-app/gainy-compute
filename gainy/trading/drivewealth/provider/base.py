@@ -5,8 +5,9 @@ from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
-    DriveWealthFund, DriveWealthInstrument
+    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount
 from gainy.trading.drivewealth.repository import DriveWealthRepository
+from gainy.trading.models import TradingCollectionVersionStatus, TradingAccount
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -41,7 +42,47 @@ class DriveWealthProviderBase:
         portfolio_status = self._get_portfolio_status(portfolio)
         portfolio.update_from_status(portfolio_status)
         self.repository.persist(portfolio)
+        self.update_trading_collection_versions_pending_execution_from_portfolio_status(
+            portfolio_status)
         return portfolio_status
+
+    def update_trading_collection_versions_pending_execution_from_portfolio_status(
+            self, portfolio_status: DriveWealthPortfolioStatus):
+        if portfolio_status.last_portfolio_rebalance_at is None:
+            return
+
+        portfolio: DriveWealthPortfolio = self.repository.find_one(
+            DriveWealthPortfolio,
+            {"ref_id": portfolio_status.drivewealth_portfolio_id})
+        if not portfolio or not portfolio.drivewealth_account_id:
+            return
+
+        dw_account: DriveWealthAccount = self.repository.find_one(
+            DriveWealthAccount, {"id": portfolio.drivewealth_account_id})
+        if not dw_account or not dw_account.trading_account_id:
+            return
+
+        trading_account: TradingAccount = self.repository.find_one(
+            TradingAccount, {"id": dw_account.trading_account_id})
+        if not trading_account:
+            return
+
+        for trading_collection_version in self.repository.iterate_trading_collection_versions(
+                profile_id=portfolio.profile_id,
+                trading_account_id=trading_account.id,
+                status=TradingCollectionVersionStatus.PENDING_EXECUTION,
+                pending_execution_to=portfolio_status.
+                last_portfolio_rebalance_at):
+
+            if trading_collection_version.pending_execution_since >= portfolio_status.last_portfolio_rebalance_at:
+                raise Exception(
+                    'Trying to update trading_collection_version %d, which is pending execution since %s, '
+                    'with latest rebalance happened on %s' %
+                    (trading_collection_version.id,
+                     trading_collection_version.pending_execution_since,
+                     portfolio_status.last_portfolio_rebalance_at))
+            trading_collection_version.status = TradingCollectionVersionStatus.EXECUTED_FULLY
+            self.repository.persist(trading_collection_version)
 
     def get_fund(self, profile_id: int,
                  collection_id: int) -> Optional[DriveWealthFund]:
