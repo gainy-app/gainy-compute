@@ -42,13 +42,18 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
             } for frame in traceback.extract_tb(exc_tb)]
 
 
+ENV_PRODUCTION = "production"
+ENV_TEST = "test"
+ENV_LOCAL = "local"
+
+
 def env() -> str:
     import os
-    return os.environ.get("ENV", "local")
+    return os.environ.get("ENV", ENV_LOCAL)
 
 
 formatter = CustomJsonFormatter()
-LOG_LEVEL = logging.DEBUG if env() == "local" else logging.INFO
+LOG_LEVEL = logging.DEBUG if env() == ENV_LOCAL else logging.INFO
 LOG_HANDLER = logging.StreamHandler()
 LOG_HANDLER.setFormatter(formatter)
 logging.basicConfig(level=LOG_LEVEL, handlers=[LOG_HANDLER], force=True)
@@ -82,7 +87,7 @@ def current_version() -> str:
         return importlib.metadata.version("gainy-compute")
     except importlib.metadata.PackageNotFoundError as e:
         logging.error(f"Package not found: {str(e)}")
-        return "local"
+        return ENV_LOCAL
 
 
 def db_connect() -> connection:
