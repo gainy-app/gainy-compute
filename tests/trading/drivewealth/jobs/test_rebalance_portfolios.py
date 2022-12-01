@@ -29,7 +29,6 @@ def mock_send_portfolio_to_api(portfolios: list = None):
 
 def test_rebalance_portfolios(monkeypatch):
     profile_id1 = 1
-    profile_id2 = 2
 
     trading_account_id_1 = 3
 
@@ -37,9 +36,6 @@ def test_rebalance_portfolios(monkeypatch):
     portfolio2 = DriveWealthPortfolio()
 
     repository = DriveWealthRepository(None)
-    monkeypatch.setattr(repository,
-                        "iterate_pending_trading_collection_versions",
-                        lambda: [(profile_id1, trading_account_id_1)])
     monkeypatch.setattr(
         repository, "iterate_all",
         mock_find([(DriveWealthPortfolio, None, [portfolio1, portfolio2])]))
@@ -54,6 +50,9 @@ def test_rebalance_portfolios(monkeypatch):
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
     job = RebalancePortfoliosJob(repository, provider)
+    monkeypatch.setattr(
+        job, "_iterate_accounts_with_pending_trading_collection_versions",
+        lambda: [(profile_id1, trading_account_id_1)])
 
     rebalance_portfolio_cash_calls = []
     apply_trading_collection_versions_calls = []
