@@ -69,7 +69,7 @@ class DriveWealthRepository(Repository):
         query = """
             select sum(amount)
             from (
-                     select amount + coalesce(fees_total_amount, 0)
+                     select amount + coalesce(fees_total_amount, 0) as amount
                      from app.trading_money_flow
                      where profile_id = %(profile_id)s
                        and status in %(trading_money_flow_statuses)s
