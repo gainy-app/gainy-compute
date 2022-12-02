@@ -10,7 +10,10 @@ class DriveWealthApiException(ApiException):
 
     @staticmethod
     def create_from_response(data, status_code):
-        error_code_to_exception_class = {"I050": InstrumentNotFoundException}
+        error_code_to_exception_class = {
+            "I050": InstrumentNotFoundException,
+            "E032": BadMissingParametersBodyException,
+        }
 
         message = "Failed: %d" % status_code
         error_code = None
@@ -27,4 +30,8 @@ class DriveWealthApiException(ApiException):
 
 
 class InstrumentNotFoundException(DriveWealthApiException):
+    pass
+
+
+class BadMissingParametersBodyException(DriveWealthApiException):
     pass
