@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Tuple
 
 import time
 
@@ -23,7 +23,7 @@ class RebalancePortfoliosJob:
     def run(self):
         # todo thread safety
 
-        for profile_id, trading_account_id in self.repo.iterate_pending_trading_collection_versions(
+        for profile_id, trading_account_id in self._iterate_accounts_with_pending_trading_collection_versions(
         ):
             start_time = time.time()
             try:
@@ -54,8 +54,10 @@ class RebalancePortfoliosJob:
             raise Exception('drivewealth_account not found')
         trading_account_id = drivewealth_account.trading_account_id
 
-        for trading_collection_version in self._iterate_profile_pending_trading_collection_versions(
-                profile_id, trading_account_id):
+        for trading_collection_version in self.repo.iterate_trading_collection_versions(
+                profile_id=profile_id,
+                trading_account_id=trading_account_id,
+                status=TradingCollectionVersionStatus.PENDING):
             start_time = time.time()
             try:
                 self.provider.reconfigure_collection_holdings(
@@ -88,15 +90,14 @@ class RebalancePortfoliosJob:
         except DriveWealthApiException as e:
             logger.exception(e)
 
-    def _iterate_profile_pending_trading_collection_versions(
-            self, profile_id: int,
-            trading_account_id: int) -> Iterable[TradingCollectionVersion]:
-        yield from self.repo.iterate_all(
-            TradingCollectionVersion, {
-                "profile_id": profile_id,
-                "trading_account_id": trading_account_id,
-                "status": TradingCollectionVersionStatus.PENDING.name
-            })
+    def _iterate_accounts_with_pending_trading_collection_versions(
+            self) -> Iterable[Tuple[int, int]]:
+        query = "select distinct profile_id, trading_account_id from app.trading_collection_versions where status = %(status)s"
+        with self.repo.db_conn.cursor() as cursor:
+            cursor.execute(
+                query, {"status": TradingCollectionVersionStatus.PENDING.name})
+            for row in cursor:
+                yield row[0], row[1]
 
 
 def cli():

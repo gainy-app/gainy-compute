@@ -28,7 +28,7 @@ class KYCFormHasNotBeenSentException(BadRequestException):
         super().__init__(message)
 
 
-class EntityNotFoundException(Exception):
+class EntityNotFoundException(NotFoundException):
 
     def __init__(self, cls):
         super().__init__(f'Entity {cls} not found.')

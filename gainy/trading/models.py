@@ -9,6 +9,7 @@ from gainy.data_access.models import BaseModel, classproperty, DecimalEncoder
 
 class TradingMoneyFlowStatus(enum.Enum):
     PENDING = "PENDING"
+    APPROVED = "APPROVED"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
 
@@ -81,6 +82,7 @@ class TradingCollectionVersion(BaseModel):
     weights: Dict[str, Decimal] = None
     trading_account_id: int = None
     created_at = None
+    pending_execution_since = None
     executed_at = None
     updated_at = None
 
