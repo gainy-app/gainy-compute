@@ -33,7 +33,7 @@ class CollectionTickerFilter:
         df['vol_doll'] = df.avg_vol_mil * df.adjusted_close
 
         dw_ref_ids = self.repository.get_dw_ref_ids(tickers)
-        df = df.merge(dw_ref_ids, on='ticker', how='inner', copy=False)
+        df = df.merge(dw_ref_ids, on='ticker', how='left', copy=False)
 
         # Filtering logic
         df['Flag'] = ''
@@ -55,6 +55,9 @@ class CollectionTickerFilter:
                'Flag'] = str(df.loc[df.max_date < maxdt, 'Flag']) + '-Date'
 
         logger.info("Filtering data",
-                    extra={"data": dict(zip(df.ticker, df.Flag))})
+                    extra={
+                        "tickers": tickers,
+                        "data": dict(zip(df.ticker, df.Flag))
+                    })
 
         return df.loc[df.Flag == '', 'ticker'].tolist()

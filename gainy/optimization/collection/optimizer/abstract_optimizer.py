@@ -16,7 +16,6 @@ class AbstractCollectionOptimizer(ABC):
 
     def __init__(self,
                  repository: CollectionOptimizerRepository,
-                 tickers,
                  date_today: datetime.date,
                  lookback=9,
                  benchmark='SPY',
@@ -24,7 +23,6 @@ class AbstractCollectionOptimizer(ABC):
                  penalties=None,
                  target_beta=1) -> None:
         self.repository = repository
-        self.tickers = tickers  # Tickers list
         self.dt = date_today  # Date of optimization
         self.start_dt = self.dt - relativedelta(months=lookback)
         self.lookback = lookback
@@ -33,13 +31,10 @@ class AbstractCollectionOptimizer(ABC):
         self.penalties = penalties
         self.target_beta = target_beta
 
-    def _get_stock_returns(self, tickers=None) -> pd.DataFrame:
+    def _get_stock_returns(self, tickers) -> pd.DataFrame:
         """
         Returns stock returns for the selected lookback window
         """
-
-        if tickers is None:
-            tickers = self.tickers
 
         tickers = tickers + [self.benchmark]
 
@@ -69,12 +64,10 @@ class AbstractCollectionOptimizer(ABC):
 
         return rets
 
-    def _get_stock_metrics(self):
+    def _get_stock_metrics(self, tickers):
         """
         Get key metrics for optimization and create nested dictionary for optimization
         """
-
-        tickers = self.tickers
 
         rets = self._get_stock_returns(tickers + [self.benchmark])
         rets.index = rets.index.strftime('%Y-%m-%d')
