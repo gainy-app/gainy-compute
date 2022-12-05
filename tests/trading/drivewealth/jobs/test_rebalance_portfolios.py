@@ -124,8 +124,8 @@ def test_apply_trading_collection_versions(monkeypatch):
     RebalancePortfoliosJob(
         repository, provider).apply_trading_collection_versions(portfolio)
 
-    assert trading_collection_version in [
-        args[0] for args, kwargs in reconfigure_collection_holdings_calls
+    assert (portfolio, trading_collection_version) in [
+        args for args, kwargs in reconfigure_collection_holdings_calls
     ]
     assert trading_collection_version.status == TradingCollectionVersionStatus.PENDING_EXECUTION
     assert trading_collection_version in persisted_objects[

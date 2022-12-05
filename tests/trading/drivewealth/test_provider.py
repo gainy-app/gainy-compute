@@ -345,7 +345,7 @@ def test_reconfigure_collection_holdings(monkeypatch):
                         mock_record_calls(handle_cash_amount_change_calls))
 
     provider = DriveWealthProvider(repository, None)
-    provider.reconfigure_collection_holdings(collection_version)
+    provider.reconfigure_collection_holdings(portfolio, collection_version)
     assert (target_amount_delta, portfolio, fund) in [
         args[1:] for args, kwargs in handle_cash_amount_change_calls
     ]
