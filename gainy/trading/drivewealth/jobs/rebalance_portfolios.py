@@ -61,7 +61,7 @@ class RebalancePortfoliosJob:
             start_time = time.time()
             try:
                 self.provider.reconfigure_collection_holdings(
-                    trading_collection_version)
+                    portfolio, trading_collection_version)
 
                 logger.info(
                     "Reconfigured collection holdings %s for profile %d account %d, collections %s in %fs",

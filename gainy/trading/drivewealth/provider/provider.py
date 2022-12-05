@@ -130,15 +130,10 @@ class DriveWealthProvider(DriveWealthProviderBase):
         logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
 
     def reconfigure_collection_holdings(
-            self, collection_version: TradingCollectionVersion):
+            self, portfolio: DriveWealthPortfolio,
+            collection_version: TradingCollectionVersion):
         helper = DriveWealthProviderRebalanceHelper(self)
-
         profile_id = collection_version.profile_id
-        portfolio = self.repository.get_profile_portfolio(
-            profile_id, collection_version.trading_account_id)
-        if not portfolio:
-            raise Exception('Portfolio not found')
-
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
         helper.handle_cash_amount_change(
             collection_version.target_amount_delta, portfolio, chosen_fund)
