@@ -71,4 +71,6 @@ class OperatorNot(OperatorInterface):
 class OperatorNotNull(OperatorInterface):
 
     def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
-        return sql.SQL(f"IS NOT NULL"), {}
+        _sql = sql.SQL(f"{{field_name}} IS NOT NULL").format(
+            field_name=sql.Identifier(field_name))
+        return _sql, {}
