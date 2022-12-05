@@ -50,11 +50,11 @@ with profiles as
              select profile_id,
                     symbol,
                     case
-                        when p_rsk.risk_score = 2
+                        when p_rsk.risk_score = 3
                             then 1 - abs(t_risk_score.risk_score - 0.75)
-                        when p_rsk.risk_score = 1
+                        when p_rsk.risk_score = 2
                             then 1 - abs(t_risk_score.risk_score - 0.5) * 1.5
-                        when p_rsk.risk_score = 0
+                        when p_rsk.risk_score = 1
                             then 1 - abs(t_risk_score.risk_score - 0.25)
                         end as match_comp_risk
              from profiles
