@@ -130,7 +130,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
 
     def reconfigure_collection_holdings(
-            self, portfolio: DriveWealthPortfolio, collection_version: TradingCollectionVersion):
+            self, portfolio: DriveWealthPortfolio,
+            collection_version: TradingCollectionVersion):
         helper = DriveWealthProviderRebalanceHelper(self)
         profile_id = collection_version.profile_id
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
