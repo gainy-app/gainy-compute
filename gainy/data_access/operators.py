@@ -11,7 +11,7 @@ class OperatorInterface:
         pass
 
 
-class Operator(OperatorInterface):
+class ComparisonOperator(OperatorInterface):
 
     def __init__(self, op, param):
         self.op = op
@@ -25,28 +25,28 @@ class Operator(OperatorInterface):
         return _sql, _params
 
 
-class OperatorEq(Operator):
+class OperatorEq(ComparisonOperator):
 
     def __init__(self, param):
         super().__init__("=", param)
 
 
-class OperatorLt(Operator):
+class OperatorLt(ComparisonOperator):
 
     def __init__(self, param):
         super().__init__("<", param)
 
 
-class OperatorGt(Operator):
+class OperatorGt(ComparisonOperator):
 
     def __init__(self, param):
         super().__init__(">", param)
 
 
-class OperatorIn(Operator):
+class OperatorIn(OperatorInterface):
 
     def __init__(self, param):
-        super().__init__(None, param)
+        self.param = param
 
     def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
         _sql = sql.SQL(f"{{field_name}} = ANY (%({field_name})s)").format(
@@ -66,3 +66,9 @@ class OperatorNot(OperatorInterface):
         _sql = sql.SQL(f"(NOT ({{_sql}}))").format(_sql=_sql)
 
         return _sql, _params
+
+
+class OperatorNotNull(OperatorInterface):
+
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
+        return sql.SQL(f"IS NOT NULL"), {}
