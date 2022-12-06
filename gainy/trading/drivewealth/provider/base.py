@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException
@@ -93,6 +93,12 @@ class DriveWealthProviderBase:
             return None
 
         return fund
+
+    def iterate_profile_funds(self,
+                              profile_id: int) -> Iterable[DriveWealthFund]:
+        yield from self.repository.iterate_all(DriveWealthFund, {
+            "profile_id": profile_id,
+        })
 
     def sync_instrument(self, ref_id: str = None, symbol: str = None):
         data = self.api.get_instrument_details(ref_id=ref_id, symbol=symbol)

@@ -83,6 +83,7 @@ class TradingCollectionVersion(BaseModel):
     trading_account_id: int = None
     created_at = None
     pending_execution_since = None
+    last_optimization_at: datetime.date = None
     executed_at = None
     updated_at = None
 
