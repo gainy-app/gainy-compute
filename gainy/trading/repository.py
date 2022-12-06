@@ -3,7 +3,7 @@ import datetime
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Any, Tuple, Iterable
 
-from gainy.data_access.operators import OperatorLt
+from gainy.data_access.operators import OperatorLt, OperatorIsNull, OperatorOr
 from gainy.data_access.repository import Repository
 from gainy.trading.models import TradingCollectionVersionStatus, TradingCollectionVersion
 
@@ -40,7 +40,9 @@ class TradingRepository(Repository):
         if status:
             params["status"] = status.name
         if pending_execution_to:
-            params["pending_execution_since"] = OperatorLt(
-                pending_execution_to)
+            params["pending_execution_since"] = OperatorOr([
+                OperatorLt(pending_execution_to),
+                OperatorIsNull(),
+            ])
 
         yield from self.iterate_all(TradingCollectionVersion, params)

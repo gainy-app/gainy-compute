@@ -1,3 +1,5 @@
+import datetime
+
 from typing import Iterable, Tuple
 
 import time
@@ -72,6 +74,8 @@ class RebalancePortfoliosJob:
                     time.time() - start_time)
 
                 trading_collection_version.status = TradingCollectionVersionStatus.PENDING_EXECUTION
+                trading_collection_version.pending_execution_since = datetime.datetime.now(
+                )
                 self.repo.persist(trading_collection_version)
             except InsufficientFundsException as e:
                 trading_collection_version.status = TradingCollectionVersionStatus.FAILED
