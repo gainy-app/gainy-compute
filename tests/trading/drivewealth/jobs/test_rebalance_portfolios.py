@@ -43,7 +43,7 @@ def test_rebalance_portfolios(monkeypatch):
 
     repository = DriveWealthRepository(None)
 
-    provider = DriveWealthProvider(repository, None)
+    provider = DriveWealthProvider(repository, None, None)
     send_portfolio_to_api_calls = []
     monkeypatch.setattr(provider, "send_portfolio_to_api",
                         mock_record_calls(send_portfolio_to_api_calls))
@@ -133,7 +133,7 @@ def test_apply_trading_collection_versions(monkeypatch):
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(None, None)
+    provider = DriveWealthProvider(None, None, None)
     reconfigure_collection_holdings_calls = []
     monkeypatch.setattr(
         provider, "reconfigure_collection_holdings",
@@ -213,7 +213,7 @@ def test_rebalance_existing_collection_funds(monkeypatch):
     monkeypatch.setattr(trading_service, "create_collection_version",
                         mock_create_collection_version)
 
-    provider = DriveWealthProvider(None, None)
+    provider = DriveWealthProvider(None, None, None)
 
     def mock_iterate_profile_funds(_profile_id):
         assert _profile_id == profile_id
@@ -256,7 +256,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
     monkeypatch.setattr(repository, "get_profile_portfolio",
                         mock_get_profile_portfolio)
 
-    provider = DriveWealthProvider(repository, None)
+    provider = DriveWealthProvider(repository, None, None)
     rebalance_portfolio_cash_calls = []
     monkeypatch.setattr(provider, "rebalance_portfolio_cash",
                         mock_record_calls(rebalance_portfolio_cash_calls))

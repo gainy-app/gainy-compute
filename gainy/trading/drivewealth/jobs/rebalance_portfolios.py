@@ -92,8 +92,15 @@ class RebalancePortfoliosJob:
 
         try:
             for fund in self.provider.iterate_profile_funds(profile_id):
-                if portfolio.get_fund_weight(
-                        fund.ref_id) < DW_WEIGHT_THRESHOLD:
+                fund_weight = portfolio.get_fund_weight(fund.ref_id)
+                logging_extra = {
+                    "fund_ref_id": fund.ref_id,
+                    "fund_weight": str(fund_weight),
+                }
+
+                logger.info('rebalance_existing_collection_funds',
+                            extra=logging_extra)
+                if fund_weight < DW_WEIGHT_THRESHOLD:
                     continue
 
                 weights, collection_last_optimization_at = self.repo.get_collection_actual_weights(
@@ -102,10 +109,20 @@ class RebalancePortfoliosJob:
                 tcv: TradingCollectionVersion = self.repo.find_one(
                     TradingCollectionVersion,
                     {"id": fund.trading_collection_version_id})
+                logging_extra[
+                    "last_optimization_at"] = tcv.last_optimization_at
+                logging_extra[
+                    "collection_last_optimization_at"] = collection_last_optimization_at
+
                 if not tcv.last_optimization_at:
-                    # Not eligible for automatic rebalancing
+                    logger.info(
+                        'rebalance_existing_collection_funds skipping fund: not eligible for automatic rebalancing',
+                        extra=logging_extra)
                     continue
                 if tcv.last_optimization_at >= collection_last_optimization_at:
+                    logger.info(
+                        'rebalance_existing_collection_funds skipping fund: already automatically rebalanced',
+                        extra=logging_extra)
                     # Already automatically rebalanced
                     continue
 

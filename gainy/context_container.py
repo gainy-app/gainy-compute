@@ -87,7 +87,8 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def drivewealth_provider(self):
         return DriveWealthProvider(self.drivewealth_repository,
-                                   self.drivewealth_api)
+                                   self.drivewealth_api,
+                                   self.trading_repository)
 
     # trading
     @cached_property

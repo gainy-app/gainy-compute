@@ -8,6 +8,7 @@ from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfol
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingCollectionVersionStatus, TradingAccount
+from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -17,9 +18,12 @@ DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
 
 class DriveWealthProviderBase:
     repository: DriveWealthRepository = None
+    trading_repository: TradingRepository = None
 
-    def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi):
+    def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi,
+                 trading_repository: TradingRepository):
         self.repository = repository
+        self.trading_repository = trading_repository
         self.api = api
 
     def sync_portfolios(self, profile_id):
@@ -67,7 +71,7 @@ class DriveWealthProviderBase:
         if not trading_account:
             return
 
-        for trading_collection_version in self.repository.iterate_trading_collection_versions(
+        for trading_collection_version in self.trading_repository.iterate_trading_collection_versions(
                 profile_id=portfolio.profile_id,
                 trading_account_id=trading_account.id,
                 status=TradingCollectionVersionStatus.PENDING_EXECUTION,

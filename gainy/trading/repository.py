@@ -15,7 +15,7 @@ class TradingRepository(Repository):
             collection_id: int) -> Tuple[List[Dict[str, Any]], datetime.date]:
         with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
-                "select symbol, weight, last_optimization_at from collection_ticker_actual_weights where collection_id = %(collection_id)s",
+                "select symbol, weight, optimized_at from collection_ticker_actual_weights where collection_id = %(collection_id)s",
                 {
                     "collection_id": collection_id,
                 })

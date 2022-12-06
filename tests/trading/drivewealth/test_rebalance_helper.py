@@ -135,7 +135,7 @@ def test_upsert_fund(fund_exists, monkeypatch):
     monkeypatch.setattr(collection_version, "collection_id", collection_id)
     monkeypatch.setattr(collection_version, "weights", weights)
 
-    provider = DriveWealthProvider(drivewealth_repository, api)
+    provider = DriveWealthProvider(drivewealth_repository, api, None)
     helper = DriveWealthProviderRebalanceHelper(provider)
     _mock_get_instrument(monkeypatch, helper)
     fund = helper.upsert_fund(profile_id, collection_version)
@@ -151,7 +151,7 @@ def test_generate_new_fund_holdings(monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     api = DriveWealthApi(None)
 
-    provider = DriveWealthProvider(drivewealth_repository, api)
+    provider = DriveWealthProvider(drivewealth_repository, api, None)
     helper = DriveWealthProviderRebalanceHelper(provider)
     fund = DriveWealthFund()
     monkeypatch.setattr(DriveWealthFund, "holdings", _FUND_HOLDINGS)
@@ -186,7 +186,7 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
 
-    provider = DriveWealthProvider(drivewealth_repository, None)
+    provider = DriveWealthProvider(drivewealth_repository, None, None)
 
     def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
@@ -232,7 +232,7 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
 
-    provider = DriveWealthProvider(drivewealth_repository, None)
+    provider = DriveWealthProvider(drivewealth_repository, None, None)
 
     def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
@@ -262,7 +262,7 @@ def test_get_instrument(instrument_exists, monkeypatch):
     _symbol = "symbol"
     drivewealth_repository = DriveWealthRepository(None)
 
-    provider = DriveWealthProvider(drivewealth_repository, None)
+    provider = DriveWealthProvider(drivewealth_repository, None, None)
     helper = DriveWealthProviderRebalanceHelper(provider)
     instrument = DriveWealthInstrument()
 

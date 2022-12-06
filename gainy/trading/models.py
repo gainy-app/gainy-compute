@@ -104,6 +104,8 @@ class TradingCollectionVersion(BaseModel):
         if not row:
             return
 
+        self.source = TradingOrderSource[
+            row["source"]] if row["source"] else None
         self.status = TradingCollectionVersionStatus[
             row["status"]] if row["status"] else None
 
@@ -118,6 +120,7 @@ class TradingCollectionVersion(BaseModel):
     def to_dict(self) -> dict:
         return {
             **super().to_dict(),
+            "source": self.source.name if self.source else None,
             "status": self.status.name if self.status else None,
             "weights": json.dumps(self.weights, cls=DecimalEncoder),
         }
