@@ -7,7 +7,7 @@ from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD
 from gainy.trading.exceptions import InsufficientFundsException
-from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus
+from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus, TradingOrderSource
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
@@ -114,6 +114,7 @@ class RebalancePortfoliosJob:
                 trading_account_id = self._get_trading_account_id(portfolio)
                 trading_collection_version = self.trading_service.create_collection_version(
                     profile_id,
+                    TradingOrderSource.AUTOMATIC,
                     fund.collection_id,
                     trading_account_id,
                     weights=weights,

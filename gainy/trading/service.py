@@ -9,7 +9,7 @@ from gainy.plaid.service import PlaidService
 from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
-    TradingCollectionVersionStatus
+    TradingCollectionVersionStatus, TradingOrderSource
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -66,6 +66,7 @@ class TradingService:
 
     def create_collection_version(self,
                                   profile_id: int,
+                                  source: TradingOrderSource,
                                   collection_id: int,
                                   trading_account_id: int,
                                   weights: List[Dict[str, Any]] = None,
@@ -83,6 +84,7 @@ class TradingService:
 
         # TODO check if account is set up for trading
         collection_version = TradingCollectionVersion()
+        collection_version.source = source
         collection_version.status = TradingCollectionVersionStatus.PENDING
         collection_version.profile_id = profile_id
         collection_version.collection_id = collection_id

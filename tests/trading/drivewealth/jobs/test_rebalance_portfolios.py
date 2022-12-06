@@ -49,7 +49,7 @@ def test_rebalance_portfolios(monkeypatch):
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
-    job = RebalancePortfoliosJob(repository, provider)
+    job = RebalancePortfoliosJob(repository, provider, None, None)
     monkeypatch.setattr(
         job, "_iterate_accounts_with_pending_trading_collection_versions",
         lambda: [(profile_id1, trading_account_id_1)])
@@ -121,8 +121,8 @@ def test_apply_trading_collection_versions(monkeypatch):
         provider, "reconfigure_collection_holdings",
         mock_record_calls(reconfigure_collection_holdings_calls))
 
-    RebalancePortfoliosJob(
-        repository, provider).apply_trading_collection_versions(portfolio)
+    RebalancePortfoliosJob(repository, provider, None,
+                           None).apply_trading_collection_versions(portfolio)
 
     assert (portfolio, trading_collection_version) in [
         args for args, kwargs in reconfigure_collection_holdings_calls
@@ -152,8 +152,8 @@ def test_rebalance_portfolio_cash(monkeypatch):
     monkeypatch.setattr(provider, "rebalance_portfolio_cash",
                         mock_record_calls(rebalance_portfolio_cash_calls))
 
-    RebalancePortfoliosJob(repository,
-                           provider).rebalance_portfolio_cash(portfolio)
+    RebalancePortfoliosJob(repository, provider, None,
+                           None).rebalance_portfolio_cash(portfolio)
 
     assert portfolio in [
         args[0] for args, kwargs in rebalance_portfolio_cash_calls

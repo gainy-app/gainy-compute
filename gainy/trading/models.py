@@ -22,6 +22,11 @@ class TradingCollectionVersionStatus(enum.Enum):
     FAILED = "FAILED"
 
 
+class TradingOrderSource(enum.Enum):
+    MANUAL = "MANUAL"
+    AUTOMATIC = "AUTOMATIC"
+
+
 class FundingAccount(BaseModel):
     id = None
     profile_id = None
@@ -76,6 +81,7 @@ class TradingCollectionVersion(BaseModel):
     id = None
     profile_id = None
     collection_id = None
+    source: TradingOrderSource = None
     status: TradingCollectionVersionStatus = None
     fail_reason: str = None
     target_amount_delta = None
