@@ -3,7 +3,7 @@ from typing import Iterable, Tuple
 import time
 
 from gainy.context_container import ContextContainer
-from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
+from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD
 from gainy.trading.exceptions import InsufficientFundsException
@@ -17,14 +17,12 @@ logger = get_logger(__name__)
 
 class RebalancePortfoliosJob:
 
-    def __init__(self, repo: DriveWealthRepository,
+    def __init__(self, trading_repository: TradingRepository,
                  provider: DriveWealthProvider,
-                 trading_service: TradingService,
-                 trading_repository: TradingRepository):
-        self.repo = repo
+                 trading_service: TradingService):
+        self.repo = trading_repository
         self.provider = provider
         self.trading_service = trading_service
-        self.trading_repository = trading_repository
 
     def run(self):
         # todo thread safety
@@ -98,7 +96,7 @@ class RebalancePortfoliosJob:
                         fund.ref_id) < DW_WEIGHT_THRESHOLD:
                     continue
 
-                weights, collection_last_optimization_at = self.trading_repository.get_collection_actual_weights(
+                weights, collection_last_optimization_at = self.repo.get_collection_actual_weights(
                     fund.collection_id)
 
                 tcv: TradingCollectionVersion = self.repo.find_one(
@@ -161,10 +159,9 @@ def cli():
     try:
         with ContextContainer() as context_container:
             job = RebalancePortfoliosJob(
-                context_container.drivewealth_repository,
+                context_container.trading_repository,
                 context_container.drivewealth_provider,
-                context_container.trading_service,
-                context_container.trading_repository)
+                context_container.trading_service)
             job.run()
 
     except Exception as e:
