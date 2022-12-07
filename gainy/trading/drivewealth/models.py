@@ -18,6 +18,7 @@ PRECISION = Decimal(10)**-3
 ONE = Decimal(1)
 ZERO = Decimal(0)
 DW_WEIGHT_PRECISION = 4
+DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
 
 
 class BaseDriveWealthModel(BaseModel, ABC):
@@ -421,12 +422,12 @@ class DriveWealthFund(BaseDriveWealthModel):
                         "holdings": self.holdings,
                     })
 
-        weight_threshold = Decimal(10)**(-DW_WEIGHT_PRECISION)
         for k, i in enumerate(self.holdings):
             new_target = round(i['target'] / weight_sum, DW_WEIGHT_PRECISION)
             self.holdings[k]['target'] = new_target
         self.holdings = list(
-            filter(lambda x: x['target'] >= weight_threshold, self.holdings))
+            filter(lambda x: x['target'] >= DW_WEIGHT_THRESHOLD,
+                   self.holdings))
 
         weight_sum = Decimal(0)
         for i in self.holdings:
@@ -438,7 +439,7 @@ class DriveWealthFund(BaseDriveWealthModel):
 
         logger.info('DriveWealthFund normalize_weights post',
                     extra={
-                        "weight_threshold": weight_threshold,
+                        "weight_threshold": DW_WEIGHT_THRESHOLD,
                         "weight_sum": weight_sum,
                         "holdings": self.holdings,
                     })
@@ -583,13 +584,12 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
                         "holdings": self.holdings.values(),
                     })
 
-        weight_threshold = Decimal(10)**(-DW_WEIGHT_PRECISION)
         self.cash_target_weight = round(self.cash_target_weight / weight_sum,
                                         DW_WEIGHT_PRECISION)
         holdings_to_delete = []
         for k, i in self.holdings.items():
             weight = round(i / weight_sum, DW_WEIGHT_PRECISION)
-            if weight < weight_threshold:
+            if weight < DW_WEIGHT_THRESHOLD:
                 holdings_to_delete.append(k)
             else:
                 self.holdings[k] = round(i / weight_sum, DW_WEIGHT_PRECISION)
@@ -606,7 +606,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
         logger.info('DriveWealthPortfolio normalize_weights post',
                     extra={
-                        "weight_threshold": weight_threshold,
+                        "weight_threshold": DW_WEIGHT_THRESHOLD,
                         "weight_sum": weight_sum,
                         "cash_target_weight": self.cash_target_weight,
                         "holdings": self.holdings.values(),
