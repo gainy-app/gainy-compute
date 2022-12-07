@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException
@@ -8,6 +8,7 @@ from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfol
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingCollectionVersionStatus, TradingAccount
+from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -17,9 +18,12 @@ DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
 
 class DriveWealthProviderBase:
     repository: DriveWealthRepository = None
+    trading_repository: TradingRepository = None
 
-    def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi):
+    def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi,
+                 trading_repository: TradingRepository):
         self.repository = repository
+        self.trading_repository = trading_repository
         self.api = api
 
     def sync_portfolios(self, profile_id):
@@ -67,14 +71,14 @@ class DriveWealthProviderBase:
         if not trading_account:
             return
 
-        for trading_collection_version in self.repository.iterate_trading_collection_versions(
+        for trading_collection_version in self.trading_repository.iterate_trading_collection_versions(
                 profile_id=portfolio.profile_id,
                 trading_account_id=trading_account.id,
                 status=TradingCollectionVersionStatus.PENDING_EXECUTION,
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
-            if trading_collection_version.pending_execution_since >= portfolio_status.last_portfolio_rebalance_at:
+            if trading_collection_version.pending_execution_since and trading_collection_version.pending_execution_since >= portfolio_status.last_portfolio_rebalance_at:
                 raise Exception(
                     'Trying to update trading_collection_version %d, which is pending execution since %s, '
                     'with latest rebalance happened on %s' %
@@ -93,6 +97,12 @@ class DriveWealthProviderBase:
             return None
 
         return fund
+
+    def iterate_profile_funds(self,
+                              profile_id: int) -> Iterable[DriveWealthFund]:
+        yield from self.repository.iterate_all(DriveWealthFund, {
+            "profile_id": profile_id,
+        })
 
     def sync_instrument(self, ref_id: str = None, symbol: str = None):
         data = self.api.get_instrument_details(ref_id=ref_id, symbol=symbol)

@@ -22,6 +22,11 @@ class TradingCollectionVersionStatus(enum.Enum):
     FAILED = "FAILED"
 
 
+class TradingOrderSource(enum.Enum):
+    MANUAL = "MANUAL"
+    AUTOMATIC = "AUTOMATIC"
+
+
 class FundingAccount(BaseModel):
     id = None
     profile_id = None
@@ -76,6 +81,7 @@ class TradingCollectionVersion(BaseModel):
     id = None
     profile_id = None
     collection_id = None
+    source: TradingOrderSource = None
     status: TradingCollectionVersionStatus = None
     fail_reason: str = None
     target_amount_delta = None
@@ -83,6 +89,7 @@ class TradingCollectionVersion(BaseModel):
     trading_account_id: int = None
     created_at = None
     pending_execution_since = None
+    last_optimization_at: datetime.date = None
     executed_at = None
     updated_at = None
 
@@ -97,6 +104,8 @@ class TradingCollectionVersion(BaseModel):
         if not row:
             return
 
+        self.source = TradingOrderSource[
+            row["source"]] if row["source"] else None
         self.status = TradingCollectionVersionStatus[
             row["status"]] if row["status"] else None
 
@@ -111,6 +120,7 @@ class TradingCollectionVersion(BaseModel):
     def to_dict(self) -> dict:
         return {
             **super().to_dict(),
+            "source": self.source.name if self.source else None,
             "status": self.status.name if self.status else None,
             "weights": json.dumps(self.weights, cls=DecimalEncoder),
         }

@@ -125,24 +125,3 @@ class DriveWealthRepository(Repository):
             return self.find_one(DriveWealthInstrument, {
                 "ref_id": row[0],
             })
-
-    def iterate_trading_collection_versions(
-        self,
-        profile_id: int = None,
-        trading_account_id: int = None,
-        status: TradingCollectionVersionStatus = None,
-        pending_execution_to: datetime.datetime = None
-    ) -> Iterable[TradingCollectionVersion]:
-
-        params = {}
-        if profile_id:
-            params["profile_id"] = profile_id
-        if trading_account_id:
-            params["trading_account_id"] = trading_account_id
-        if status:
-            params["status"] = status.name
-        if pending_execution_to:
-            params["pending_execution_since"] = OperatorLt(
-                pending_execution_to)
-
-        yield from self.iterate_all(TradingCollectionVersion, params)

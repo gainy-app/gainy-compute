@@ -68,9 +68,36 @@ class OperatorNot(OperatorInterface):
         return _sql, _params
 
 
+class OperatorOr(OperatorInterface):
+
+    def __init__(self, operators: list[OperatorInterface]):
+        self.operators = operators
+
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
+        sql_parts = []
+        params = {}
+        for operator in self.operators:
+            _sql, _params = operator.to_sql(field_name)
+            _sql = sql.SQL(f"({{_sql}})").format(_sql=_sql)
+            sql_parts.append(_sql)
+            params.update(_params)
+
+        _sql = sql.SQL(" OR ").join(sql_parts)
+
+        return _sql, params
+
+
 class OperatorNotNull(OperatorInterface):
 
     def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
         _sql = sql.SQL(f"{{field_name}} IS NOT NULL").format(
+            field_name=sql.Identifier(field_name))
+        return _sql, {}
+
+
+class OperatorIsNull(OperatorInterface):
+
+    def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:
+        _sql = sql.SQL(f"{{field_name}} IS NULL").format(
             field_name=sql.Identifier(field_name))
         return _sql, {}
