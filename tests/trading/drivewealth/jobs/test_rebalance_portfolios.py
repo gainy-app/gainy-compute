@@ -6,7 +6,7 @@ from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, moc
 from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.jobs.rebalance_portfolios import RebalancePortfoliosJob
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DriveWealthFund
-from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus, TradingOrderSource
+from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 
@@ -121,7 +121,7 @@ def test_apply_trading_collection_versions(monkeypatch):
         mock_find([(TradingCollectionVersion, {
             "profile_id": profile_id,
             "trading_account_id": trading_account_id,
-            "status": TradingCollectionVersionStatus.PENDING.name
+            "status": TradingOrderStatus.PENDING.name
         }, [trading_collection_version])]))
     monkeypatch.setattr(
         repository, "find_one",
@@ -145,7 +145,7 @@ def test_apply_trading_collection_versions(monkeypatch):
     assert (portfolio, trading_collection_version) in [
         args for args, kwargs in reconfigure_collection_holdings_calls
     ]
-    assert trading_collection_version.status == TradingCollectionVersionStatus.PENDING_EXECUTION
+    assert trading_collection_version.status == TradingOrderStatus.PENDING_EXECUTION
     assert trading_collection_version in persisted_objects[
         TradingCollectionVersion]
 

@@ -117,7 +117,7 @@ class DriveWealthProviderRebalanceHelper:
         for symbol, weight in weights.items():
             weight = Decimal(weight)
             try:
-                instrument = self._get_instrument(symbol)
+                instrument = self.repository.get_instrument_by_symbol(symbol)
                 new_holdings[instrument.ref_id] = weight
                 weight_sum += weight
             except EntityNotFoundException:
@@ -127,11 +127,3 @@ class DriveWealthProviderRebalanceHelper:
             "instrumentID": k,
             "target": i / weight_sum,
         } for k, i in new_holdings.items()]
-
-    def _get_instrument(self, symbol) -> DriveWealthInstrument:
-        instrument = self.repository.get_instrument_by_symbol(symbol)
-
-        if instrument:
-            return instrument
-
-        raise EntityNotFoundException(DriveWealthInstrument)

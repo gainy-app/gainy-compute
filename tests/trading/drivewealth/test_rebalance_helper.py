@@ -44,7 +44,7 @@ _NEW_FUND_HOLDINGS = [
 ]
 
 
-def _mock_get_instrument(monkeypatch, service):
+def _mock_get_instrument(monkeypatch, repository):
     instrument_B = DriveWealthInstrument()
     monkeypatch.setattr(instrument_B, 'ref_id', 'B')
     instrument_C = DriveWealthInstrument()
@@ -57,7 +57,8 @@ def _mock_get_instrument(monkeypatch, service):
         }
         return instruments[symbol]
 
-    monkeypatch.setattr(service, "_get_instrument", mock_get_instrument)
+    monkeypatch.setattr(repository, "get_instrument_by_symbol",
+                        mock_get_instrument)
 
 
 def get_test_upsert_fund_fund_exists():
@@ -137,7 +138,7 @@ def test_upsert_fund(fund_exists, monkeypatch):
 
     provider = DriveWealthProvider(drivewealth_repository, api, None)
     helper = DriveWealthProviderRebalanceHelper(provider)
-    _mock_get_instrument(monkeypatch, helper)
+    _mock_get_instrument(monkeypatch, drivewealth_repository)
     fund = helper.upsert_fund(profile_id, collection_version)
 
     assert fund.ref_id == fund_ref_id
@@ -156,7 +157,7 @@ def test_generate_new_fund_holdings(monkeypatch):
     fund = DriveWealthFund()
     monkeypatch.setattr(DriveWealthFund, "holdings", _FUND_HOLDINGS)
 
-    _mock_get_instrument(monkeypatch, helper)
+    _mock_get_instrument(monkeypatch, drivewealth_repository)
 
     new_holdings = helper._generate_new_fund_holdings(_FUND_WEIGHTS, fund)
     new_holdings = {i["instrumentID"]: i["target"] for i in new_holdings}
@@ -254,26 +255,3 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
 
 def get_test_upsert_fund_instrument_exists():
     return [False, True]
-
-
-@pytest.mark.parametrize("instrument_exists",
-                         get_test_upsert_fund_instrument_exists())
-def test_get_instrument(instrument_exists, monkeypatch):
-    _symbol = "symbol"
-    drivewealth_repository = DriveWealthRepository(None)
-
-    provider = DriveWealthProvider(drivewealth_repository, None, None)
-    helper = DriveWealthProviderRebalanceHelper(provider)
-    instrument = DriveWealthInstrument()
-
-    if instrument_exists:
-        monkeypatch.setattr(drivewealth_repository, 'get_instrument_by_symbol',
-                            lambda x: instrument)
-        assert helper._get_instrument(_symbol) == instrument
-
-    else:
-        monkeypatch.setattr(drivewealth_repository, 'get_instrument_by_symbol',
-                            lambda x: None)
-
-        with pytest.raises(EntityNotFoundException):
-            helper._get_instrument(_symbol)

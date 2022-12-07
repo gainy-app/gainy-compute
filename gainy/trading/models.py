@@ -14,7 +14,7 @@ class TradingMoneyFlowStatus(enum.Enum):
     FAILED = "FAILED"
 
 
-class TradingCollectionVersionStatus(enum.Enum):
+class TradingOrderStatus(enum.Enum):
     PENDING = "PENDING"
     PENDING_EXECUTION = "PENDING_EXECUTION"
     EXECUTED_FULLY = "EXECUTED_FULLY"
@@ -82,7 +82,7 @@ class TradingCollectionVersion(BaseModel):
     profile_id = None
     collection_id = None
     source: TradingOrderSource = None
-    status: TradingCollectionVersionStatus = None
+    status: TradingOrderStatus = None
     fail_reason: str = None
     target_amount_delta = None
     weights: Dict[str, Decimal] = None
@@ -106,7 +106,7 @@ class TradingCollectionVersion(BaseModel):
 
         self.source = TradingOrderSource[
             row["source"]] if row["source"] else None
-        self.status = TradingCollectionVersionStatus[
+        self.status = TradingOrderStatus[
             row["status"]] if row["status"] else None
 
     @classproperty
@@ -125,17 +125,76 @@ class TradingCollectionVersion(BaseModel):
             "weights": json.dumps(self.weights, cls=DecimalEncoder),
         }
 
-    def set_status(self, status: TradingCollectionVersionStatus):
+    def set_status(self, status: TradingOrderStatus):
         self.status = status
-        if status == TradingCollectionVersionStatus.EXECUTED_FULLY:
+        if status == TradingOrderStatus.EXECUTED_FULLY:
             # TODO set from actual autopilot execution data
             self.executed_at = datetime.datetime.now()
 
     def is_pending(self) -> bool:
         return self.status in [
-            TradingCollectionVersionStatus.PENDING,
-            TradingCollectionVersionStatus.PENDING_EXECUTION
+            TradingOrderStatus.PENDING, TradingOrderStatus.PENDING_EXECUTION
         ]
 
     def is_executed(self) -> bool:
-        return self.status == TradingCollectionVersionStatus.EXECUTED_FULLY
+        return self.status == TradingOrderStatus.EXECUTED_FULLY
+
+
+class TradingOrder(BaseModel):
+    id = None
+    profile_id = None
+    symbol = None
+    status: TradingOrderStatus = None
+    target_amount_delta = None
+    trading_account_id: int = None
+    source: TradingOrderSource = None
+    fail_reason: str = None
+    pending_execution_since = None
+    executed_at = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["id", "created_at", "updated_at"]
+
+    def __init__(self, row=None):
+        super().__init__(row)
+
+        if not row:
+            return
+
+        self.source = TradingOrderSource[
+            row["source"]] if row["source"] else None
+        self.status = TradingOrderStatus[
+            row["status"]] if row["status"] else None
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "trading_orders"
+
+    def to_dict(self) -> dict:
+        return {
+            **super().to_dict(),
+            "source": self.source.name if self.source else None,
+            "status": self.status.name if self.status else None,
+        }
+
+    def set_status(self, status: TradingOrderStatus):
+        self.status = status
+        if status == TradingOrderStatus.EXECUTED_FULLY:
+            # TODO set from actual autopilot execution data
+            self.executed_at = datetime.datetime.now()
+
+    def is_pending(self) -> bool:
+        return self.status in [
+            TradingOrderStatus.PENDING, TradingOrderStatus.PENDING_EXECUTION
+        ]
+
+    def is_executed(self) -> bool:
+        return self.status == TradingOrderStatus.EXECUTED_FULLY
