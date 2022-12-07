@@ -377,3 +377,55 @@ FROM generate_series((select min(date) from latest_historical_prices)::date + in
          join latest_historical_prices on true
 where extract(isodow from dd) < 6
 on conflict do nothing;
+
+create or replace view top_global_collections as
+with unique_collection_stats as
+         (
+             select collection_id::int,
+                    max(clicks_count)::int as clicks_count
+             from raw_data.stats_ttf_clicks
+                      join (
+                               select max(updated_at) as updated_at
+                               from raw_data.stats_ttf_clicks
+                           ) t using (updated_at)
+             group by collection_id
+         )
+select collection_id,
+       row_number() over (order by clicks_count desc) as rank
+from unique_collection_stats;
+
+create or replace view profile_collections as
+WITH profile_collections AS
+         (
+             SELECT NULL :: integer                   AS profile_id,
+                    collections.id,
+                    ('0_' || collections.id)::varchar AS uniq_id,
+                    collections.name,
+                    collections.description,
+                    collections.image_url,
+                    collections.enabled,
+                    collections.personalized,
+                    influencers.name                  as influencer_name,
+                    collections.size
+             FROM collections
+                      left join app.influencers on influencers.id = collections.influencer_id
+             WHERE collections.personalized = '0'
+         )
+SELECT uniq_id,
+       profile_collections.profile_id,
+       profile_collections.id,
+       profile_collections.name,
+       profile_collections.description,
+       profile_collections.image_url,
+       CASE
+           WHEN ((profile_collections.enabled) :: text = '0' :: text) THEN '0' :: text
+           WHEN ((profile_collections.size IS NULL) OR (profile_collections.size < 0))
+               THEN '0' :: text
+           ELSE '1' :: text
+           END                               AS enabled,
+       profile_collections.personalized,
+       profile_collections.influencer_name,
+       COALESCE(profile_collections.size, 0) AS size
+FROM profile_collections
+where profile_collections.enabled = '1'
+  and profile_collections.size >= 0;

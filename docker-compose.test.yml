@@ -20,3 +20,4 @@ services:
       PG_USERNAME: "postgres"
       PG_PASSWORD: "postgrespassword"
       PUBLIC_SCHEMA_NAME: public_test
+      RECOMMENDATION_MANUALLY_SELECTED_COLLECTION_IDS: "83,275"
