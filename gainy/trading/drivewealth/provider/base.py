@@ -88,16 +88,6 @@ class DriveWealthProviderBase:
             trading_collection_version.status = TradingOrderStatus.EXECUTED_FULLY
             self.repository.persist(trading_collection_version)
 
-    def get_fund(self, profile_id: int,
-                 collection_id: int) -> Optional[DriveWealthFund]:
-        repository = self.repository
-        fund = repository.get_profile_fund(profile_id, collection_id)
-
-        if not fund:
-            return None
-
-        return fund
-
     def iterate_profile_funds(self,
                               profile_id: int) -> Iterable[DriveWealthFund]:
         yield from self.repository.iterate_all(DriveWealthFund, {

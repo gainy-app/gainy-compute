@@ -6,7 +6,7 @@ from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealt
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
-from gainy.trading.models import TradingAccount, TradingCollectionVersion
+from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -137,6 +137,15 @@ class DriveWealthProvider(DriveWealthProviderBase):
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
         helper.handle_cash_amount_change(
             collection_version.target_amount_delta, portfolio, chosen_fund)
+        self.repository.persist(portfolio)
+
+    def execute_order_in_portfolio(self, portfolio: DriveWealthPortfolio,
+                                   trading_order: TradingOrder):
+        helper = DriveWealthProviderRebalanceHelper(self)
+        profile_id = trading_order.profile_id
+        chosen_fund = helper.upsert_stock_fund(profile_id, trading_order)
+        helper.handle_cash_amount_change(trading_order.target_amount_delta,
+                                         portfolio, chosen_fund)
         self.repository.persist(portfolio)
 
     def ensure_portfolio(self, profile_id, trading_account_id):
