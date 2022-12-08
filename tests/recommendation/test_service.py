@@ -1,7 +1,7 @@
 from gainy.context_container import ContextContainer
 
 
-def test_ticker_match_score():
+def test_get_recommended_collections_personalized():
     profile_id = 1
 
     with ContextContainer() as context_container:
@@ -21,10 +21,17 @@ def test_ticker_match_score():
                 """, {"profile_id": profile_id})
 
         limit = 10
-        collections_personalized = context_container.recommendation_service._get_recommended_collections_personalized(
+        collections = context_container.recommendation_service._get_recommended_collections_personalized(
             profile_id, limit)
-        assert [(83, '0_83')] == list(collections_personalized)
-        collections_global = context_container.recommendation_service._get_recommended_collections_global(
+        assert [(83, '0_83')] == list(collections)
+
+
+def test_get_recommended_collections_global():
+    profile_id = 1
+
+    with ContextContainer() as context_container:
+        limit = 10
+        collections = context_container.recommendation_service._get_recommended_collections_global(
             profile_id, limit)
-        assert [(8, '0_8'), (2, '0_2'),
-                (83, '0_83')] == list(collections_global)
+        assert [(83, '0_83'), (275, '0_275'),
+                (277, '0_277')] == list(collections)
