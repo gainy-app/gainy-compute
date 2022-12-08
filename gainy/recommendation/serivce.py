@@ -36,10 +36,10 @@ class RecommendationService:
         limit: int,
     ) -> Iterable[Tuple[int, str]]:
         if self.repository.is_personalization_enabled(profile_id):
-            yield from self._get_recommended_collections_personalized(
+            return self._get_recommended_collections_personalized(
                 profile_id, limit)
 
-        yield from self._get_recommended_collections_global(profile_id, limit)
+        return self._get_recommended_collections_global(profile_id, limit)
 
     def compute_match_score(self, profile_id, log_error=True):
         recommendations_func = ComputeRecommendationsAndPersist(
