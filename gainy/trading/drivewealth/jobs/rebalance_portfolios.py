@@ -9,7 +9,7 @@ from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD
 from gainy.trading.exceptions import InsufficientFundsException
-from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus, TradingOrderSource
+from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
@@ -60,7 +60,7 @@ class RebalancePortfoliosJob:
         for trading_collection_version in self.repo.iterate_trading_collection_versions(
                 profile_id=profile_id,
                 trading_account_id=trading_account_id,
-                status=TradingCollectionVersionStatus.PENDING):
+                status=TradingOrderStatus.PENDING):
             start_time = time.time()
             try:
                 self.provider.reconfigure_collection_holdings(
@@ -73,12 +73,12 @@ class RebalancePortfoliosJob:
                     trading_collection_version.collection_id,
                     time.time() - start_time)
 
-                trading_collection_version.status = TradingCollectionVersionStatus.PENDING_EXECUTION
+                trading_collection_version.status = TradingOrderStatus.PENDING_EXECUTION
                 trading_collection_version.pending_execution_since = datetime.datetime.now(
                 )
                 self.repo.persist(trading_collection_version)
             except InsufficientFundsException as e:
-                trading_collection_version.status = TradingCollectionVersionStatus.FAILED
+                trading_collection_version.status = TradingOrderStatus.FAILED
                 trading_collection_version.fail_reason = e.__class__.__name__
                 self.repo.persist(trading_collection_version)
             except DriveWealthApiException as e:
@@ -163,8 +163,7 @@ class RebalancePortfoliosJob:
             self) -> Iterable[Tuple[int, int]]:
         query = "select distinct profile_id, trading_account_id from app.trading_collection_versions where status = %(status)s"
         with self.repo.db_conn.cursor() as cursor:
-            cursor.execute(
-                query, {"status": TradingCollectionVersionStatus.PENDING.name})
+            cursor.execute(query, {"status": TradingOrderStatus.PENDING.name})
             for row in cursor:
                 yield row[0], row[1]
 

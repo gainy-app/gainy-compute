@@ -7,7 +7,7 @@ from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount
 from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.trading.models import TradingCollectionVersionStatus, TradingAccount
+from gainy.trading.models import TradingOrderStatus, TradingAccount
 from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
@@ -74,7 +74,7 @@ class DriveWealthProviderBase:
         for trading_collection_version in self.trading_repository.iterate_trading_collection_versions(
                 profile_id=portfolio.profile_id,
                 trading_account_id=trading_account.id,
-                status=TradingCollectionVersionStatus.PENDING_EXECUTION,
+                status=TradingOrderStatus.PENDING_EXECUTION,
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
@@ -85,7 +85,7 @@ class DriveWealthProviderBase:
                     (trading_collection_version.id,
                      trading_collection_version.pending_execution_since,
                      portfolio_status.last_portfolio_rebalance_at))
-            trading_collection_version.status = TradingCollectionVersionStatus.EXECUTED_FULLY
+            trading_collection_version.status = TradingOrderStatus.EXECUTED_FULLY
             self.repository.persist(trading_collection_version)
 
     def get_fund(self, profile_id: int,

@@ -7,7 +7,7 @@ from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
-from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus, TradingCollectionVersion
+from gainy.trading.models import TradingMoneyFlowStatus, TradingOrderStatus, TradingCollectionVersion
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -92,8 +92,8 @@ class DriveWealthRepository(Repository):
                         TradingMoneyFlowStatus.SUCCESS.name,
                     ),
                     "trading_collection_version_statuses":
-                    (TradingCollectionVersionStatus.PENDING_EXECUTION.name,
-                     TradingCollectionVersionStatus.EXECUTED_FULLY.name),
+                    (TradingOrderStatus.PENDING_EXECUTION.name,
+                     TradingOrderStatus.EXECUTED_FULLY.name),
                 })
             row = cursor.fetchone()
 
@@ -120,8 +120,13 @@ class DriveWealthRepository(Repository):
             })
             row = cursor.fetchone()
             if not row:
-                return None
+                raise EntityNotFoundException(DriveWealthInstrument)
 
-            return self.find_one(DriveWealthInstrument, {
+            instrument = self.find_one(DriveWealthInstrument, {
                 "ref_id": row[0],
             })
+
+        if instrument:
+            return instrument
+
+        raise EntityNotFoundException(DriveWealthInstrument)
