@@ -25,7 +25,7 @@ class RecommendedCollectionAlgorithm(enum.Enum):
 
 def _read_sorted_collection_manually_selected(limit: int) -> List[int]:
     data = RECOMMENDATION_MANUALLY_SELECTED_COLLECTION_IDS
-    data = [int(i) for i in data]
+    data = [int(i) for i in data if i]
     return data[:limit]
 
 
