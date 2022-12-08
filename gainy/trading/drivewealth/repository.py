@@ -30,12 +30,16 @@ class DriveWealthRepository(Repository):
                          profile_id: int,
                          collection_id: int = None,
                          symbol: str = None) -> DriveWealthFund:
-        return self.find_one(
-            DriveWealthFund, {
-                "profile_id": profile_id,
-                "collection_id": collection_id,
-                "symbol": symbol,
-            })
+        params = {
+            "profile_id": profile_id,
+        }
+
+        if collection_id:
+            params["collection_id"] = collection_id
+        if symbol:
+            params["symbol"] = symbol
+
+        return self.find_one(DriveWealthFund, params)
 
     def get_account(self, trading_account_id=None) -> DriveWealthAccount:
         account = self.find_one(DriveWealthAccount,

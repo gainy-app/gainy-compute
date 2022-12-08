@@ -43,10 +43,8 @@ class TradingRepository(Repository):
         if status:
             params["status"] = status.name
         if pending_execution_to:
-            params["pending_execution_since"] = OperatorOr([
-                OperatorLt(pending_execution_to),
-                OperatorIsNull(),
-            ])
+            params["pending_execution_since"] = OperatorLt(
+                pending_execution_to)
 
         yield from self.iterate_all(TradingCollectionVersion, params)
 
@@ -66,9 +64,7 @@ class TradingRepository(Repository):
         if status:
             params["status"] = status.name
         if pending_execution_to:
-            params["pending_execution_since"] = OperatorOr([
-                OperatorLt(pending_execution_to),
-                OperatorIsNull(),
-            ])
+            params["pending_execution_since"] = OperatorLt(
+                pending_execution_to)
 
         yield from self.iterate_all(TradingOrder, params)
