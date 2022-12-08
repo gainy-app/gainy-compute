@@ -21,7 +21,10 @@ class TradingRepository(Repository):
                 })
             weights = cursor.fetchall()
 
-        last_optimization_at = max(i["optimized_at"] for i in weights)
+        last_optimization_at = None
+        if weights:
+            last_optimization_at = max(i["optimized_at"] for i in weights)
+
         return weights, last_optimization_at
 
     def iterate_trading_collection_versions(
