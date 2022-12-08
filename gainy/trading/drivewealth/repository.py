@@ -84,6 +84,13 @@ class DriveWealthRepository(Repository):
                      from app.trading_collection_versions
                      where profile_id = %(profile_id)s
                        and status in %(trading_collection_version_statuses)s
+            
+                     union all
+            
+                     select -target_amount_delta as amount
+                     from app.trading_orders
+                     where profile_id = %(profile_id)s
+                       and status in %(trading_order_statuses)s
                  ) t
         """
         with self.db_conn.cursor() as cursor:
@@ -96,6 +103,9 @@ class DriveWealthRepository(Repository):
                         TradingMoneyFlowStatus.SUCCESS.name,
                     ),
                     "trading_collection_version_statuses":
+                    (TradingOrderStatus.PENDING_EXECUTION.name,
+                     TradingOrderStatus.EXECUTED_FULLY.name),
+                    "trading_order_statuses":
                     (TradingOrderStatus.PENDING_EXECUTION.name,
                      TradingOrderStatus.EXECUTED_FULLY.name),
                 })
