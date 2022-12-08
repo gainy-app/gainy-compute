@@ -47,9 +47,39 @@ class RebalancePortfoliosJob:
             try:
                 self.rebalance_portfolio_cash(portfolio)
                 self.apply_trading_collection_versions(portfolio)
+                self.apply_trading_orders(portfolio)
                 self.rebalance_existing_collection_funds(portfolio)
                 self.provider.send_portfolio_to_api(portfolio)
             except Exception as e:
+                logger.exception(e)
+
+    def apply_trading_orders(self, portfolio: DriveWealthPortfolio):
+        profile_id = portfolio.profile_id
+        trading_account_id = self._get_trading_account_id(portfolio)
+
+        for trading_order in self.repo.iterate_trading_orders(
+                profile_id=profile_id,
+                trading_account_id=trading_account_id,
+                status=TradingOrderStatus.PENDING):
+            start_time = time.time()
+            try:
+                self.provider.execute_order_in_portfolio(
+                    portfolio, trading_order)
+
+                logger.info(
+                    "Executed order %s for profile %d account %d, symbol %s in %fs",
+                    trading_order.id, profile_id, trading_account_id,
+                    trading_order.symbol,
+                    time.time() - start_time)
+
+                trading_order.status = TradingOrderStatus.PENDING_EXECUTION
+                trading_order.pending_execution_since = datetime.datetime.now()
+                self.repo.persist(trading_order)
+            except InsufficientFundsException as e:
+                trading_order.status = TradingOrderStatus.FAILED
+                trading_order.fail_reason = e.__class__.__name__
+                self.repo.persist(trading_order)
+            except DriveWealthApiException as e:
                 logger.exception(e)
 
     def apply_trading_collection_versions(self,

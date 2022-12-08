@@ -26,12 +26,16 @@ class DriveWealthRepository(Repository):
         return self.find_all(DriveWealthAccount,
                              {"drivewealth_user_id": drivewealth_user_id})
 
-    def get_profile_fund(self, profile_id: int,
-                         collection_id) -> DriveWealthFund:
-        return self.find_one(DriveWealthFund, {
-            "profile_id": profile_id,
-            "collection_id": collection_id,
-        })
+    def get_profile_fund(self,
+                         profile_id: int,
+                         collection_id: int = None,
+                         symbol: str = None) -> DriveWealthFund:
+        return self.find_one(
+            DriveWealthFund, {
+                "profile_id": profile_id,
+                "collection_id": collection_id,
+                "symbol": symbol,
+            })
 
     def get_account(self, trading_account_id=None) -> DriveWealthAccount:
         account = self.find_one(DriveWealthAccount,
@@ -80,6 +84,13 @@ class DriveWealthRepository(Repository):
                      from app.trading_collection_versions
                      where profile_id = %(profile_id)s
                        and status in %(trading_collection_version_statuses)s
+            
+                     union all
+            
+                     select -target_amount_delta as amount
+                     from app.trading_orders
+                     where profile_id = %(profile_id)s
+                       and status in %(trading_order_statuses)s
                  ) t
         """
         with self.db_conn.cursor() as cursor:
@@ -92,6 +103,9 @@ class DriveWealthRepository(Repository):
                         TradingMoneyFlowStatus.SUCCESS.name,
                     ),
                     "trading_collection_version_statuses":
+                    (TradingOrderStatus.PENDING_EXECUTION.name,
+                     TradingOrderStatus.EXECUTED_FULLY.name),
+                    "trading_order_statuses":
                     (TradingOrderStatus.PENDING_EXECUTION.name,
                      TradingOrderStatus.EXECUTED_FULLY.name),
                 })

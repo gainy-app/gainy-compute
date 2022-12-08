@@ -6,7 +6,7 @@ from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accoun
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, CASH_VALUE, FUND1_ID, FUND2_ID, FUND2_VALUE, \
     FUND1_VALUE, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, FUND1_TARGET_WEIGHT
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
-from gainy.trading.models import TradingAccount, TradingCollectionVersion
+from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
@@ -346,6 +346,54 @@ def test_reconfigure_collection_holdings(monkeypatch):
 
     provider = DriveWealthProvider(repository, None, None)
     provider.reconfigure_collection_holdings(portfolio, collection_version)
+    assert (target_amount_delta, portfolio, fund) in [
+        args[1:] for args, kwargs in handle_cash_amount_change_calls
+    ]
+    assert portfolio in persisted_objects[DriveWealthPortfolio]
+
+
+def test_execute_order_in_portfolio(monkeypatch):
+    profile_id = 1
+    target_amount_delta = 2
+    trading_account_id = 3
+
+    trading_order = TradingOrder()
+    monkeypatch.setattr(trading_order, "profile_id", profile_id)
+    monkeypatch.setattr(trading_order, "trading_account_id",
+                        trading_account_id)
+    monkeypatch.setattr(trading_order, "target_amount_delta",
+                        target_amount_delta)
+
+    portfolio = DriveWealthPortfolio()
+    fund = DriveWealthFund()
+
+    repository = DriveWealthRepository(None)
+
+    def mock_get_profile_portfolio(*args):
+        assert args[0] == profile_id
+        assert args[1] == trading_account_id
+        return portfolio
+
+    monkeypatch.setattr(repository, "get_profile_portfolio",
+                        mock_get_profile_portfolio)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    def mock_upsert_stock_fund(*args):
+        if args[1] == profile_id and args[2] == trading_order:
+            return fund
+        raise Exception(f"unknown args {args}")
+
+    monkeypatch.setattr(DriveWealthProviderRebalanceHelper,
+                        "upsert_stock_fund", mock_upsert_stock_fund)
+
+    handle_cash_amount_change_calls = []
+    monkeypatch.setattr(DriveWealthProviderRebalanceHelper,
+                        "handle_cash_amount_change",
+                        mock_record_calls(handle_cash_amount_change_calls))
+
+    provider = DriveWealthProvider(repository, None, None)
+    provider.execute_order_in_portfolio(portfolio, trading_order)
     assert (target_amount_delta, portfolio, fund) in [
         args[1:] for args, kwargs in handle_cash_amount_change_calls
     ]
