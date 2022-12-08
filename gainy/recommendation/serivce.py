@@ -100,6 +100,7 @@ class RecommendationService:
 
         except Exception as e:
             logger.exception(e, extra=logging_extra)
+            raise e
         finally:
             logger.info('_get_recommended_collections_global',
                         extra=logging_extra)
@@ -138,3 +139,4 @@ class RecommendationService:
 
         except Exception as e:
             logger.exception(e, extra=logging_extra)
+            raise e
