@@ -76,9 +76,12 @@ class RebalancePortfoliosJob:
                 trading_order.pending_execution_since = datetime.datetime.now()
                 self.repo.persist(trading_order)
             except InsufficientFundsException as e:
-                trading_order.status = TradingOrderStatus.FAILED
-                trading_order.fail_reason = e.__class__.__name__
-                self.repo.persist(trading_order)
+                logger.info(
+                    "Executed order %s for profile %d account %d, symbol %s: %s",
+                    trading_order.id, profile_id, trading_account_id,
+                    trading_order.symbol, e.__class__.__name__)
+                # let it stay pending until there are money on the account
+                continue
             except DriveWealthApiException as e:
                 logger.exception(e)
 

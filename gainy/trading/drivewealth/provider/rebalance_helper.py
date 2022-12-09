@@ -2,8 +2,7 @@ from decimal import Decimal
 from typing import Dict, Any, Optional, List
 
 from gainy.exceptions import EntityNotFoundException
-from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION, \
-    DriveWealthInstrument
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
