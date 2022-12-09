@@ -101,7 +101,6 @@ class DriveWealthAccount(BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
     trading_account_id = None
-    portfolio_id = None
     status = None
     ref_no = None
     nickname = None
