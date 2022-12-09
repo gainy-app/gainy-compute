@@ -12,6 +12,7 @@ from gainy.data_access.repository import Repository
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
 from gainy.plaid.service import PlaidService
 from gainy.recommendation.repository import RecommendationRepository
+from gainy.recommendation.serivce import RecommendationService
 from gainy.trading.service import TradingService
 from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository, DriveWealthApi
@@ -43,6 +44,10 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def recommendation_repository(self) -> RecommendationRepository:
         return RecommendationRepository(self.db_conn)
+
+    @cached_property
+    def recommendation_service(self) -> RecommendationService:
+        return RecommendationService(self.recommendation_repository)
 
     @cached_property
     def collection_optimizer_repository(self) -> CollectionOptimizerRepository:
