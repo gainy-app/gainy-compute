@@ -77,7 +77,7 @@ class RebalancePortfoliosJob:
                 self.repo.persist(trading_order)
             except InsufficientFundsException as e:
                 logger.info(
-                    "Executed order %s for profile %d account %d, symbol %s: %s",
+                    "Skipping order %s for profile %d account %d, symbol %s: %s",
                     trading_order.id, profile_id, trading_account_id,
                     trading_order.symbol, e.__class__.__name__)
                 # let it stay pending until there are money on the account

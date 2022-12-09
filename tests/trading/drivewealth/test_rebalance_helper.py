@@ -2,16 +2,14 @@ from decimal import Decimal
 
 import pytest
 
-from gainy.exceptions import EntityNotFoundException
-from gainy.tests.mocks.repository_mocks import mock_noop, mock_find
+from gainy.tests.mocks.repository_mocks import mock_noop
 from gainy.tests.mocks.trading.drivewealth.api_mocks import CASH_TARGET_WEIGHT, FUND1_ID, FUND1_TARGET_WEIGHT, \
     PORTFOLIO_STATUS, CASH_VALUE, FUND1_VALUE, USER_ID, PORTFOLIO
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.trading.drivewealth.models import DriveWealthInstrumentStatus, DriveWealthInstrument, \
-    DriveWealthPortfolioStatus, PRECISION
+from gainy.trading.drivewealth.models import DriveWealthInstrument, DriveWealthPortfolioStatus, PRECISION
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
 
