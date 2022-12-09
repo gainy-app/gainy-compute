@@ -7,56 +7,50 @@ from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
 
 from gainy.data_access.repository import Repository
-from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
+from gainy.utils import get_logger
 
+logger = get_logger(__name__)
 script_dir = os.path.dirname(__file__)
+
+RECOMMENDATION_MANUALLY_SELECTED_COLLECTION_IDS = os.getenv(
+    "RECOMMENDATION_MANUALLY_SELECTED_COLLECTION_IDS", "").split(",")
 
 
 class RecommendedCollectionAlgorithm(enum.Enum):
     MATCH_SCORE = 0
     TOP_FAVORITED = 1
+    TOP_CLICKED = 2
+    MANUAL_SELECTION = 3
+
+
+def _read_sorted_collection_manually_selected(limit: int) -> List[int]:
+    data = RECOMMENDATION_MANUALLY_SELECTED_COLLECTION_IDS
+    data = [int(i) for i in data if i]
+    return data[:limit]
 
 
 class RecommendationRepository(Repository):
 
-    def __init__(self, db_conn):
-        self.db_conn = db_conn
-
     def get_recommended_collections(
-        self,
-        profile_id: int,
-        limit: int,
-        algorithm:
-        RecommendedCollectionAlgorithm = RecommendedCollectionAlgorithm.
-        MATCH_SCORE
+            self, profile_id: int, limit: int,
+            algorithm: RecommendedCollectionAlgorithm
     ) -> List[Tuple[int, str]]:
 
         if algorithm == RecommendedCollectionAlgorithm.MATCH_SCORE:
-            sorted_collection_match_scores = self.read_sorted_collection_match_scores(
+            collection_ids = self._read_sorted_collection_match_scores(
                 profile_id, limit)
         elif algorithm == RecommendedCollectionAlgorithm.TOP_FAVORITED:
-            sorted_collection_match_scores = self.read_sorted_collection_top_favorited(
-                limit)
+            collection_ids = self._read_sorted_collection_top_favorited(limit)
+        elif algorithm == RecommendedCollectionAlgorithm.TOP_CLICKED:
+            collection_ids = self._read_sorted_collection_top_clicked(limit)
+        elif algorithm == RecommendedCollectionAlgorithm.MANUAL_SELECTION:
+            collection_ids = _read_sorted_collection_manually_selected(limit)
         else:
             raise Exception('Unsupported algorithm')
 
-        sorted_collections_ids = list(
-            map(itemgetter(0), sorted_collection_match_scores))
-        sorted_collections_uniq_ids = [
-            f"0_{i}" for i in sorted_collections_ids
-        ]
+        collection_uniq_ids = [f"0_{i}" for i in collection_ids]
 
-        # Add `top-20 for you` collection as the top item
-        is_top_20_enabled = self.is_collection_enabled(
-            profile_id, TOP_20_FOR_YOU_COLLECTION_ID)
-        if is_top_20_enabled:
-            sorted_collections_ids = [TOP_20_FOR_YOU_COLLECTION_ID
-                                      ] + sorted_collections_ids
-            sorted_collections_uniq_ids = [
-                f"{profile_id}_{TOP_20_FOR_YOU_COLLECTION_ID}"
-            ] + sorted_collections_uniq_ids
-
-        return list(zip(sorted_collections_ids, sorted_collections_uniq_ids))
+        return list(zip(collection_ids, collection_uniq_ids))
 
     def read_batch_profile_ids(self, batch_size: int) -> Iterable[List[int]]:
         with self.db_conn.cursor() as cursor:
@@ -88,30 +82,6 @@ class RecommendationRepository(Repository):
                 })
             return list(map(itemgetter(0), cursor.fetchall()))
 
-    def read_sorted_collection_match_scores(
-            self, profile_id: str, limit: int) -> List[Tuple[int, float]]:
-        query_filename = os.path.join(script_dir,
-                                      "sql/collection_ranking_scores.sql")
-        with open(query_filename) as f:
-            query = f.read()
-
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query, {"profile_id": profile_id, "limit": limit})
-
-            return list(cursor.fetchall())
-
-    def read_sorted_collection_top_favorited(
-            self, limit: int) -> List[Tuple[int, float]]:
-        query_filename = os.path.join(script_dir,
-                                      "sql/collection_top_favorited.sql")
-        with open(query_filename) as f:
-            query = f.read()
-
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query, {"limit": limit})
-
-            return list(cursor.fetchall())
-
     def is_collection_enabled(self, profile_id, collection_id) -> bool:
         with self.db_conn.cursor() as cursor:
             cursor.execute(
@@ -124,6 +94,23 @@ class RecommendationRepository(Repository):
 
             row = cursor.fetchone()
             return row and int(row[0]) == 1
+
+    def is_personalization_enabled(self, profile_id: int) -> bool:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT is_personalization_enabled FROM profile_flags WHERE profile_id=%(profile_id)s",
+                {
+                    "profile_id": profile_id,
+                })
+
+            row = cursor.fetchone()
+            result = row and row[0]
+            logger.info('is_personalization_enabled',
+                        extra={
+                            "profile_id": profile_id,
+                            "enabled": result
+                        })
+            return result
 
     # Deprecated
     def read_collection_tickers(self, profile_id: str,
@@ -236,3 +223,31 @@ class RecommendationRepository(Repository):
         with self.db_conn.cursor() as cursor:
             for query in queries:
                 cursor.execute(query, params)
+
+    def _read_sorted_collection_match_scores(self, profile_id: int,
+                                             limit: int) -> List[int]:
+        data = self._execute_script("sql/collection_ranking_scores.sql", {
+            "profile_id": profile_id,
+            "limit": limit
+        })
+        return list(map(itemgetter(0), data))
+
+    def _read_sorted_collection_top_favorited(self, limit: int) -> List[int]:
+        data = self._execute_script("sql/collection_top_favorited.sql",
+                                    {"limit": limit})
+        return list(map(itemgetter(0), data))
+
+    def _read_sorted_collection_top_clicked(self, limit: int) -> List[int]:
+        data = self._execute_script("sql/collection_top_clicked.sql",
+                                    {"limit": limit})
+        return list(map(itemgetter(0), data))
+
+    def _execute_script(self, script_rel_path, params):
+        query_filename = os.path.join(script_dir, script_rel_path)
+        with open(query_filename) as f:
+            query = f.read()
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+
+            return cursor.fetchall()

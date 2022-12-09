@@ -158,7 +158,8 @@ create table if not exists collections
 );
 insert into collections (id, name, description, enabled, personalized, image_url, influencer_id, size, optimization_enabled, updated_at)
 values  (83, 'Big Tech', 'The largest companies operating in the tech sector. These companies are the drivers of technological advances. The stocks offer high returns when the market favors growth stocks and tech. On the other hand, they tend to be crowded and prone to high volatility. ', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Big%20Tech.jpg', null, 18, 1, '2022-10-10 05:26:34.223409'),
-        (275, 'Inflation Proof', 'An optimized selection of the largest stocks in sectors that have historically outperformed the market during periods of high inflation and increased probability of rising interest rates. Includes stocks in Energy, Real Estate, Banks, Insurance, Utilities, Food & Staples, and Retail.', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Inflation%20Proof.jpg', null, 20, 1, '2022-11-29 07:01:25.205732')
+        (275, 'Inflation Proof', 'An optimized selection of the largest stocks in sectors that have historically outperformed the market during periods of high inflation and increased probability of rising interest rates. Includes stocks in Energy, Real Estate, Banks, Insurance, Utilities, Food & Staples, and Retail.', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/20220513/Inflation%20Proof.jpg', null, 20, 1, '2022-11-29 07:01:25.205732'),
+        (277, 'Green Investments by OrganizedFinance', 'A collection of companies that have made efforts to reduce their negative impact on the environment and use resources more sustainably.', '1', '0', 'https://gainy-collections-production.s3.amazonaws.com/influencers/Green+Investments+by+OrganizedFinance.png', 2, 9, 0, '2022-12-05 06:16:19.745988')
 on conflict do nothing;
 
 create table if not exists ticker_metrics
@@ -377,3 +378,55 @@ FROM generate_series((select min(date) from latest_historical_prices)::date + in
          join latest_historical_prices on true
 where extract(isodow from dd) < 6
 on conflict do nothing;
+
+create or replace view top_global_collections as
+with unique_collection_stats as
+         (
+             select collection_id::int,
+                    max(clicks_count)::int as clicks_count
+             from raw_data.stats_ttf_clicks
+                      join (
+                               select max(updated_at) as updated_at
+                               from raw_data.stats_ttf_clicks
+                           ) t using (updated_at)
+             group by collection_id
+         )
+select collection_id,
+       row_number() over (order by clicks_count desc) as rank
+from unique_collection_stats;
+
+create or replace view profile_collections as
+WITH profile_collections AS
+         (
+             SELECT NULL :: integer                   AS profile_id,
+                    collections.id,
+                    ('0_' || collections.id)::varchar AS uniq_id,
+                    collections.name,
+                    collections.description,
+                    collections.image_url,
+                    collections.enabled,
+                    collections.personalized,
+                    influencers.name                  as influencer_name,
+                    collections.size
+             FROM collections
+                      left join app.influencers on influencers.id = collections.influencer_id
+             WHERE collections.personalized = '0'
+         )
+SELECT uniq_id,
+       profile_collections.profile_id,
+       profile_collections.id,
+       profile_collections.name,
+       profile_collections.description,
+       profile_collections.image_url,
+       CASE
+           WHEN ((profile_collections.enabled) :: text = '0' :: text) THEN '0' :: text
+           WHEN ((profile_collections.size IS NULL) OR (profile_collections.size < 0))
+               THEN '0' :: text
+           ELSE '1' :: text
+           END                               AS enabled,
+       profile_collections.personalized,
+       profile_collections.influencer_name,
+       COALESCE(profile_collections.size, 0) AS size
+FROM profile_collections
+where profile_collections.enabled = '1'
+  and profile_collections.size >= 0;
