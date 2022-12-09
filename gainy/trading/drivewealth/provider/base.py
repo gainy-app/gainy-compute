@@ -2,7 +2,7 @@ import datetime
 from typing import List, Optional, Iterable
 
 from gainy.data_access.operators import OperatorGt
-from gainy.exceptions import KYCFormHasNotBeenSentException
+from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount
@@ -48,6 +48,8 @@ class DriveWealthProviderBase:
         self.repository.persist(portfolio)
         self.update_trading_collection_versions_pending_execution_from_portfolio_status(
             portfolio_status)
+        self.update_trading_orders_pending_execution_from_portfolio_status(
+            portfolio_status)
         return portfolio_status
 
     def update_trading_collection_versions_pending_execution_from_portfolio_status(
@@ -55,24 +57,14 @@ class DriveWealthProviderBase:
         if portfolio_status.last_portfolio_rebalance_at is None:
             return
 
-        portfolio: DriveWealthPortfolio = self.repository.find_one(
-            DriveWealthPortfolio,
-            {"ref_id": portfolio_status.drivewealth_portfolio_id})
-        if not portfolio or not portfolio.drivewealth_account_id:
-            return
-
-        dw_account: DriveWealthAccount = self.repository.find_one(
-            DriveWealthAccount, {"ref_id": portfolio.drivewealth_account_id})
-        if not dw_account or not dw_account.trading_account_id:
-            return
-
-        trading_account: TradingAccount = self.repository.find_one(
-            TradingAccount, {"id": dw_account.trading_account_id})
-        if not trading_account:
+        try:
+            trading_account = self._get_trading_account_by_portfolio_status(
+                portfolio_status)
+        except EntityNotFoundException:
             return
 
         for trading_collection_version in self.trading_repository.iterate_trading_collection_versions(
-                profile_id=portfolio.profile_id,
+                profile_id=trading_account.profile_id,
                 trading_account_id=trading_account.id,
                 status=TradingOrderStatus.PENDING_EXECUTION,
                 pending_execution_to=portfolio_status.
@@ -86,7 +78,34 @@ class DriveWealthProviderBase:
                      trading_collection_version.pending_execution_since,
                      portfolio_status.last_portfolio_rebalance_at))
             trading_collection_version.status = TradingOrderStatus.EXECUTED_FULLY
-            self.repository.persist(trading_collection_version)
+            self.trading_repository.persist(trading_collection_version)
+
+    def update_trading_orders_pending_execution_from_portfolio_status(
+            self, portfolio_status: DriveWealthPortfolioStatus):
+        if portfolio_status.last_portfolio_rebalance_at is None:
+            return
+
+        try:
+            trading_account = self._get_trading_account_by_portfolio_status(
+                portfolio_status)
+        except EntityNotFoundException:
+            return
+
+        for trading_order in self.trading_repository.iterate_trading_orders(
+                profile_id=trading_account.profile_id,
+                trading_account_id=trading_account.id,
+                status=TradingOrderStatus.PENDING_EXECUTION,
+                pending_execution_to=portfolio_status.
+                last_portfolio_rebalance_at):
+
+            if trading_order.pending_execution_since and trading_order.pending_execution_since >= portfolio_status.last_portfolio_rebalance_at:
+                raise Exception(
+                    'Trying to update trading_order %d, which is pending execution since %s, '
+                    'with latest rebalance happened on %s' %
+                    (trading_order.id, trading_order.pending_execution_since,
+                     portfolio_status.last_portfolio_rebalance_at))
+            trading_order.status = TradingOrderStatus.EXECUTED_FULLY
+            self.trading_repository.persist(trading_order)
 
     def iterate_profile_funds(self,
                               profile_id: int) -> Iterable[DriveWealthFund]:
@@ -131,3 +150,23 @@ class DriveWealthProviderBase:
         if user is None:
             raise KYCFormHasNotBeenSentException("KYC form has not been sent")
         return user
+
+    def _get_trading_account_by_portfolio_status(
+            self, portfolio_status) -> TradingAccount:
+        portfolio: DriveWealthPortfolio = self.repository.find_one(
+            DriveWealthPortfolio,
+            {"ref_id": portfolio_status.drivewealth_portfolio_id})
+        if not portfolio or not portfolio.drivewealth_account_id:
+            raise EntityNotFoundException
+
+        dw_account: DriveWealthAccount = self.repository.find_one(
+            DriveWealthAccount, {"ref_id": portfolio.drivewealth_account_id})
+        if not dw_account or not dw_account.trading_account_id:
+            raise EntityNotFoundException
+
+        trading_account: TradingAccount = self.repository.find_one(
+            TradingAccount, {"id": dw_account.trading_account_id})
+        if not trading_account:
+            raise EntityNotFoundException
+
+        return trading_account
