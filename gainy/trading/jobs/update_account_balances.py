@@ -1,12 +1,14 @@
+import argparse
+
 from typing import Iterable
 
 import time
 
 from gainy.context_container import ContextContainer
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio
 from gainy.trading.models import TradingAccount, FundingAccount
-from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
 
@@ -15,16 +17,19 @@ logger = get_logger(__name__)
 
 class UpdateAccountBalancesJob:
 
-    def __init__(self, repo: TradingRepository, service: TradingService):
+    def __init__(self, repo: DriveWealthRepository, service: TradingService):
         self.repo = repo
         self.service = service
 
-    def run(self):
-        self._update_trading_accounts()
-        self._update_funding_accounts()
-        self._update_portfolios()
+    def run(self, realtime: bool = False):
+        self._update_trading_accounts(realtime=realtime)
+        self._update_funding_accounts(realtime=realtime)
+        self._update_portfolios(realtime=realtime)
 
-    def _update_trading_accounts(self):
+    def _update_trading_accounts(self, realtime: bool = False):
+        if realtime:
+            return
+
         trading_accounts: Iterable[TradingAccount] = self.repo.iterate_all(
             TradingAccount)
         for account in trading_accounts:
@@ -37,7 +42,10 @@ class UpdateAccountBalancesJob:
             except DriveWealthApiException as e:
                 logger.exception(e)
 
-    def _update_funding_accounts(self):
+    def _update_funding_accounts(self, realtime: bool = False):
+        if realtime:
+            return
+
         funding_accounts: Iterable[FundingAccount] = self.repo.iterate_all(
             FundingAccount)
         for account in funding_accounts:
@@ -50,9 +58,14 @@ class UpdateAccountBalancesJob:
             except DriveWealthApiException as e:
                 logger.exception(e)
 
-    def _update_portfolios(self):
-        portfolios: Iterable[DriveWealthPortfolio] = self.repo.iterate_all(
-            DriveWealthPortfolio)
+    def _update_portfolios(self, realtime: bool = False):
+        if realtime:
+            portfolios: Iterable[
+                DriveWealthPortfolio] = self.repo.iterate_portfolios_to_sync()
+        else:
+            portfolios: Iterable[DriveWealthPortfolio] = self.repo.iterate_all(
+                DriveWealthPortfolio)
+
         for portfolio in portfolios:
             start_time = time.time()
 
@@ -66,13 +79,18 @@ class UpdateAccountBalancesJob:
                 logger.exception(e)
 
 
-def cli():
+def cli(args=None):
+    parser = argparse.ArgumentParser(
+        description='Update different 3rd party accounts information.')
+    parser.add_argument('--realtime', action='store_true')
+    args = parser.parse_args(args)
+
     try:
         with ContextContainer() as context_container:
             job = UpdateAccountBalancesJob(
-                context_container.trading_repository,
+                context_container.drivewealth_repository,
                 context_container.trading_service)
-            job.run()
+            job.run(realtime=args.realtime)
 
     except Exception as e:
         logger.exception(e)
