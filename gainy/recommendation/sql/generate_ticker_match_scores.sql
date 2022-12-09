@@ -9,7 +9,7 @@ with profiles as
          ),
      p_rsk as
          (
-             select profile_id, (risk_score::double precision - 1) / 2 as value
+             select profile_id, risk_score, (risk_score::double precision - 1) / 2 as value
              from profiles
                       join app.profile_scoring_settings using (profile_id)
          ),
@@ -49,8 +49,14 @@ with profiles as
          (
              select profile_id,
                     symbol,
-                    1. / (1. + pow(abs(p_rsk.value - coalesce(t_risk_score.risk_score, 0.5)), d) *
-                               pow(abs(sr + (sc - sr) * abs(p_rsk.value - 0.5) / 0.5), d)) * 2 - 1 as match_comp_risk
+                    case
+                        when p_rsk.risk_score = 3
+                            then 1 - abs(t_risk_score.risk_score - 0.75)
+                        when p_rsk.risk_score = 2
+                            then 1 - abs(t_risk_score.risk_score - 0.5) * 1.5
+                        when p_rsk.risk_score = 1
+                            then 1 - abs(t_risk_score.risk_score - 0.25)
+                        end as match_comp_risk
              from profiles
                       join p_rsk using (profile_id)
                       join const on true
@@ -149,7 +155,7 @@ with profiles as
                       else 3 -- for all others (now it's common stocks) all 3 components exists: categories, interests, risk
                     end)
                 / 2 + 0.5                                                     as match_score,
-                match_comp_risk / 2 + 0.5                                     as match_comp_risk_normalized,
+                match_comp_risk                                               as match_comp_risk_normalized,
                 match_comp_category / 2 + 0.5                                 as match_comp_category_normalized,
                 interest_similarity.match_comp_interest /
                 2 + 0.5                                                       as match_comp_interest_normalized,
