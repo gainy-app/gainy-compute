@@ -52,7 +52,7 @@ def test_ticker_match_score():
     assert ticker_match_score["match_score"] >= 99
     assert ticker_match_score["fits_risk"] == 2
     assert abs(ticker_match_score["risk_similarity"] -
-               0.9990181336784723) < 1e-5
+               0.9628699801810695) < 1e-5
     assert ticker_match_score["fits_categories"] == 2
     assert ticker_match_score["fits_interests"] == 2
     assert ticker_match_score["category_matches"] == '[7]'
@@ -68,7 +68,7 @@ def test_ticker_match_score():
     assert collection_match_score["collection_uniq_id"] == '0_83'
     assert collection_match_score["match_score"] >= 99
     assert abs(collection_match_score["risk_similarity"] -
-               0.9990181336784723) < 1e-5
+               0.9628699801810695) < 1e-5
     assert abs(collection_match_score["category_similarity"] -
                0.8620509848080247) < 1e-5
     assert abs(collection_match_score["interest_similarity"] -

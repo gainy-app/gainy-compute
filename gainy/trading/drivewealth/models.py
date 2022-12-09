@@ -458,6 +458,8 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     is_artificial = False
     waiting_rebalance_since: Optional[datetime.datetime] = None
     last_rebalance_at: Optional[datetime.datetime] = None
+    last_order_executed_at: Optional[datetime.datetime] = None
+    last_sync_at: Optional[datetime.datetime] = None
     created_at = None
     updated_at = None
 

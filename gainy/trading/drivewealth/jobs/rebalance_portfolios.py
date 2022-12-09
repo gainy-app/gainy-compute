@@ -108,9 +108,14 @@ class RebalancePortfoliosJob:
                 )
                 self.repo.persist(trading_collection_version)
             except InsufficientFundsException as e:
-                trading_collection_version.status = TradingOrderStatus.FAILED
-                trading_collection_version.fail_reason = e.__class__.__name__
-                self.repo.persist(trading_collection_version)
+                logger.info(
+                    "Skipping trading_collection_version %s for profile %d account %d, collections %s: %s",
+                    trading_collection_version.id, profile_id,
+                    trading_account_id,
+                    trading_collection_version.collection_id,
+                    e.__class__.__name__)
+                # let it stay pending until there are money on the account
+                continue
             except DriveWealthApiException as e:
                 logger.exception(e)
 

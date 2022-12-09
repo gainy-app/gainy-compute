@@ -40,6 +40,7 @@ class DriveWealthProviderBase:
     def sync_portfolio(self, portfolio: DriveWealthPortfolio):
         data = self.api.get_portfolio(portfolio)
         portfolio.set_from_response(data)
+        portfolio.last_sync_at = datetime.datetime.now()
         self.repository.persist(portfolio)
 
     def sync_portfolio_status(self, portfolio: DriveWealthPortfolio):
