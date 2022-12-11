@@ -41,13 +41,13 @@ class RecommendationService:
 
         return self._get_recommended_collections_global(profile_id, limit)
 
-    def compute_match_score(self, profile_id, log_error=True):
+    def compute_match_score(self, profile_id, log_error=True, max_tries=2):
         recommendations_func = ComputeRecommendationsAndPersist(
             self.repository, profile_id)
         old_version = recommendations_func.load_version()
 
         try:
-            recommendations_func.execute(max_tries=2)
+            recommendations_func.execute(max_tries=max_tries)
 
             new_version = recommendations_func.load_version()
             logger.info('Calculated Match Scores',
@@ -76,12 +76,22 @@ class RecommendationService:
                 RecommendedCollectionAlgorithm.MANUAL_SELECTION)
             logging_extra[
                 'manually_selected_collections'] = manually_selected_collections
+            logger.info('_get_recommended_collections_global: ' +
+                        str(manually_selected_collections),
+                        extra=logging_extra)
 
             top_clicked_collections = self.repository.get_recommended_collections(
                 profile_id, limit, RecommendedCollectionAlgorithm.TOP_CLICKED)
             logging_extra['top_clicked_collections'] = top_clicked_collections
+            logger.info('_get_recommended_collections_global: ' +
+                        str(top_clicked_collections),
+                        extra=logging_extra)
 
             collections = manually_selected_collections + top_clicked_collections
+            logging_extra["collections"] = collections
+            logger.info('_get_recommended_collections_global: ' +
+                        str(collections),
+                        extra=logging_extra)
             if collections:
                 collections = _unique_collections(collections)
                 logging_extra["collections"] = collections
