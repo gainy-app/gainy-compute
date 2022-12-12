@@ -35,6 +35,9 @@ class RecommendationService:
         profile_id: int,
         limit: int,
     ) -> Iterable[Tuple[int, str]]:
+        if limit <= 0:
+            return []
+
         if self.repository.is_personalization_enabled(profile_id):
             return self._get_recommended_collections_personalized(
                 profile_id, limit)
