@@ -4,7 +4,7 @@ from typing import List, Iterable, Optional
 
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
-from gainy.trading.drivewealth import IS_UAT
+from gainy.trading.drivewealth.config import DRIVEWEALTH_IS_UAT
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
 from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus
@@ -86,7 +86,7 @@ class DriveWealthRepository(Repository):
         trading_money_flow_statuses = [
             TradingMoneyFlowStatus.SUCCESS.name,
         ]
-        if IS_UAT:
+        if DRIVEWEALTH_IS_UAT:
             trading_money_flow_statuses.append(
                 TradingMoneyFlowStatus.APPROVED.name)
 
