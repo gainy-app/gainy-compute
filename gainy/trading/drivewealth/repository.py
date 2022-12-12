@@ -1,14 +1,13 @@
-import datetime
 from psycopg2.extras import RealDictCursor
 
-from typing import List, Iterable, Tuple, Optional
+from typing import List, Iterable, Optional
 
-from gainy.data_access.operators import OperatorLt
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
+from gainy.trading.drivewealth import IS_UAT
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
-from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus, TradingCollectionVersion
+from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -83,18 +82,28 @@ class DriveWealthRepository(Repository):
                        and status in %(trading_collection_version_statuses)s
                  ) t
         """
+
+        trading_money_flow_statuses = [
+            TradingMoneyFlowStatus.SUCCESS.name,
+        ]
+        if IS_UAT:
+            trading_money_flow_statuses.append(
+                TradingMoneyFlowStatus.APPROVED.name)
+
+        trading_collection_version_statuses = (
+            TradingCollectionVersionStatus.PENDING_EXECUTION.name,
+            TradingCollectionVersionStatus.EXECUTED_FULLY.name,
+        )
+
         with self.db_conn.cursor() as cursor:
             cursor.execute(
                 query, {
                     "profile_id":
                     portfolio.profile_id,
-                    "trading_money_flow_statuses": (
-                        TradingMoneyFlowStatus.APPROVED.name,
-                        TradingMoneyFlowStatus.SUCCESS.name,
-                    ),
+                    "trading_money_flow_statuses":
+                    tuple(trading_money_flow_statuses),
                     "trading_collection_version_statuses":
-                    (TradingCollectionVersionStatus.PENDING_EXECUTION.name,
-                     TradingCollectionVersionStatus.EXECUTED_FULLY.name),
+                    trading_collection_version_statuses,
                 })
             row = cursor.fetchone()
 
