@@ -1,17 +1,18 @@
+import datetime
+
 from decimal import Decimal
 
-from gainy.data_access.operators import OperatorGt
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
-    mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, CASH_VALUE, FUND1_ID, FUND2_ID, FUND2_VALUE, \
-    FUND1_VALUE, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, FUND1_TARGET_WEIGHT
+    mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, FUND1_TARGET_WEIGHT
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
-from gainy.trading.models import TradingAccount, TradingCollectionVersion
+from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
     DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
     DriveWealthPortfolioStatus, DriveWealthFund, PRECISION
+from gainy.trading.repository import TradingRepository
 
 _ACCOUNT_ID = "bf98c335-57ad-4337-ae9f-ed1fcfb447af.1662377145557"
 
@@ -352,6 +353,54 @@ def test_reconfigure_collection_holdings(monkeypatch):
     assert portfolio in persisted_objects[DriveWealthPortfolio]
 
 
+def test_execute_order_in_portfolio(monkeypatch):
+    profile_id = 1
+    target_amount_delta = 2
+    trading_account_id = 3
+
+    trading_order = TradingOrder()
+    monkeypatch.setattr(trading_order, "profile_id", profile_id)
+    monkeypatch.setattr(trading_order, "trading_account_id",
+                        trading_account_id)
+    monkeypatch.setattr(trading_order, "target_amount_delta",
+                        target_amount_delta)
+
+    portfolio = DriveWealthPortfolio()
+    fund = DriveWealthFund()
+
+    repository = DriveWealthRepository(None)
+
+    def mock_get_profile_portfolio(*args):
+        assert args[0] == profile_id
+        assert args[1] == trading_account_id
+        return portfolio
+
+    monkeypatch.setattr(repository, "get_profile_portfolio",
+                        mock_get_profile_portfolio)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    def mock_upsert_stock_fund(*args):
+        if args[1] == profile_id and args[2] == trading_order:
+            return fund
+        raise Exception(f"unknown args {args}")
+
+    monkeypatch.setattr(DriveWealthProviderRebalanceHelper,
+                        "upsert_stock_fund", mock_upsert_stock_fund)
+
+    handle_cash_amount_change_calls = []
+    monkeypatch.setattr(DriveWealthProviderRebalanceHelper,
+                        "handle_cash_amount_change",
+                        mock_record_calls(handle_cash_amount_change_calls))
+
+    provider = DriveWealthProvider(repository, None, None)
+    provider.execute_order_in_portfolio(portfolio, trading_order)
+    assert (target_amount_delta, portfolio, fund) in [
+        args[1:] for args, kwargs in handle_cash_amount_change_calls
+    ]
+    assert portfolio in persisted_objects[DriveWealthPortfolio]
+
+
 def test_rebalance_portfolio_cash(monkeypatch):
     equity_value = Decimal(10)
     cash_target_value = Decimal(equity_value)
@@ -484,3 +533,95 @@ def test_get_portfolio_status(monkeypatch):
 
     assert portfolio_status.drivewealth_portfolio_id == PORTFOLIO_STATUS["id"]
     assert DriveWealthPortfolioStatus in persisted_objects
+    assert portfolio_status in persisted_objects[DriveWealthPortfolioStatus]
+
+
+def test_update_trading_collection_versions_pending_execution_from_portfolio_status(
+        monkeypatch):
+    last_portfolio_rebalance_at = datetime.datetime.now()
+    profile_id = 1
+    trading_account_id = 2
+
+    trading_collection_version = TradingCollectionVersion()
+
+    trading_account = TradingAccount()
+    trading_account.profile_id = profile_id
+    trading_account.id = trading_account_id
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at
+
+    persisted_objects = {}
+    repository = TradingRepository(None)
+
+    def mock_iterate_trading_collection_versions(**kwargs):
+        assert kwargs["profile_id"] == profile_id
+        assert kwargs["trading_account_id"] == trading_account_id
+        assert kwargs["status"] == TradingOrderStatus.PENDING_EXECUTION
+        assert kwargs["pending_execution_to"] == last_portfolio_rebalance_at
+        return [trading_collection_version]
+
+    monkeypatch.setattr(repository, "iterate_trading_collection_versions",
+                        mock_iterate_trading_collection_versions)
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    def mock_get_trading_account_by_portfolio_status(*args):
+        assert args[0] == portfolio_status
+        return trading_account
+
+    provider = DriveWealthProvider(None, None, repository)
+    monkeypatch.setattr(provider, "_get_trading_account_by_portfolio_status",
+                        mock_get_trading_account_by_portfolio_status)
+
+    portfolio_status = provider.update_trading_collection_versions_pending_execution_from_portfolio_status(
+        portfolio_status)
+
+    assert trading_collection_version.status == TradingOrderStatus.EXECUTED_FULLY
+    assert TradingCollectionVersion in persisted_objects
+    assert trading_collection_version in persisted_objects[
+        TradingCollectionVersion]
+
+
+def test_update_trading_orders_pending_execution_from_portfolio_status(
+        monkeypatch):
+    last_portfolio_rebalance_at = datetime.datetime.now()
+    profile_id = 1
+    trading_account_id = 2
+
+    trading_order = TradingOrder()
+
+    trading_account = TradingAccount()
+    trading_account.profile_id = profile_id
+    trading_account.id = trading_account_id
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at
+
+    persisted_objects = {}
+    repository = TradingRepository(None)
+
+    def mock_iterate_trading_orders(**kwargs):
+        assert kwargs["profile_id"] == profile_id
+        assert kwargs["trading_account_id"] == trading_account_id
+        assert kwargs["status"] == TradingOrderStatus.PENDING_EXECUTION
+        assert kwargs["pending_execution_to"] == last_portfolio_rebalance_at
+        return [trading_order]
+
+    monkeypatch.setattr(repository, "iterate_trading_orders",
+                        mock_iterate_trading_orders)
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    def mock_get_trading_account_by_portfolio_status(*args):
+        assert args[0] == portfolio_status
+        return trading_account
+
+    provider = DriveWealthProvider(None, None, repository)
+    monkeypatch.setattr(provider, "_get_trading_account_by_portfolio_status",
+                        mock_get_trading_account_by_portfolio_status)
+
+    portfolio_status = provider.update_trading_orders_pending_execution_from_portfolio_status(
+        portfolio_status)
+
+    assert trading_order.status == TradingOrderStatus.EXECUTED_FULLY
+    assert TradingOrder in persisted_objects
+    assert trading_order in persisted_objects[TradingOrder]

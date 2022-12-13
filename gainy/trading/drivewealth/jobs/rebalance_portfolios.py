@@ -9,7 +9,7 @@ from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD
 from gainy.trading.exceptions import InsufficientFundsException
-from gainy.trading.models import TradingCollectionVersion, TradingCollectionVersionStatus, TradingOrderSource
+from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
@@ -47,9 +47,42 @@ class RebalancePortfoliosJob:
             try:
                 self.rebalance_portfolio_cash(portfolio)
                 self.apply_trading_collection_versions(portfolio)
+                self.apply_trading_orders(portfolio)
                 self.rebalance_existing_collection_funds(portfolio)
                 self.provider.send_portfolio_to_api(portfolio)
             except Exception as e:
+                logger.exception(e)
+
+    def apply_trading_orders(self, portfolio: DriveWealthPortfolio):
+        profile_id = portfolio.profile_id
+        trading_account_id = self._get_trading_account_id(portfolio)
+
+        for trading_order in self.repo.iterate_trading_orders(
+                profile_id=profile_id,
+                trading_account_id=trading_account_id,
+                status=TradingOrderStatus.PENDING):
+            start_time = time.time()
+            try:
+                self.provider.execute_order_in_portfolio(
+                    portfolio, trading_order)
+
+                logger.info(
+                    "Executed order %s for profile %d account %d, symbol %s in %fs",
+                    trading_order.id, profile_id, trading_account_id,
+                    trading_order.symbol,
+                    time.time() - start_time)
+
+                trading_order.status = TradingOrderStatus.PENDING_EXECUTION
+                trading_order.pending_execution_since = datetime.datetime.now()
+                self.repo.persist(trading_order)
+            except InsufficientFundsException as e:
+                logger.info(
+                    "Skipping order %s for profile %d account %d, symbol %s: %s",
+                    trading_order.id, profile_id, trading_account_id,
+                    trading_order.symbol, e.__class__.__name__)
+                # let it stay pending until there are money on the account
+                continue
+            except DriveWealthApiException as e:
                 logger.exception(e)
 
     def apply_trading_collection_versions(self,
@@ -60,7 +93,7 @@ class RebalancePortfoliosJob:
         for trading_collection_version in self.repo.iterate_trading_collection_versions(
                 profile_id=profile_id,
                 trading_account_id=trading_account_id,
-                status=TradingCollectionVersionStatus.PENDING):
+                status=TradingOrderStatus.PENDING):
             start_time = time.time()
             try:
                 self.provider.reconfigure_collection_holdings(
@@ -73,7 +106,7 @@ class RebalancePortfoliosJob:
                     trading_collection_version.collection_id,
                     time.time() - start_time)
 
-                trading_collection_version.status = TradingCollectionVersionStatus.PENDING_EXECUTION
+                trading_collection_version.status = TradingOrderStatus.PENDING_EXECUTION
                 trading_collection_version.pending_execution_since = datetime.datetime.now(
                 )
                 self.repo.persist(trading_collection_version)
@@ -168,8 +201,7 @@ class RebalancePortfoliosJob:
             self) -> Iterable[Tuple[int, int]]:
         query = "select distinct profile_id, trading_account_id from app.trading_collection_versions where status = %(status)s"
         with self.repo.db_conn.cursor() as cursor:
-            cursor.execute(
-                query, {"status": TradingCollectionVersionStatus.PENDING.name})
+            cursor.execute(query, {"status": TradingOrderStatus.PENDING.name})
             for row in cursor:
                 yield row[0], row[1]
 

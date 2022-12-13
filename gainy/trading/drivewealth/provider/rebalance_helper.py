@@ -2,11 +2,10 @@ from decimal import Decimal
 from typing import Dict, Any, Optional, List
 
 from gainy.exceptions import EntityNotFoundException
-from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION, \
-    DriveWealthInstrument
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
-from gainy.trading.models import TradingCollectionVersion
+from gainy.trading.models import TradingCollectionVersion, TradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -26,8 +25,8 @@ class DriveWealthProviderRebalanceHelper:
         weights = collection_version.weights
         repository = self.repository
 
-        fund = self.provider.get_fund(profile_id,
-                                      collection_id) or DriveWealthFund()
+        fund = self.repository.get_profile_fund(
+            profile_id, collection_id=collection_id) or DriveWealthFund()
         fund.profile_id = profile_id
         fund.collection_id = collection_id
         fund.holdings = self._generate_new_fund_holdings(weights, fund)
@@ -45,6 +44,35 @@ class DriveWealthProviderRebalanceHelper:
 
         fund.weights = weights
         fund.trading_collection_version_id = collection_version.id
+        repository.persist(fund)
+
+        return fund
+
+    def upsert_stock_fund(self, profile_id,
+                          trading_order: TradingOrder) -> DriveWealthFund:
+        symbol = trading_order.symbol
+        weights = {symbol: Decimal(1)}
+        repository = self.repository
+
+        fund = self.repository.get_profile_fund(
+            profile_id, symbol=symbol) or DriveWealthFund()
+        fund.profile_id = profile_id
+        fund.symbol = symbol
+        fund.holdings = self._generate_new_fund_holdings(weights, fund)
+        fund.normalize_weights()
+
+        if fund.ref_id:
+            self.api.update_fund(fund)
+        else:
+            user = repository.get_user(profile_id)
+            user_id = user.ref_id
+            name = f"Gainy {user_id}'s fund for symbol {symbol}"
+            client_fund_id = f"{profile_id}_{symbol}"
+            description = name
+            self.api.create_fund(fund, name, client_fund_id, description)
+
+        fund.weights = weights
+        fund.trading_order_id = trading_order.id
         repository.persist(fund)
 
         return fund
@@ -117,7 +145,7 @@ class DriveWealthProviderRebalanceHelper:
         for symbol, weight in weights.items():
             weight = Decimal(weight)
             try:
-                instrument = self._get_instrument(symbol)
+                instrument = self.repository.get_instrument_by_symbol(symbol)
                 new_holdings[instrument.ref_id] = weight
                 weight_sum += weight
             except EntityNotFoundException:
@@ -127,11 +155,3 @@ class DriveWealthProviderRebalanceHelper:
             "instrumentID": k,
             "target": i / weight_sum,
         } for k, i in new_holdings.items()]
-
-    def _get_instrument(self, symbol) -> DriveWealthInstrument:
-        instrument = self.repository.get_instrument_by_symbol(symbol)
-
-        if instrument:
-            return instrument
-
-        raise EntityNotFoundException(DriveWealthInstrument)

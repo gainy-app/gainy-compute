@@ -2,18 +2,16 @@ from decimal import Decimal
 
 import pytest
 
-from gainy.exceptions import EntityNotFoundException
-from gainy.tests.mocks.repository_mocks import mock_noop, mock_find
+from gainy.tests.mocks.repository_mocks import mock_noop
 from gainy.tests.mocks.trading.drivewealth.api_mocks import CASH_TARGET_WEIGHT, FUND1_ID, FUND1_TARGET_WEIGHT, \
     PORTFOLIO_STATUS, CASH_VALUE, FUND1_VALUE, USER_ID, PORTFOLIO
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.trading.drivewealth.models import DriveWealthInstrumentStatus, DriveWealthInstrument, \
-    DriveWealthPortfolioStatus, PRECISION
+from gainy.trading.drivewealth.models import DriveWealthInstrument, DriveWealthPortfolioStatus, PRECISION
 from gainy.trading.drivewealth.provider import DriveWealthProvider
-from gainy.trading.models import TradingCollectionVersion
+from gainy.trading.models import TradingCollectionVersion, TradingOrder
 
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthFund
 
@@ -44,7 +42,7 @@ _NEW_FUND_HOLDINGS = [
 ]
 
 
-def _mock_get_instrument(monkeypatch, service):
+def _mock_get_instrument(monkeypatch, repository):
     instrument_B = DriveWealthInstrument()
     monkeypatch.setattr(instrument_B, 'ref_id', 'B')
     instrument_C = DriveWealthInstrument()
@@ -57,7 +55,8 @@ def _mock_get_instrument(monkeypatch, service):
         }
         return instruments[symbol]
 
-    monkeypatch.setattr(service, "_get_instrument", mock_get_instrument)
+    monkeypatch.setattr(repository, "get_instrument_by_symbol",
+                        mock_get_instrument)
 
 
 def get_test_upsert_fund_fund_exists():
@@ -82,9 +81,9 @@ def test_upsert_fund(fund_exists, monkeypatch):
         assert _profile_id == profile_id
         return user
 
-    def mock_get_profile_fund(_profile_id, _collection_id):
+    def mock_get_profile_fund(_profile_id, **kwargs):
         assert _profile_id == profile_id
-        assert _collection_id == collection_id
+        assert kwargs["collection_id"] == collection_id
         return fund if fund_exists else None
 
     drivewealth_repository = DriveWealthRepository(None)
@@ -125,24 +124,98 @@ def test_upsert_fund(fund_exists, monkeypatch):
         monkeypatch.setattr(api, "create_fund", mock_create_fund)
 
     collection_version = TradingCollectionVersion()
+    collection_version.id = trading_collection_version_id
     collection_version.profile_id = profile_id
     collection_version.collection_id = collection_id
     collection_version.weights = weights
     collection_version.target_amount_delta = Decimal(0)
 
-    monkeypatch.setattr(collection_version, "id",
-                        trading_collection_version_id)
-    monkeypatch.setattr(collection_version, "collection_id", collection_id)
-    monkeypatch.setattr(collection_version, "weights", weights)
-
     provider = DriveWealthProvider(drivewealth_repository, api, None)
     helper = DriveWealthProviderRebalanceHelper(provider)
-    _mock_get_instrument(monkeypatch, helper)
+    _mock_get_instrument(monkeypatch, drivewealth_repository)
     fund = helper.upsert_fund(profile_id, collection_version)
 
     assert fund.ref_id == fund_ref_id
     assert fund.collection_id == collection_id
     assert fund.trading_collection_version_id == trading_collection_version_id
+    assert fund.weights == weights
+    assert fund.data == data
+
+
+def get_test_upsert_stock_fund_fund_exists():
+    return [False, True]
+
+
+@pytest.mark.parametrize("fund_exists",
+                         get_test_upsert_stock_fund_fund_exists())
+def test_upsert_stock_fund(fund_exists, monkeypatch):
+    profile_id = 1
+    symbol = "symbol_B"
+    weights = {symbol: Decimal(1)}
+    trading_order_id = 3
+    fund_ref_id = "fund_dff726ff-f213-42b1-a759-b20efa3f56d7"
+
+    user = DriveWealthUser()
+    monkeypatch.setattr(user, "ref_id", USER_ID)
+
+    fund = DriveWealthFund()
+    monkeypatch.setattr(fund, "ref_id", fund_ref_id)
+
+    def mock_get_user(_profile_id):
+        assert _profile_id == profile_id
+        return user
+
+    def mock_get_profile_fund(_profile_id, **kwargs):
+        assert _profile_id == profile_id
+        assert kwargs["symbol"] == symbol
+        return fund if fund_exists else None
+
+    drivewealth_repository = DriveWealthRepository(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(drivewealth_repository, "get_user", mock_get_user)
+    monkeypatch.setattr(drivewealth_repository, "get_profile_fund",
+                        mock_get_profile_fund)
+
+    data = {"id": fund_ref_id, "userID": USER_ID, "holdings": _FUND_HOLDINGS}
+
+    new_fund_holdings = [
+        {
+            "instrumentID": "B",
+            "target": Decimal(1),
+        },
+    ]
+
+    api = DriveWealthApi(None)
+    if fund_exists:
+
+        def mock_update_fund(_fund):
+            assert _fund == fund
+            assert _fund.holdings == new_fund_holdings
+            _fund.set_from_response(data)
+
+        monkeypatch.setattr(api, "update_fund", mock_update_fund)
+    else:
+
+        def mock_create_fund(_fund, _name, _client_fund_id, _description):
+            assert _client_fund_id == f"{profile_id}_{symbol}"
+            assert _fund.holdings == new_fund_holdings
+            _fund.set_from_response(data)
+
+        monkeypatch.setattr(api, "create_fund", mock_create_fund)
+
+    trading_order = TradingOrder()
+    trading_order.id = trading_order_id
+    trading_order.profile_id = profile_id
+    trading_order.symbol = symbol
+
+    provider = DriveWealthProvider(drivewealth_repository, api, None)
+    helper = DriveWealthProviderRebalanceHelper(provider)
+    _mock_get_instrument(monkeypatch, drivewealth_repository)
+    fund = helper.upsert_stock_fund(profile_id, trading_order)
+
+    assert fund.ref_id == fund_ref_id
+    assert fund.symbol == symbol
+    assert fund.trading_order_id == trading_order_id
     assert fund.weights == weights
     assert fund.data == data
 
@@ -156,7 +229,7 @@ def test_generate_new_fund_holdings(monkeypatch):
     fund = DriveWealthFund()
     monkeypatch.setattr(DriveWealthFund, "holdings", _FUND_HOLDINGS)
 
-    _mock_get_instrument(monkeypatch, helper)
+    _mock_get_instrument(monkeypatch, drivewealth_repository)
 
     new_holdings = helper._generate_new_fund_holdings(_FUND_WEIGHTS, fund)
     new_holdings = {i["instrumentID"]: i["target"] for i in new_holdings}
@@ -254,26 +327,3 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
 
 def get_test_upsert_fund_instrument_exists():
     return [False, True]
-
-
-@pytest.mark.parametrize("instrument_exists",
-                         get_test_upsert_fund_instrument_exists())
-def test_get_instrument(instrument_exists, monkeypatch):
-    _symbol = "symbol"
-    drivewealth_repository = DriveWealthRepository(None)
-
-    provider = DriveWealthProvider(drivewealth_repository, None, None)
-    helper = DriveWealthProviderRebalanceHelper(provider)
-    instrument = DriveWealthInstrument()
-
-    if instrument_exists:
-        monkeypatch.setattr(drivewealth_repository, 'get_instrument_by_symbol',
-                            lambda x: instrument)
-        assert helper._get_instrument(_symbol) == instrument
-
-    else:
-        monkeypatch.setattr(drivewealth_repository, 'get_instrument_by_symbol',
-                            lambda x: None)
-
-        with pytest.raises(EntityNotFoundException):
-            helper._get_instrument(_symbol)

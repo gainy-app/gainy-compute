@@ -101,7 +101,6 @@ class DriveWealthAccount(BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
     trading_account_id = None
-    portfolio_id = None
     status = None
     ref_no = None
     nickname = None
@@ -376,7 +375,9 @@ class DriveWealthFund(BaseDriveWealthModel):
     ref_id = None
     profile_id = None
     collection_id = None
+    symbol = None
     trading_collection_version_id = None
+    trading_order_id = None
     weights: Dict[str, Decimal] = None
     holdings = []
     data = None

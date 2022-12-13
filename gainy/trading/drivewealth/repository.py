@@ -7,7 +7,7 @@ from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.config import DRIVEWEALTH_IS_UAT
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
-from gainy.trading.models import TradingMoneyFlowStatus, TradingCollectionVersionStatus
+from gainy.trading.models import TradingMoneyFlowStatus, TradingOrderStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -26,12 +26,20 @@ class DriveWealthRepository(Repository):
         return self.find_all(DriveWealthAccount,
                              {"drivewealth_user_id": drivewealth_user_id})
 
-    def get_profile_fund(self, profile_id: int,
-                         collection_id) -> DriveWealthFund:
-        return self.find_one(DriveWealthFund, {
+    def get_profile_fund(self,
+                         profile_id: int,
+                         collection_id: int = None,
+                         symbol: str = None) -> DriveWealthFund:
+        params = {
             "profile_id": profile_id,
-            "collection_id": collection_id,
-        })
+        }
+
+        if collection_id:
+            params["collection_id"] = collection_id
+        if symbol:
+            params["symbol"] = symbol
+
+        return self.find_one(DriveWealthFund, params)
 
     def get_account(self, trading_account_id=None) -> DriveWealthAccount:
         account = self.find_one(DriveWealthAccount,
@@ -80,6 +88,13 @@ class DriveWealthRepository(Repository):
                      from app.trading_collection_versions
                      where profile_id = %(profile_id)s
                        and status in %(trading_collection_version_statuses)s
+            
+                     union all
+            
+                     select -target_amount_delta as amount
+                     from app.trading_orders
+                     where profile_id = %(profile_id)s
+                       and status in %(trading_order_statuses)s
                  ) t
         """
 
@@ -91,8 +106,13 @@ class DriveWealthRepository(Repository):
                 TradingMoneyFlowStatus.APPROVED.name)
 
         trading_collection_version_statuses = (
-            TradingCollectionVersionStatus.PENDING_EXECUTION.name,
-            TradingCollectionVersionStatus.EXECUTED_FULLY.name,
+            TradingOrderStatus.PENDING_EXECUTION.name,
+            TradingOrderStatus.EXECUTED_FULLY.name,
+        )
+
+        trading_order_statuses = (
+            TradingOrderStatus.PENDING_EXECUTION.name,
+            TradingOrderStatus.EXECUTED_FULLY.name,
         )
 
         with self.db_conn.cursor() as cursor:
@@ -104,6 +124,8 @@ class DriveWealthRepository(Repository):
                     tuple(trading_money_flow_statuses),
                     "trading_collection_version_statuses":
                     trading_collection_version_statuses,
+                    "trading_order_statuses":
+                    trading_order_statuses,
                 })
             row = cursor.fetchone()
 
@@ -130,11 +152,16 @@ class DriveWealthRepository(Repository):
             })
             row = cursor.fetchone()
             if not row:
-                return None
+                raise EntityNotFoundException(DriveWealthInstrument)
 
-            return self.find_one(DriveWealthInstrument, {
+            instrument = self.find_one(DriveWealthInstrument, {
                 "ref_id": row[0],
             })
+
+        if instrument:
+            return instrument
+
+        raise EntityNotFoundException(DriveWealthInstrument)
 
     def iterate_portfolios_to_sync(self) -> Iterable[DriveWealthPortfolio]:
         # allow resync if last order was executed up to a minute before last sync
