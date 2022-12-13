@@ -7,6 +7,8 @@ from backoff import full_jitter
 
 from gainy.data_access.db_lock import LockAcquisitionTimeout
 from gainy.data_access.models import DecimalEncoder
+from gainy.trading.drivewealth.config import DRIVEWEALTH_APP_KEY, DRIVEWEALTH_RIA_ID, DRIVEWEALTH_API_USERNAME, \
+    DRIVEWEALTH_API_PASSWORD, DRIVEWEALTH_API_URL
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund
@@ -14,15 +16,6 @@ from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
-
-DRIVEWEALTH_APP_KEY = os.getenv("DRIVEWEALTH_APP_KEY")
-DRIVEWEALTH_WLP_ID = os.getenv("DRIVEWEALTH_WLP_ID")
-DRIVEWEALTH_PARENT_IBID = os.getenv("DRIVEWEALTH_PARENT_IBID")
-DRIVEWEALTH_RIA_ID = os.getenv("DRIVEWEALTH_RIA_ID")
-DRIVEWEALTH_RIA_PRODUCT_ID = os.getenv("DRIVEWEALTH_RIA_PRODUCT_ID")
-DRIVEWEALTH_API_USERNAME = os.getenv("DRIVEWEALTH_API_USERNAME")
-DRIVEWEALTH_API_PASSWORD = os.getenv("DRIVEWEALTH_API_PASSWORD")
-DRIVEWEALTH_API_URL = os.getenv("DRIVEWEALTH_API_URL")
 
 
 class DriveWealthApi:
