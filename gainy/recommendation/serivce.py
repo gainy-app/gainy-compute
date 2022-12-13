@@ -35,19 +35,22 @@ class RecommendationService:
         profile_id: int,
         limit: int,
     ) -> Iterable[Tuple[int, str]]:
+        if limit <= 0:
+            return []
+
         if self.repository.is_personalization_enabled(profile_id):
             return self._get_recommended_collections_personalized(
                 profile_id, limit)
 
         return self._get_recommended_collections_global(profile_id, limit)
 
-    def compute_match_score(self, profile_id, log_error=True):
+    def compute_match_score(self, profile_id, log_error=True, max_tries=2):
         recommendations_func = ComputeRecommendationsAndPersist(
             self.repository, profile_id)
         old_version = recommendations_func.load_version()
 
         try:
-            recommendations_func.execute(max_tries=2)
+            recommendations_func.execute(max_tries=max_tries)
 
             new_version = recommendations_func.load_version()
             logger.info('Calculated Match Scores',
@@ -82,6 +85,7 @@ class RecommendationService:
             logging_extra['top_clicked_collections'] = top_clicked_collections
 
             collections = manually_selected_collections + top_clicked_collections
+            logging_extra["collections"] = collections
             if collections:
                 collections = _unique_collections(collections)
                 logging_extra["collections"] = collections
