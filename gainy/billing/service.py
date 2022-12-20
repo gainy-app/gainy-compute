@@ -28,7 +28,7 @@ class BillingService(BillingServiceInterface):
         for invoice in self.repo.iterate_unpaid_invoices_due():
             func = ChargeInvoice(self.repo, self, invoice)
             try:
-                return func.execute()
+                func.execute()
             except LockAcquisitionTimeout as e:
                 logger.exception(e)
 

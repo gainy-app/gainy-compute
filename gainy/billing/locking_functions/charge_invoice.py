@@ -9,7 +9,6 @@ logger = get_logger(__name__)
 
 class ChargeInvoice(AbstractPessimisticLockingFunction):
     repo: BillingRepository
-    api = None
 
     def __init__(self, repo: BillingRepository,
                  service: BillingServiceInterface, invoice: Invoice):
@@ -17,7 +16,7 @@ class ChargeInvoice(AbstractPessimisticLockingFunction):
         self.service = service
         self.invoice = invoice
 
-    def execute(self, max_tries: int = 3) -> Invoice:
+    def execute(self, max_tries: int = 3):
         return super().execute(max_tries)
 
     def load_version(self) -> Invoice:
