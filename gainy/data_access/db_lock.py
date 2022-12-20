@@ -14,6 +14,7 @@ class ResourceType(enum.Enum):
     WEBSOCKETS = 2
     DRIVEWEALTH_AUTH_TOKEN = 3
     INVOICE = 4
+    QUEUE_MESSAGE = 5
 
 
 class LockAcquisitionTimeout(Exception):
