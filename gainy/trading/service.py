@@ -4,8 +4,10 @@ from decimal import Decimal
 
 from typing import Iterable, Dict, List, Any
 
+from gainy.exceptions import EntityNotFoundException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
+from gainy.trading.exceptions import InsufficientFundsException, InsufficientHoldingValueException
 from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
@@ -82,6 +84,14 @@ class TradingService:
         if not target_amount_delta:
             target_amount_delta = Decimal(0)
 
+        if target_amount_delta > Decimal(0):
+            self.check_enough_buying_power(trading_account_id,
+                                           target_amount_delta)
+        elif target_amount_delta < Decimal(0):
+            self.check_enough_holding_amount(trading_account_id,
+                                             -target_amount_delta,
+                                             collection_id=collection_id)
+
         collection_version = TradingCollectionVersion()
         collection_version.source = source
         collection_version.status = TradingOrderStatus.PENDING
@@ -95,6 +105,58 @@ class TradingService:
         self.trading_repository.persist(collection_version)
 
         return collection_version
+
+    def check_enough_buying_power(self, trading_account_id: int,
+                                  target_amount_delta: Decimal):
+        buying_power = self.trading_repository.get_buying_power(
+            trading_account_id)
+
+        if target_amount_delta > buying_power:
+            raise InsufficientFundsException()
+
+    def check_enough_holding_amount(self,
+                                    trading_account_id: int,
+                                    needed_amount: Decimal,
+                                    collection_id: int = None,
+                                    symbol: str = None):
+        if collection_id is not None and symbol is not None:
+            raise Exception('You must specify either collection_id or symbol.')
+        if collection_id is None and symbol is None:
+            raise Exception('You must specify either collection_id or symbol.')
+
+        trading_account: TradingAccount = self.trading_repository.find_one(
+            TradingAccount, {"id": trading_account_id})
+        if not trading_account:
+            return EntityNotFoundException(TradingAccount)
+        self.sync_balances(trading_account)
+
+        profile_id = trading_account.profile_id
+        if collection_id is not None:
+            holding_amount = self.trading_repository.get_collection_holding_value(
+                profile_id, collection_id)
+        elif symbol is not None:
+            holding_amount = self.trading_repository.get_ticker_holding_value(
+                profile_id, symbol)
+        else:
+            raise Exception('You must specify either collection_id or symbol.')
+
+        if needed_amount > holding_amount:
+            raise InsufficientHoldingValueException()
+
+    def check_enough_withdrawable_cash(self, trading_account_id: int,
+                                       needed_amount: Decimal):
+        trading_account = self.trading_repository.find_one(
+            TradingAccount, {"id": trading_account_id})
+        if not trading_account:
+            return EntityNotFoundException(TradingAccount)
+
+        self.sync_balances(trading_account)
+        trading_account: TradingAccount = self.trading_repository.refresh(
+            trading_account)
+
+        if Decimal(trading_account.cash_available_for_withdrawal
+                   or 0) < needed_amount:
+            raise InsufficientFundsException()
 
     def _get_provider_service(self):
         return self.drivewealth_provider

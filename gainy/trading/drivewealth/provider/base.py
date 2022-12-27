@@ -38,6 +38,11 @@ class DriveWealthProviderBase:
             self.sync_portfolio_status(portfolio)
 
     def sync_portfolio(self, portfolio: DriveWealthPortfolio):
+        if portfolio.last_sync_at is not None and portfolio.last_sync_at > datetime.datetime.now(
+                datetime.timezone.utc) - datetime.timedelta(
+                    seconds=DRIVE_WEALTH_PORTFOLIO_STATUS_TTL):
+            return portfolio
+
         data = self.api.get_portfolio(portfolio)
         portfolio.set_from_response(data)
         portfolio.last_sync_at = datetime.datetime.now()

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import datetime
 
 from psycopg2.extras import RealDictCursor
@@ -5,7 +7,7 @@ from typing import List, Dict, Any, Tuple, Iterable
 
 from gainy.data_access.operators import OperatorLt, OperatorIsNull, OperatorOr
 from gainy.data_access.repository import Repository
-from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder
+from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, TradingAccount
 
 
 class TradingRepository(Repository):
@@ -68,3 +70,49 @@ class TradingRepository(Repository):
                 pending_execution_to)
 
         yield from self.iterate_all(TradingOrder, params)
+
+    def get_buying_power(self, trading_account_id: int) -> Decimal:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "select buying_power from trading_account_status where trading_account_id = %(trading_account_id)s",
+                {
+                    "trading_account_id": trading_account_id,
+                })
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def get_collection_holding_value(self, profile_id: int,
+                                     collection_id: int) -> Decimal:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "select actual_value from trading_profile_collection_status where profile_id = %(profile_id)s and collection_id = %(collection_id)s",
+                {
+                    "profile_id": profile_id,
+                    "collection_id": collection_id,
+                })
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def get_ticker_holding_value(self, profile_id: int,
+                                 symbol: str) -> Decimal:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "select actual_value from trading_profile_ticker_status where profile_id = %(profile_id)s and symbol = %(symbol)s",
+                {
+                    "profile_id": profile_id,
+                    "symbol": symbol,
+                })
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(0)

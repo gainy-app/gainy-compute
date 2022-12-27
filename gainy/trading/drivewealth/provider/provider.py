@@ -12,6 +12,7 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
+DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
@@ -41,8 +42,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             self.sync_trading_account(account_ref_id=account_ref_id)
 
     def sync_balances(self, account: TradingAccount):
-        self.sync_trading_account(trading_account_id=account.id,
-                                  fetch_info=True)
+        self.sync_trading_account(trading_account_id=account.id)
         self.sync_portfolios(account.profile_id)
 
     def sync_trading_account(self,
@@ -78,11 +78,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             self._sync_account(account)
 
         account_money = self.sync_account_money(account_ref_id)
-
-        account_positions_data = self.api.get_account_positions(account_ref_id)
-        account_positions = DriveWealthAccountPositions()
-        account_positions.set_from_response(account_positions_data)
-        repository.persist(account_positions)
+        account_positions = self.sync_account_positions(account_ref_id)
 
         if account.trading_account_id is None:
             return
@@ -201,6 +197,29 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account_money.set_from_response(account_money_data)
         self.repository.persist(account_money)
         return account_money
+
+    def sync_account_positions(
+            self, account_ref_id: str) -> DriveWealthAccountPositions:
+
+        account_positions: DriveWealthAccountPositions = self.repository.find_one(
+            DriveWealthAccountPositions, {
+                "drivewealth_account_id":
+                account_ref_id,
+                "created_at":
+                OperatorGt(
+                    datetime.datetime.now(datetime.timezone.utc) -
+                    datetime.timedelta(
+                        seconds=DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL)),
+            }, [("created_at", "DESC")])
+
+        if account_positions:
+            return account_positions
+
+        account_positions_data = self.api.get_account_positions(account_ref_id)
+        account_positions = DriveWealthAccountPositions()
+        account_positions.set_from_response(account_positions_data)
+        self.repository.persist(account_positions)
+        return account_positions
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]
