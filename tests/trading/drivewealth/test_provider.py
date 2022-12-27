@@ -108,6 +108,8 @@ def test_sync_trading_account(monkeypatch):
         def mock(_cls, _fltr=None, _order=None):
             if _cls == DriveWealthAccountMoney:
                 return None
+            if _cls == DriveWealthAccountPositions:
+                return None
             return _mock(_cls, _fltr, _order)
 
         return mock
@@ -415,6 +417,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
     rebalance_cash_calls = []
     monkeypatch.setattr(portfolio, "rebalance_cash",
                         mock_record_calls(rebalance_cash_calls))
+    monkeypatch.setattr(portfolio, "is_pending_rebalance", lambda: False)
 
     portfolio_status = DriveWealthPortfolioStatus()
     monkeypatch.setattr(portfolio_status, "equity_value", equity_value)
