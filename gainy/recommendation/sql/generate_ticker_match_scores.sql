@@ -133,16 +133,20 @@ with profiles as
      portfolio_interest_similarity as
          (
              select profile_id,
-                    tint2.symbol,
-                    max(tint2.sim_dif + (1. - tint2.sim_dif) *
-                                       pow(abs((1. - tint2.sim_dif) / 2. * (1. - (1. - tint2.sim_dif) / 2.)),
-                                           0.5)) as match_comp_interest
-             from profiles
-                      join app.profile_holdings ph using (profile_id)
-                      join app.portfolio_securities ps on ps.id = ph.security_id
-                      join ticker_interests tint on tint.symbol = ps.ticker_symbol
-                      join ticker_interests tint2 on tint2.interest_id = tint.interest_id
-             group by profile_id, tint2.symbol
+                    symbol,
+                    max(sim_dif + (1. - sim_dif) *
+                                  pow(abs((1. - sim_dif) / 2. * (1. - (1. - sim_dif) / 2.)), 0.5)) as match_comp_interest
+             from ticker_interests
+                      join (
+                               select profile_id,
+                                      interest_id
+                               from profiles
+                                        join app.profile_holdings ph using (profile_id)
+                                        join app.portfolio_securities ps on ps.id = ph.security_id
+                                        join ticker_interests tint on tint.symbol = ps.ticker_symbol
+                               group by interest_id, profile_id
+                           ) t using (interest_id)
+             group by profile_id, symbol
          ),
      combined0 as (
          select profile_id,
