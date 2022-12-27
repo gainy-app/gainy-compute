@@ -417,6 +417,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
     rebalance_cash_calls = []
     monkeypatch.setattr(portfolio, "rebalance_cash",
                         mock_record_calls(rebalance_cash_calls))
+    monkeypatch.setattr(portfolio, "is_pending_rebalance", lambda: False)
 
     portfolio_status = DriveWealthPortfolioStatus()
     monkeypatch.setattr(portfolio_status, "equity_value", equity_value)

@@ -116,7 +116,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
         }
         logger.info('rebalance_portfolio_cash step0', extra=logging_extra)
 
-        if portfolio.is_pending_rebalance():
+        if not portfolio.is_pending_rebalance():
             portfolio.set_target_weights_from_status_actual_weights(
                 portfolio_status)
             logging_extra["portfolio"] = portfolio.to_dict()
