@@ -8,6 +8,8 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
+TOP_PERFORMANCE_COUNT = 5
+
 
 def format_collections(
         collections: Iterable[Tuple[int, str]]) -> List[Dict[str, Any]]:
@@ -80,14 +82,23 @@ class RecommendationService:
             logging_extra[
                 'manually_selected_collections'] = manually_selected_collections
 
-            top_clicked_collections = self.repository.get_recommended_collections(
-                profile_id, limit, RecommendedCollectionAlgorithm.TOP_CLICKED)
-            logging_extra['top_clicked_collections'] = top_clicked_collections
+            top_performance_collections = self.repository.get_recommended_collections(
+                profile_id, min(TOP_PERFORMANCE_COUNT, limit),
+                RecommendedCollectionAlgorithm.TOP_PERFORMANCE)
+            logging_extra[
+                'top_performance_collections'] = top_performance_collections
 
-            collections = manually_selected_collections + top_clicked_collections
+            top_merged_algorithm_collections = self.repository.get_recommended_collections(
+                profile_id, limit,
+                RecommendedCollectionAlgorithm.TOP_MERGED_ALGORITHM)
+            logging_extra[
+                'top_merged_algorithm_collections'] = top_merged_algorithm_collections
+
+            collections = manually_selected_collections + top_performance_collections + top_merged_algorithm_collections
             logging_extra["collections"] = collections
             if collections:
                 collections = _unique_collections(collections)
+                collections = list(collections)[:limit]
                 logging_extra["collections"] = collections
                 return collections
 
