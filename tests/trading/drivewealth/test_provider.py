@@ -108,6 +108,8 @@ def test_sync_trading_account(monkeypatch):
         def mock(_cls, _fltr=None, _order=None):
             if _cls == DriveWealthAccountMoney:
                 return None
+            if _cls == DriveWealthAccountPositions:
+                return None
             return _mock(_cls, _fltr, _order)
 
         return mock
