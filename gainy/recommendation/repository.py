@@ -21,6 +21,8 @@ class RecommendedCollectionAlgorithm(enum.Enum):
     TOP_FAVORITED = 1
     TOP_CLICKED = 2
     MANUAL_SELECTION = 3
+    TOP_PERFORMANCE = 4
+    TOP_MERGED_ALGORITHM = 5
 
 
 def _read_sorted_collection_manually_selected(limit: int) -> List[int]:
@@ -45,6 +47,12 @@ class RecommendationRepository(Repository):
             collection_ids = self._read_sorted_collection_top_clicked(limit)
         elif algorithm == RecommendedCollectionAlgorithm.MANUAL_SELECTION:
             collection_ids = _read_sorted_collection_manually_selected(limit)
+        elif algorithm == RecommendedCollectionAlgorithm.TOP_PERFORMANCE:
+            collection_ids = self._read_sorted_collection_top_performance(
+                limit)
+        elif algorithm == RecommendedCollectionAlgorithm.TOP_MERGED_ALGORITHM:
+            collection_ids = self._read_sorted_collection_top_merged_algorithm(
+                limit)
         else:
             raise Exception('Unsupported algorithm')
 
@@ -239,6 +247,17 @@ class RecommendationRepository(Repository):
 
     def _read_sorted_collection_top_clicked(self, limit: int) -> List[int]:
         data = self._execute_script("sql/collection_top_clicked.sql",
+                                    {"limit": limit})
+        return list(map(itemgetter(0), data))
+
+    def _read_sorted_collection_top_performance(self, limit: int) -> List[int]:
+        data = self._execute_script("sql/collection_top_performance.sql",
+                                    {"limit": limit})
+        return list(map(itemgetter(0), data))
+
+    def _read_sorted_collection_top_merged_algorithm(self,
+                                                     limit: int) -> List[int]:
+        data = self._execute_script("sql/collection_top_merged_algorithm.sql",
                                     {"limit": limit})
         return list(map(itemgetter(0), data))
 

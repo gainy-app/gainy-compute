@@ -430,3 +430,28 @@ SELECT uniq_id,
 FROM profile_collections
 where profile_collections.enabled = '1'
   and profile_collections.size >= 0;
+
+create table if not exists collection_metrics
+(
+    profile_id                integer,
+    user_id                   text,
+    collection_uniq_id        text not null
+        constraint pk_collection_metrics
+            primary key,
+    actual_price              double precision,
+    absolute_daily_change     double precision,
+    relative_daily_change     double precision,
+    value_change_1w           numeric,
+    value_change_1m           numeric,
+    value_change_3m           numeric,
+    value_change_1y           numeric,
+    value_change_5y           numeric,
+    value_change_all          numeric,
+    previous_day_close_price  double precision,
+    market_capitalization_sum bigint,
+    updated_at                timestamp with time zone
+);
+
+insert into collection_metrics (profile_id, user_id, collection_uniq_id, actual_price, absolute_daily_change, relative_daily_change, value_change_1w, value_change_1m, value_change_3m, value_change_1y, value_change_5y, value_change_all, previous_day_close_price, market_capitalization_sum, updated_at)
+values  (null, null, '0_277', 1.1410069826817972, 0.08260422490315045, 0.07804611646753301, -0.00188562268545627685376364977783155733769647121963, -0.00626185630169437319412271837584953317319924884975, 0.00890563394919574209592719407733561196571062438478, -0.00838949164884464363170887861636858144688852884447, -0.01454023447769887256960246845810791011072424529602, -0.01454023447769887256960246845810791011072424529602, 1.0584027577786468, 165094223314, '2022-12-27 18:45:03.512565 +00:00')
+on conflict do nothing;
