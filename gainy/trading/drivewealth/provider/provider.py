@@ -47,6 +47,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
     def sync_balances(self, account: TradingAccount):
         self.sync_trading_account(trading_account_id=account.id)
         self.sync_portfolios(account.profile_id)
+        self.repository.refresh(account)
 
     def sync_trading_account(
             self,
