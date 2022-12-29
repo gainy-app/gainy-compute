@@ -100,10 +100,8 @@ class DriveWealthRepository(Repository):
 
         trading_money_flow_statuses = [
             TradingMoneyFlowStatus.SUCCESS.name,
+            TradingMoneyFlowStatus.APPROVED.name,
         ]
-        if DRIVEWEALTH_IS_UAT:
-            trading_money_flow_statuses.append(
-                TradingMoneyFlowStatus.APPROVED.name)
 
         trading_collection_version_statuses = (
             TradingOrderStatus.PENDING_EXECUTION.name,
