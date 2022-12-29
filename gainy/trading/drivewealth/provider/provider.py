@@ -108,11 +108,10 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if portfolio_status.equity_value < ONE:
             return
 
-        if abs(portfolio.cash_target_value -
-               portfolio_status.cash_value) < PRECISION:
+        cash_delta = portfolio.cash_target_value - portfolio_status.equity_value * portfolio_status.cash_target_weight
+        if abs(cash_delta) < PRECISION:
             return
 
-        cash_delta = portfolio.cash_target_value - portfolio_status.equity_value * portfolio_status.cash_target_weight
         cash_weight_delta = cash_delta / portfolio_status.equity_value
 
         logging_extra = {
