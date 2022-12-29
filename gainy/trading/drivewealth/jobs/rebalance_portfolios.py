@@ -50,6 +50,16 @@ class RebalancePortfoliosJob:
                 self.apply_trading_orders(portfolio)
                 self.rebalance_existing_collection_funds(portfolio)
                 self.provider.send_portfolio_to_api(portfolio)
+
+                if portfolio.last_rebalance_at is None:
+                    logger.info("Forcing first portfolio rebalance",
+                                extra={
+                                    "portfolio_red_id": portfolio.ref_id,
+                                    "profile_id": portfolio.profile_id
+                                })
+                    self.provider.api.create_autopilot_run(
+                        [portfolio.drivewealth_account_id])
+
             except Exception as e:
                 logger.exception(e)
 

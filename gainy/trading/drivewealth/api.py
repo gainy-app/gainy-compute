@@ -90,6 +90,14 @@ class DriveWealthApi:
                                   })
         portfolio.set_from_response(data)
 
+    def create_autopilot_run(self, account_ids: list):
+        return self._make_request(
+            "POST", f"/managed/autopilot/{DRIVEWEALTH_RIA_ID}", {
+                'reviewOnly': False,
+                'forceRebalance': True,
+                'subAccounts': account_ids,
+            })
+
     # Funds
 
     def create_fund(self, fund: DriveWealthFund, name, client_fund_id,

@@ -17,13 +17,14 @@ DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 class DriveWealthProvider(DriveWealthProviderBase):
 
-    def sync_user(self, user_ref_id):
+    def sync_user(self, user_ref_id) -> DriveWealthUser:
         user: DriveWealthUser = self.repository.find_one(
             DriveWealthUser, {"ref_id": user_ref_id}) or DriveWealthUser()
 
         data = self.api.get_user(user_ref_id)
         user.set_from_response(data)
         self.repository.persist(user)
+        return user
 
     def sync_profile_trading_accounts(self, profile_id: int):
         repository = self.repository
