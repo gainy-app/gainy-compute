@@ -1,4 +1,5 @@
 import datetime
+import dateutil.parser
 
 from typing import Iterable, Tuple
 
@@ -44,6 +45,7 @@ class RebalancePortfoliosJob:
                 logger.exception(e)
 
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
+            portfolio: DriveWealthPortfolio
             try:
                 self.rebalance_portfolio_cash(portfolio)
                 self.apply_trading_collection_versions(portfolio)
@@ -52,8 +54,14 @@ class RebalancePortfoliosJob:
                 self.provider.send_portfolio_to_api(portfolio)
 
                 try:
-                    self.provider.api.create_autopilot_run(
+                    data = self.provider.api.create_autopilot_run(
                         [portfolio.drivewealth_account_id])
+
+                    d = dateutil.parser.parse(data["created"])
+                    d -= datetime.timedelta(microseconds=d.microsecond)
+                    portfolio.waiting_rebalance_since = d
+                    self.repo.persist(portfolio)
+
                     logger.info("Forced portfolio rebalance",
                                 extra={
                                     "portfolio_red_id": portfolio.ref_id,

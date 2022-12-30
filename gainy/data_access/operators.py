@@ -37,6 +37,12 @@ class OperatorLt(ComparisonOperator):
         super().__init__("<", param)
 
 
+class OperatorLte(ComparisonOperator):
+
+    def __init__(self, param):
+        super().__init__("<=", param)
+
+
 class OperatorGt(ComparisonOperator):
 
     def __init__(self, param):
