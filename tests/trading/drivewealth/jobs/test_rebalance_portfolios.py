@@ -46,8 +46,12 @@ def test_rebalance_portfolios(monkeypatch):
 
     portfolio1 = DriveWealthPortfolio()
     portfolio1.drivewealth_account_id = drivewealth_account_id1
+    portfolio1.cash_target_weight = Decimal(1)
+    portfolio1.holdings = {}
     portfolio2 = DriveWealthPortfolio()
     portfolio2.drivewealth_account_id = drivewealth_account_id2
+    portfolio2.cash_target_weight = Decimal(1)
+    portfolio2.holdings = {}
 
     repository = DriveWealthRepository(None)
 

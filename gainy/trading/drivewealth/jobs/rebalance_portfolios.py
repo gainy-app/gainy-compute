@@ -59,6 +59,7 @@ class RebalancePortfoliosJob:
                     portfolio)
                 trading_orders = self.apply_trading_orders(portfolio)
                 self.rebalance_existing_collection_funds(portfolio)
+                portfolio.normalize_weights()
                 self.provider.send_portfolio_to_api(portfolio)
 
                 if not trading_collection_versions and not trading_orders:

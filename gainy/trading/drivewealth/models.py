@@ -528,7 +528,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
         fund_weight += weight_delta
         self.set_fund_weight(fund.ref_id, min(ONE, max(ZERO, fund_weight)))
-        self.normalize_weights()
 
     def rebalance_cash(self, weight_delta: Decimal):
         old_cash_weight = cash_weight = self.cash_target_weight
@@ -546,7 +545,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
                      self.cash_target_weight)
 
         if funds_weight_sum < PRECISION:
-            self.normalize_weights()
             return
 
         for fund_ref_id in self.holdings.keys():
@@ -572,8 +570,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
                          old_fund_weight, fund_weight)
 
             self.set_fund_weight(fund_ref_id, fund_weight)
-
-        self.normalize_weights()
 
     def normalize_weights(self):
         self.cash_target_weight = round(self.cash_target_weight,
