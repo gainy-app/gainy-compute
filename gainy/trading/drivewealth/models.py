@@ -143,6 +143,9 @@ class DriveWealthAccount(BaseDriveWealthModel):
         trading_account.account_no = self.ref_no
         pass
 
+    def is_open(self):
+        return self.status == "OPEN"
+
 
 class DriveWealthAccountMoney(BaseDriveWealthModel):
     id = None
