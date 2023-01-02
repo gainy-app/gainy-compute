@@ -406,7 +406,7 @@ def test_execute_order_in_portfolio(monkeypatch):
 def test_rebalance_portfolio_cash(monkeypatch):
     equity_value = Decimal(10)
     cash_target_value = Decimal(equity_value)
-    cash_value = cash_target_value - PRECISION
+    cash_target_weight = Decimal(0.9)
 
     portfolio = DriveWealthPortfolio()
     monkeypatch.setattr(portfolio, "cash_target_value", cash_target_value)
@@ -421,7 +421,8 @@ def test_rebalance_portfolio_cash(monkeypatch):
 
     portfolio_status = DriveWealthPortfolioStatus()
     monkeypatch.setattr(portfolio_status, "equity_value", equity_value)
-    monkeypatch.setattr(portfolio_status, "cash_value", cash_value)
+    monkeypatch.setattr(portfolio_status, "cash_target_weight",
+                        cash_target_weight)
 
     repository = DriveWealthRepository(None)
     calculate_portfolio_cash_target_value_calls = []
@@ -448,7 +449,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
         args[0]
         for args, kwargs in set_target_weights_from_status_actual_weights_calls
     ]
-    assert (cash_target_value - cash_value) / equity_value in [
+    assert cash_target_value / equity_value - cash_target_weight in [
         args[0] for args, kwargs in rebalance_cash_calls
     ]
     assert portfolio in [

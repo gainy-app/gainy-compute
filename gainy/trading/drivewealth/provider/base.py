@@ -76,7 +76,7 @@ class DriveWealthProviderBase:
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
-            if trading_collection_version.pending_execution_since and trading_collection_version.pending_execution_since >= portfolio_status.last_portfolio_rebalance_at:
+            if trading_collection_version.pending_execution_since and trading_collection_version.pending_execution_since > portfolio_status.last_portfolio_rebalance_at:
                 raise Exception(
                     'Trying to update trading_collection_version %d, which is pending execution since %s, '
                     'with latest rebalance happened on %s' %
@@ -104,7 +104,7 @@ class DriveWealthProviderBase:
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
-            if trading_order.pending_execution_since and trading_order.pending_execution_since >= portfolio_status.last_portfolio_rebalance_at:
+            if trading_order.pending_execution_since and trading_order.pending_execution_since > portfolio_status.last_portfolio_rebalance_at:
                 raise Exception(
                     'Trying to update trading_order %d, which is pending execution since %s, '
                     'with latest rebalance happened on %s' %

@@ -1,3 +1,5 @@
+from typing import Optional
+
 import datetime
 
 from gainy.data_access.operators import OperatorGt
@@ -17,13 +19,14 @@ DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 class DriveWealthProvider(DriveWealthProviderBase):
 
-    def sync_user(self, user_ref_id):
+    def sync_user(self, user_ref_id) -> DriveWealthUser:
         user: DriveWealthUser = self.repository.find_one(
             DriveWealthUser, {"ref_id": user_ref_id}) or DriveWealthUser()
 
         data = self.api.get_user(user_ref_id)
         user.set_from_response(data)
         self.repository.persist(user)
+        return user
 
     def sync_profile_trading_accounts(self, profile_id: int):
         repository = self.repository
@@ -44,11 +47,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
     def sync_balances(self, account: TradingAccount):
         self.sync_trading_account(trading_account_id=account.id)
         self.sync_portfolios(account.profile_id)
+        self.repository.refresh(account)
 
-    def sync_trading_account(self,
-                             account_ref_id: str = None,
-                             trading_account_id: int = None,
-                             fetch_info: bool = False):
+    def sync_trading_account(
+            self,
+            account_ref_id: str = None,
+            trading_account_id: int = None,
+            fetch_info: bool = False) -> Optional[DriveWealthAccount]:
         repository = self.repository
 
         _filter = {}
@@ -62,13 +67,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
             DriveWealthAccount, _filter)
 
         if account and account.is_artificial:
-            return
+            return account
 
         if account:
             account_ref_id = account.ref_id
         else:
             if not account_ref_id:
-                return
+                return None
 
             account = DriveWealthAccount()
             account.ref_id = account_ref_id
@@ -81,18 +86,20 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account_positions = self.sync_account_positions(account_ref_id)
 
         if account.trading_account_id is None:
-            return
+            return account
 
         trading_account = repository.find_one(
             TradingAccount, {"id": account.trading_account_id})
         if trading_account is None:
-            return
+            return account
 
         account.update_trading_account(trading_account)
         account_money.update_trading_account(trading_account)
         account_positions.update_trading_account(trading_account)
 
         repository.persist(trading_account)
+
+        return account
 
     def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio):
         self.repository.calculate_portfolio_cash_target_value(portfolio)
@@ -101,11 +108,10 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if portfolio_status.equity_value < ONE:
             return
 
-        if abs(portfolio.cash_target_value -
-               portfolio_status.cash_value) < PRECISION:
+        cash_delta = portfolio.cash_target_value - portfolio_status.equity_value * portfolio_status.cash_target_weight
+        if abs(cash_delta) < PRECISION:
             return
 
-        cash_delta = portfolio.cash_target_value - portfolio_status.cash_value
         cash_weight_delta = cash_delta / portfolio_status.equity_value
 
         logging_extra = {

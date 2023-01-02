@@ -35,11 +35,23 @@ def mock_send_portfolio_to_api(portfolios: list = None):
 
 def test_rebalance_portfolios(monkeypatch):
     profile_id1 = 1
-
     trading_account_id_1 = 3
+    drivewealth_account_id1 = "drivewealth_account_id1"
+    drivewealth_account_id2 = "drivewealth_account_id2"
+
+    account1 = DriveWealthAccount()
+    monkeypatch.setattr(account1, "is_open", lambda: True)
+    account2 = DriveWealthAccount()
+    monkeypatch.setattr(account2, "is_open", lambda: True)
 
     portfolio1 = DriveWealthPortfolio()
+    portfolio1.drivewealth_account_id = drivewealth_account_id1
+    portfolio1.cash_target_weight = Decimal(1)
+    portfolio1.holdings = {}
     portfolio2 = DriveWealthPortfolio()
+    portfolio2.drivewealth_account_id = drivewealth_account_id2
+    portfolio2.cash_target_weight = Decimal(1)
+    portfolio2.holdings = {}
 
     repository = DriveWealthRepository(None)
 
@@ -56,6 +68,16 @@ def test_rebalance_portfolios(monkeypatch):
     monkeypatch.setattr(
         trading_repository, "iterate_all",
         mock_find([(DriveWealthPortfolio, None, [portfolio1, portfolio2])]))
+    monkeypatch.setattr(
+        trading_repository, "find_one",
+        mock_find([
+            (DriveWealthAccount, {
+                "ref_id": drivewealth_account_id1
+            }, account1),
+            (DriveWealthAccount, {
+                "ref_id": drivewealth_account_id2
+            }, account2),
+        ]))
 
     job = RebalancePortfoliosJob(trading_repository, provider, None)
     monkeypatch.setattr(
