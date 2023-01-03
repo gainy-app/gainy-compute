@@ -6,6 +6,7 @@ from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFu
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
+from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -13,9 +14,11 @@ logger = get_logger(__name__)
 
 class DriveWealthProviderRebalanceHelper:
 
-    def __init__(self, provider: DriveWealthProviderBase):
+    def __init__(self, provider: DriveWealthProviderBase,
+                 trading_repository: TradingRepository):
         self.provider = provider
         self.repository = provider.repository
+        self.trading_repository = trading_repository
         self.api = provider.api
 
     def upsert_fund(
@@ -77,9 +80,24 @@ class DriveWealthProviderRebalanceHelper:
 
         return fund
 
-    def handle_cash_amount_change(self, target_amount_delta: Decimal,
-                                  portfolio: DriveWealthPortfolio,
-                                  chosen_fund: DriveWealthFund):
+    def handle_cash_amount_change(
+            self,
+            target_amount_delta: Decimal,
+            portfolio: DriveWealthPortfolio,
+            chosen_fund: DriveWealthFund,
+            target_amount_delta_relative: Decimal = None):
+        if target_amount_delta_relative:
+            if chosen_fund.collection_id:
+                holding_amount = self.trading_repository.get_collection_holding_value(
+                    portfolio.profile_id, chosen_fund.collection_id)
+            elif chosen_fund.symbol:
+                holding_amount = self.trading_repository.get_ticker_holding_value(
+                    portfolio.profile_id, chosen_fund.symbol)
+            else:
+                raise Exception('Fund must be tied to collection or symbol')
+
+            target_amount_delta = target_amount_delta_relative * holding_amount
+
         if not target_amount_delta:
             return 0
 
@@ -101,6 +119,7 @@ class DriveWealthProviderRebalanceHelper:
 
         logging_extra = {
             "target_amount_delta": target_amount_delta,
+            "target_amount_delta_relative": target_amount_delta_relative,
             "portfolio_status": portfolio_status.to_dict(),
             "portfolio": portfolio.to_dict(),
             "is_pending_rebalance": portfolio.is_pending_rebalance(),
@@ -112,7 +131,6 @@ class DriveWealthProviderRebalanceHelper:
         }
         logger.info('_handle_cash_amount_change step0', extra=logging_extra)
 
-        # TODO handle initial buy after deposit?
         if target_amount_delta > 0:
             if target_amount_delta - cash_value > PRECISION:
                 raise InsufficientFundsException()

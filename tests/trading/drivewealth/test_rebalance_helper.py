@@ -131,7 +131,7 @@ def test_upsert_fund(fund_exists, monkeypatch):
     collection_version.target_amount_delta = Decimal(0)
 
     provider = DriveWealthProvider(drivewealth_repository, api, None)
-    helper = DriveWealthProviderRebalanceHelper(provider)
+    helper = DriveWealthProviderRebalanceHelper(provider, None)
     _mock_get_instrument(monkeypatch, drivewealth_repository)
     fund = helper.upsert_fund(profile_id, collection_version)
 
@@ -209,7 +209,7 @@ def test_upsert_stock_fund(fund_exists, monkeypatch):
     trading_order.symbol = symbol
 
     provider = DriveWealthProvider(drivewealth_repository, api, None)
-    helper = DriveWealthProviderRebalanceHelper(provider)
+    helper = DriveWealthProviderRebalanceHelper(provider, None)
     _mock_get_instrument(monkeypatch, drivewealth_repository)
     fund = helper.upsert_stock_fund(profile_id, trading_order)
 
@@ -225,7 +225,7 @@ def test_generate_new_fund_holdings(monkeypatch):
     api = DriveWealthApi(None)
 
     provider = DriveWealthProvider(drivewealth_repository, api, None)
-    helper = DriveWealthProviderRebalanceHelper(provider)
+    helper = DriveWealthProviderRebalanceHelper(provider, None)
     fund = DriveWealthFund()
     monkeypatch.setattr(DriveWealthFund, "holdings", _FUND_HOLDINGS)
 
@@ -270,7 +270,7 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
     monkeypatch.setattr(provider, "sync_portfolio_status",
                         mock_sync_portfolio_status)
 
-    helper = DriveWealthProviderRebalanceHelper(provider)
+    helper = DriveWealthProviderRebalanceHelper(provider, None)
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", FUND1_ID)
 
@@ -316,7 +316,7 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
     monkeypatch.setattr(provider, "sync_portfolio_status",
                         mock_sync_portfolio_status)
 
-    helper = DriveWealthProviderRebalanceHelper(provider)
+    helper = DriveWealthProviderRebalanceHelper(provider, None)
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", FUND1_ID)
 

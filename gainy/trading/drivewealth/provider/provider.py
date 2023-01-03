@@ -3,11 +3,13 @@ from typing import Optional
 import datetime
 
 from gainy.data_access.operators import OperatorGt
+from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, PRECISION, ONE
+    DriveWealthUser, DriveWealthPortfolio, PRECISION, ONE, DriveWealthInstrumentStatus
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
+from gainy.trading.exceptions import SymbolIsNotTradeableException
 from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder
 from gainy.utils import get_logger
 
@@ -135,16 +137,22 @@ class DriveWealthProvider(DriveWealthProviderBase):
     def reconfigure_collection_holdings(
             self, portfolio: DriveWealthPortfolio,
             collection_version: TradingCollectionVersion):
-        helper = DriveWealthProviderRebalanceHelper(self)
+        helper = DriveWealthProviderRebalanceHelper(self,
+                                                    self.trading_repository)
         profile_id = collection_version.profile_id
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
         helper.handle_cash_amount_change(
-            collection_version.target_amount_delta, portfolio, chosen_fund)
+            collection_version.target_amount_delta,
+            portfolio,
+            chosen_fund,
+            target_amount_delta_relative=collection_version.
+            target_amount_delta_relative)
         self.repository.persist(portfolio)
 
     def execute_order_in_portfolio(self, portfolio: DriveWealthPortfolio,
                                    trading_order: TradingOrder):
-        helper = DriveWealthProviderRebalanceHelper(self)
+        helper = DriveWealthProviderRebalanceHelper(self,
+                                                    self.trading_repository)
         profile_id = trading_order.profile_id
         chosen_fund = helper.upsert_stock_fund(profile_id, trading_order)
         helper.handle_cash_amount_change(trading_order.target_amount_delta,
@@ -227,6 +235,14 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account_positions.set_from_response(account_positions_data)
         self.repository.persist(account_positions)
         return account_positions
+
+    def check_tradeable_symbol(self, symbol: str):
+        try:
+            instrument = self.repository.get_instrument_by_symbol(symbol)
+            if instrument.status != DriveWealthInstrumentStatus.ACTIVE:
+                raise SymbolIsNotTradeableException(symbol)
+        except EntityNotFoundException:
+            raise SymbolIsNotTradeableException(symbol)
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]

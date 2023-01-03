@@ -84,7 +84,8 @@ class TradingCollectionVersion(BaseModel):
     source: TradingOrderSource = None
     status: TradingOrderStatus = None
     fail_reason: str = None
-    target_amount_delta = None
+    target_amount_delta: Decimal = None
+    target_amount_delta_relative: Decimal = None
     weights: Dict[str, Decimal] = None
     trading_account_id: int = None
     created_at = None
@@ -145,7 +146,8 @@ class TradingOrder(BaseModel):
     profile_id = None
     symbol = None
     status: TradingOrderStatus = None
-    target_amount_delta = None
+    target_amount_delta: Decimal = None
+    target_amount_delta_relative: Decimal = None
     trading_account_id: int = None
     source: TradingOrderSource = None
     fail_reason: str = None
