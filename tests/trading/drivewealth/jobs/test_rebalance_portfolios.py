@@ -87,7 +87,7 @@ def test_rebalance_portfolios(monkeypatch):
     rebalance_portfolio_cash_calls = []
     apply_trading_collection_versions_calls = []
     apply_trading_orders_calls = []
-    rebalance_existing_collection_funds_calls = []
+    rebalance_existing_funds_calls = []
     monkeypatch.setattr(job, "rebalance_portfolio_cash",
                         mock_record_calls(rebalance_portfolio_cash_calls))
     monkeypatch.setattr(
@@ -95,9 +95,8 @@ def test_rebalance_portfolios(monkeypatch):
         mock_record_calls(apply_trading_collection_versions_calls))
     monkeypatch.setattr(job, "apply_trading_orders",
                         mock_record_calls(apply_trading_orders_calls))
-    monkeypatch.setattr(
-        job, "rebalance_existing_collection_funds",
-        mock_record_calls(rebalance_existing_collection_funds_calls))
+    monkeypatch.setattr(job, "rebalance_existing_funds",
+                        mock_record_calls(rebalance_existing_funds_calls))
 
     job.run()
 
@@ -110,8 +109,7 @@ def test_rebalance_portfolios(monkeypatch):
     assert {portfolio1, portfolio2}.issubset(
         set(args[0] for args, kwargs in apply_trading_orders_calls))
     assert {portfolio1, portfolio2}.issubset(
-        set(args[0]
-            for args, kwargs in rebalance_existing_collection_funds_calls))
+        set(args[0] for args, kwargs in rebalance_existing_funds_calls))
     assert {portfolio1, portfolio2}.issubset(
         set(args[0] for args, kwargs in send_portfolio_to_api_calls))
 
@@ -208,7 +206,7 @@ def test_apply_trading_orders(monkeypatch):
     assert trading_order in persisted_objects[TradingOrder]
 
 
-def test_rebalance_existing_collection_funds(monkeypatch):
+def test_rebalance_existing_funds(monkeypatch):
     profile_id = 1
     fund_ref_id = 'fund_ref_id'
     fund_weight = Decimal(0.1)
@@ -226,6 +224,9 @@ def test_rebalance_existing_collection_funds(monkeypatch):
     monkeypatch.setattr(fund, "collection_id", collection_id)
     monkeypatch.setattr(fund, "trading_collection_version_id",
                         trading_collection_version_id)
+    monkeypatch.setattr(fund, "weights",
+                        {i["symbol"]: i["weight"]
+                         for i in weights})
 
     trading_collection_version = TradingCollectionVersion()
     monkeypatch.setattr(trading_collection_version, "last_optimization_at",
@@ -264,6 +265,7 @@ def test_rebalance_existing_collection_funds(monkeypatch):
                 trading_account_id) == args
         assert {
             "weights": weights,
+            "target_amount_delta_relative": None,
             "last_optimization_at": collection_last_optimization_at
         } == kwargs
         return new_trading_collection_version
@@ -294,7 +296,7 @@ def test_rebalance_existing_collection_funds(monkeypatch):
     monkeypatch.setattr(job, "_get_trading_account_id",
                         mock_get_trading_account_id)
 
-    job.rebalance_existing_collection_funds(portfolio)
+    job.rebalance_existing_funds(portfolio)
 
     assert (portfolio, new_trading_collection_version) in [
         args for args, kwargs in reconfigure_collection_holdings_calls

@@ -17,8 +17,11 @@ class TradingRepository(Repository):
             collection_id: int) -> Tuple[List[Dict[str, Any]], datetime.date]:
         with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
-                "select symbol, weight, optimized_at from collection_ticker_actual_weights where collection_id = %(collection_id)s",
-                {
+                """select symbol, weight, optimized_at 
+                from collection_ticker_actual_weights
+                         join tickers using (symbol) 
+                where collection_id = %(collection_id)s
+                  and is_trading_enabled""", {
                     "collection_id": collection_id,
                 })
             weights = cursor.fetchall()
@@ -26,6 +29,10 @@ class TradingRepository(Repository):
         last_optimization_at = None
         if weights:
             last_optimization_at = max(i["optimized_at"] for i in weights)
+
+        weight_sum = sum(i["weight"] for i in weights)
+        for i in weights:
+            i["weight"] /= weight_sum
 
         return weights, last_optimization_at
 

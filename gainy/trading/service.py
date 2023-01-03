@@ -11,7 +11,7 @@ from gainy.trading.exceptions import InsufficientFundsException, InsufficientHol
 from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
-    TradingOrderStatus, TradingOrderSource
+    TradingOrderStatus, TradingOrderSource, TradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -73,6 +73,7 @@ class TradingService:
                                   trading_account_id: int,
                                   weights: List[Dict[str, Any]] = None,
                                   target_amount_delta: Decimal = None,
+                                  target_amount_delta_relative: Decimal = None,
                                   last_optimization_at: datetime.date = None):
 
         if not weights:
@@ -81,16 +82,29 @@ class TradingService:
 
         weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
 
-        if not target_amount_delta:
-            target_amount_delta = Decimal(0)
+        if target_amount_delta_relative:
+            if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
+                raise Exception(
+                    'target_amount_delta_relative must be within [-1, 0) span.'
+                )
 
-        if target_amount_delta > Decimal(0):
-            self.check_enough_buying_power(trading_account_id,
-                                           target_amount_delta)
-        elif target_amount_delta < Decimal(0):
-            self.check_enough_holding_amount(trading_account_id,
-                                             -target_amount_delta,
-                                             collection_id=collection_id)
+        if target_amount_delta:
+            if target_amount_delta_relative:
+                raise Exception(
+                    'Can not specify both target_amount_delta and target_amount_delta_relative'
+                )
+
+            if target_amount_delta > Decimal(0):
+                self.check_enough_buying_power(trading_account_id,
+                                               target_amount_delta)
+            elif target_amount_delta < Decimal(0):
+                self.check_enough_holding_amount(trading_account_id,
+                                                 -target_amount_delta,
+                                                 collection_id=collection_id)
+
+                holding_amount = self.trading_repository.get_collection_holding_value(
+                    profile_id, collection_id)
+                target_amount_delta_relative = target_amount_delta / holding_amount
 
         collection_version = TradingCollectionVersion()
         collection_version.source = source
@@ -99,12 +113,59 @@ class TradingService:
         collection_version.collection_id = collection_id
         collection_version.weights = weights
         collection_version.target_amount_delta = target_amount_delta
+        collection_version.target_amount_delta_relative = target_amount_delta_relative
         collection_version.trading_account_id = trading_account_id
         collection_version.last_optimization_at = last_optimization_at
 
         self.trading_repository.persist(collection_version)
 
         return collection_version
+
+    def create_stock_order(self,
+                           profile_id: int,
+                           source: TradingOrderSource,
+                           symbol: str,
+                           trading_account_id: int,
+                           target_amount_delta: Decimal = None,
+                           target_amount_delta_relative: Decimal = None):
+        self.check_tradeable_symbol(symbol)
+
+        if target_amount_delta_relative:
+            if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
+                raise Exception(
+                    'target_amount_delta_relative must be within [-1, 0) span.'
+                )
+
+        if target_amount_delta:
+            if target_amount_delta_relative:
+                raise Exception(
+                    'Can not specify both target_amount_delta and target_amount_delta_relative'
+                )
+
+            if target_amount_delta > 0:
+                self.check_enough_buying_power(trading_account_id,
+                                               target_amount_delta)
+            else:
+                self.check_enough_holding_amount(trading_account_id,
+                                                 -target_amount_delta,
+                                                 symbol=symbol)
+
+                holding_amount = self.trading_repository.get_ticker_holding_value(
+                    profile_id, symbol)
+                target_amount_delta_relative = target_amount_delta / holding_amount
+
+        trading_order = TradingOrder()
+        trading_order.profile_id = profile_id
+        trading_order.source = source
+        trading_order.symbol = symbol
+        trading_order.status = TradingOrderStatus.PENDING
+        trading_order.target_amount_delta = target_amount_delta
+        trading_order.target_amount_delta_relative = target_amount_delta_relative
+        trading_order.trading_account_id = trading_account_id
+
+        self.trading_repository.persist(trading_order)
+
+        return trading_order
 
     def check_enough_buying_power(self, trading_account_id: int,
                                   target_amount_delta: Decimal):
@@ -128,7 +189,6 @@ class TradingService:
             TradingAccount, {"id": trading_account_id})
         if not trading_account:
             return EntityNotFoundException(TradingAccount)
-        self.sync_balances(trading_account)
 
         profile_id = trading_account.profile_id
         if collection_id is not None:
@@ -157,6 +217,9 @@ class TradingService:
         if Decimal(trading_account.cash_available_for_withdrawal
                    or 0) < needed_amount:
             raise InsufficientFundsException()
+
+    def check_tradeable_symbol(self, symbol: str):
+        return self._get_provider_service().check_tradeable_symbol(symbol)
 
     def _get_provider_service(self):
         return self.drivewealth_provider
