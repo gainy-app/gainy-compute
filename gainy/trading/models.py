@@ -99,16 +99,17 @@ class TradingCollectionVersion(BaseModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def set_from_dict(self, row=None):
+    def set_from_dict(self, row: dict = None):
         super().set_from_dict(row)
 
         if not row:
-            return
+            return self
 
         self.source = TradingOrderSource[
             row["source"]] if row["source"] else None
         self.status = TradingOrderStatus[
             row["status"]] if row["status"] else None
+        return self
 
     @classproperty
     def schema_name(self) -> str:
@@ -161,16 +162,17 @@ class TradingOrder(BaseModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def set_from_dict(self, row=None):
+    def set_from_dict(self, row: dict = None):
         super().set_from_dict(row)
 
         if not row:
-            return
+            return self
 
         self.source = TradingOrderSource[
             row["source"]] if row["source"] else None
         self.status = TradingOrderStatus[
             row["status"]] if row["status"] else None
+        return self
 
     @classproperty
     def schema_name(self) -> str:

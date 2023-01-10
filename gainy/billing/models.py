@@ -45,6 +45,8 @@ class PaymentTransaction(BaseModel):
         else:
             self.status = TransactionStatus.PENDING
 
+        return self
+
     @classproperty
     def schema_name(self) -> str:
         return "app"
@@ -80,6 +82,7 @@ class Invoice(BaseModel, ResourceVersion):
 
         if row and row["amount"]:
             self.amount = Decimal(row["amount"])
+        return self
 
     @classproperty
     def schema_name(self) -> str:
@@ -135,6 +138,7 @@ class PaymentMethod(BaseModel):
 
         if row and row["provider"]:
             self.provider = PaymentMethodProvider(row["provider"])
+        return self
 
     @classproperty
     def schema_name(self) -> str:

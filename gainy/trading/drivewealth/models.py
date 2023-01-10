@@ -302,9 +302,13 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     db_excluded_fields = ["created_at", "holdings"]
     non_persistent_fields = ["id", "created_at"]
 
-    def set_from_dict(self, row=None):
+    def __init__(self):
+        self._reset_holdings()
+
+    def set_from_dict(self, row: dict = None):
         super().set_from_dict(row)
         self._reset_holdings()
+        return self
 
     def set_from_response(self, data=None):
         self.data = data
@@ -478,6 +482,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
 
         for k, i in self.holdings.items():
             self.holdings[k] = Decimal(i)
+        return self
 
     def set_from_response(self, data=None):
         if not data:

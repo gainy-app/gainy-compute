@@ -82,6 +82,7 @@ class StripePaymentIntent(BaseStripeModel):
 
         if row and row["status"]:
             self.status = TransactionStatus(row["status"])
+        return self
 
     def set_from_response(self, data: PaymentIntent):
         self.ref_id = data.id

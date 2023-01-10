@@ -20,6 +20,7 @@ class classproperty(property):
 
 
 class BaseModel(ABC):
+
     def set_from_dict(self, row: dict = None):
         if not row:
             return self
