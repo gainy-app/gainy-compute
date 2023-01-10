@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Iterable, Tuple
+from typing import Dict, Any, List, Iterable, Tuple, Type
 
 from psycopg2 import sql
 from psycopg2._psycopg import connection
@@ -51,7 +51,7 @@ class TableLoad(TableFilter, TableOrder):
     db_conn: connection
 
     def find_one(self,
-                 cls,
+                 cls: Type[BaseModel],
                  filter_by: Dict[str, Any] = None,
                  order_by: List[Tuple[str, str]] = None):
         query, params = self._get_query(cls, filter_by, order_by)
@@ -60,10 +60,10 @@ class TableLoad(TableFilter, TableOrder):
 
             row = cursor.fetchone()
 
-        return cls(row) if row else None
+        return cls().set_from_dict(row) if row else None
 
     def iterate_all(self,
-                    cls,
+                    cls: Type[BaseModel],
                     filter_by: Dict[str, Any] = None,
                     order_by: List[Tuple[str, str]] = None) -> Iterable[Any]:
         query, params = self._get_query(cls, filter_by, order_by)
@@ -71,7 +71,7 @@ class TableLoad(TableFilter, TableOrder):
             cursor.execute(query, params)
 
             for row in cursor:
-                yield cls(row)
+                yield cls().set_from_dict(row)
 
     def find_all(self,
                  cls,

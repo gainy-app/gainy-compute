@@ -77,8 +77,8 @@ class StripePaymentIntent(BaseStripeModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["created_at", "updated_at"]
 
-    def __init__(self, row: dict = None):
-        super().__init__(row)
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
 
         if row and row["status"]:
             self.status = TransactionStatus(row["status"])

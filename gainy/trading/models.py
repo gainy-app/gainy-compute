@@ -99,8 +99,8 @@ class TradingCollectionVersion(BaseModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def __init__(self, row=None):
-        super().__init__(row)
+    def set_from_dict(self, row=None):
+        super().set_from_dict(row)
 
         if not row:
             return
@@ -161,8 +161,8 @@ class TradingOrder(BaseModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def __init__(self, row=None):
-        super().__init__(row)
+    def set_from_dict(self, row=None):
+        super().set_from_dict(row)
 
         if not row:
             return
