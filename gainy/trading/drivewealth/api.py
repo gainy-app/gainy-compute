@@ -62,14 +62,25 @@ class DriveWealthApi:
                          client_portfolio_id, description):
         data = self._make_request(
             "POST", "/managed/portfolios", {
-                'userID': DRIVEWEALTH_RIA_ID,
-                'name': name,
-                'clientPortfolioID': client_portfolio_id,
-                'description': description,
+                'userID':
+                DRIVEWEALTH_RIA_ID,
+                'name':
+                name,
+                'clientPortfolioID':
+                client_portfolio_id,
+                'description':
+                description,
                 'holdings': [{
                     "type": "CASH_RESERVE",
                     "target": 1
                 }],
+                "triggers": [{
+                    "child": None,
+                    "maxAllowed": 0.01,
+                    "lowerBound": None,
+                    "upperBound": None,
+                    "type": "TOTAL_DRIFT"
+                }]
             })
         portfolio.set_from_response(data)
 
@@ -104,11 +115,23 @@ class DriveWealthApi:
                     description):
         data = self._make_request(
             "POST", "/managed/funds", {
-                'userID': DRIVEWEALTH_RIA_ID,
-                'name': name,
-                'clientFundID': client_fund_id,
-                'description': description,
-                'holdings': fund.holdings,
+                'userID':
+                DRIVEWEALTH_RIA_ID,
+                'name':
+                name,
+                'clientFundID':
+                client_fund_id,
+                'description':
+                description,
+                'holdings':
+                fund.holdings,
+                'triggers': [{
+                    "child": None,
+                    "maxAllowed": 0.01,
+                    "lowerBound": None,
+                    "upperBound": None,
+                    "type": "TOTAL_DRIFT"
+                }]
             })
         fund.set_from_response(data)
 

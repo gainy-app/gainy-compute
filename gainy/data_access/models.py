@@ -21,17 +21,15 @@ class classproperty(property):
 
 class BaseModel(ABC):
 
-    def __init__(self, row: dict = None):
-        if row:
-            self.set_from_dict(row)
-
     def set_from_dict(self, row: dict = None):
         if not row:
-            return
+            return self
 
         for field, value in row.items():
             if hasattr(self, field):
                 setattr(self, field, value)
+
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__

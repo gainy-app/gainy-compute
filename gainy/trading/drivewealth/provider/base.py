@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional, Iterable
+from typing import List, Iterable
 
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException

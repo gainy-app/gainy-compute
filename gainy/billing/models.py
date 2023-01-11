@@ -37,13 +37,15 @@ class PaymentTransaction(BaseModel):
     db_excluded_fields = ["created_at"]
     non_persistent_fields = ["id", "created_at"]
 
-    def __init__(self, row: dict = None):
-        super().__init__(row)
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
 
         if row and row["status"]:
             self.status = TransactionStatus(row["status"])
         else:
             self.status = TransactionStatus.PENDING
+
+        return self
 
     @classproperty
     def schema_name(self) -> str:
@@ -72,14 +74,15 @@ class Invoice(BaseModel, ResourceVersion):
     db_excluded_fields = ["created_at"]
     non_persistent_fields = ["id", "created_at"]
 
-    def __init__(self, row: dict = None):
-        super().__init__(row)
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
 
         if row and row["status"]:
             self.status = InvoiceStatus(row["status"])
 
         if row and row["amount"]:
             self.amount = Decimal(row["amount"])
+        return self
 
     @classproperty
     def schema_name(self) -> str:
@@ -130,11 +133,12 @@ class PaymentMethod(BaseModel):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def __init__(self, row: dict = None):
-        super().__init__(row)
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
 
         if row and row["provider"]:
             self.provider = PaymentMethodProvider(row["provider"])
+        return self
 
     @classproperty
     def schema_name(self) -> str:
