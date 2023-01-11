@@ -41,14 +41,7 @@ class CollectionTickerFilter:
         df.loc[df.adjusted_close < min_price, 'Flag'] += '-Price'
         df.loc[df.vol_doll < min_volume, 'Flag'] += '-Volume'
 
-        # df.loc[df.ref_id.isna(), 'Flag'] += '-DW'
-        # while in DW UAT environment we hard-code the list of unsupported tickers
-        # TODO remove after UAT
-        missing_tickers = [
-            'CTXS', 'WRE', 'NLOK', 'LFC', 'DRE', 'ZEN', 'WULF', 'TEN', 'ARBK',
-            'HNRG'
-        ]
-        df.loc[df.ticker.isin(missing_tickers), 'Flag'] += '-DW'
+        df.loc[df.ref_id.isna(), 'Flag'] += '-DW'
 
         maxdt = df.max_date.max()
         df.loc[df.max_date < maxdt,

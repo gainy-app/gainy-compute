@@ -37,7 +37,9 @@ class BaseModel(ABC):
     def refresh_entity(self, new_entity):
         if not new_entity:
             return
-        self.set_from_dict(new_entity.__dict__)
+
+        for field_name in new_entity.to_dict().keys():
+            self.__dict__[field_name] = new_entity.__dict__[field_name]
 
     @property
     @abstractmethod
