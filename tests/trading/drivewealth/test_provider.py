@@ -499,7 +499,7 @@ def test_sync_portfolio_status(monkeypatch):
 
     provider = DriveWealthProvider(repository, None, None)
 
-    def mock_get_portfolio_status(*args):
+    def mock_get_portfolio_status(*args, **kwargs):
         if args[0] == portfolio:
             return portfolio_status
         raise Exception(f"unknown args {args}")
@@ -525,7 +525,7 @@ def test_get_portfolio_status(monkeypatch):
 
     api = DriveWealthApi(None)
 
-    def mock_get_portfolio_status(*args):
+    def mock_get_portfolio_status(*args, **kwargs):
         if args[0] == portfolio:
             return PORTFOLIO_STATUS
         raise Exception(f"unknown args {args}")

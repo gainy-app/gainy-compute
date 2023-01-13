@@ -46,16 +46,17 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
             self.sync_trading_account(account_ref_id=account_ref_id)
 
-    def sync_balances(self, account: TradingAccount):
-        self.sync_trading_account(trading_account_id=account.id)
-        self.sync_portfolios(account.profile_id)
+    def sync_balances(self, account: TradingAccount, force: bool = False):
+        self.sync_trading_account(trading_account_id=account.id, force=force)
+        self.sync_portfolios(account.profile_id, force=force)
         self.repository.refresh(account)
 
     def sync_trading_account(
             self,
             account_ref_id: str = None,
             trading_account_id: int = None,
-            fetch_info: bool = False) -> Optional[DriveWealthAccount]:
+            fetch_info: bool = False,
+            force: bool = False) -> Optional[DriveWealthAccount]:
         repository = self.repository
 
         _filter = {}
@@ -84,8 +85,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if fetch_info:
             self._sync_account(account)
 
-        account_money = self.sync_account_money(account_ref_id)
-        account_positions = self.sync_account_positions(account_ref_id)
+        account_money = self.sync_account_money(account_ref_id, force=force)
+        account_positions = self.sync_account_positions(account_ref_id,
+                                                        force=force)
 
         if account.trading_account_id is None:
             return account
@@ -191,7 +193,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.repository.persist(portfolio)
 
     def sync_account_money(self,
-                           account_ref_id: str) -> DriveWealthAccountMoney:
+                           account_ref_id: str,
+                           force: bool = False) -> DriveWealthAccountMoney:
 
         account_money: DriveWealthAccountMoney = self.repository.find_one(
             DriveWealthAccountMoney, {
@@ -204,7 +207,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
                         seconds=DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL)),
             }, [("created_at", "DESC")])
 
-        if account_money:
+        if not force and account_money:
             return account_money
 
         account_money_data = self.api.get_account_money(account_ref_id)
@@ -214,7 +217,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
         return account_money
 
     def sync_account_positions(
-            self, account_ref_id: str) -> DriveWealthAccountPositions:
+            self,
+            account_ref_id: str,
+            force: bool = False) -> DriveWealthAccountPositions:
 
         account_positions: DriveWealthAccountPositions = self.repository.find_one(
             DriveWealthAccountPositions, {
@@ -227,7 +232,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
                         seconds=DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL)),
             }, [("created_at", "DESC")])
 
-        if account_positions:
+        if not force and account_positions:
             return account_positions
 
         account_positions_data = self.api.get_account_positions(account_ref_id)
