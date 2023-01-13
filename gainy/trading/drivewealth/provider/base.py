@@ -26,7 +26,7 @@ class DriveWealthProviderBase:
         self.trading_repository = trading_repository
         self.api = api
 
-    def sync_portfolios(self, profile_id):
+    def sync_portfolios(self, profile_id: int, force: bool = False):
         repository = self.repository
 
         portfolios: List[DriveWealthPortfolio] = repository.find_all(
@@ -34,11 +34,13 @@ class DriveWealthProviderBase:
         for portfolio in portfolios:
             if portfolio.is_artificial:
                 return
-            self.sync_portfolio(portfolio)
-            self.sync_portfolio_status(portfolio)
+            self.sync_portfolio(portfolio, force=force)
+            self.sync_portfolio_status(portfolio, force=force)
 
-    def sync_portfolio(self, portfolio: DriveWealthPortfolio):
-        if portfolio.last_sync_at is not None and portfolio.last_sync_at > datetime.datetime.now(
+    def sync_portfolio(self,
+                       portfolio: DriveWealthPortfolio,
+                       force: bool = False):
+        if not force and portfolio.last_sync_at is not None and portfolio.last_sync_at > datetime.datetime.now(
                 datetime.timezone.utc) - datetime.timedelta(
                     seconds=DRIVE_WEALTH_PORTFOLIO_STATUS_TTL):
             return portfolio
@@ -48,8 +50,10 @@ class DriveWealthProviderBase:
         portfolio.last_sync_at = datetime.datetime.now()
         self.repository.persist(portfolio)
 
-    def sync_portfolio_status(self, portfolio: DriveWealthPortfolio):
-        portfolio_status = self._get_portfolio_status(portfolio)
+    def sync_portfolio_status(self,
+                              portfolio: DriveWealthPortfolio,
+                              force: bool = False):
+        portfolio_status = self._get_portfolio_status(portfolio, force=force)
         portfolio.update_from_status(portfolio_status)
         self.repository.persist(portfolio)
         self.update_trading_collection_versions_pending_execution_from_portfolio_status(
@@ -84,6 +88,7 @@ class DriveWealthProviderBase:
                      trading_collection_version.pending_execution_since,
                      portfolio_status.last_portfolio_rebalance_at))
             trading_collection_version.status = TradingOrderStatus.EXECUTED_FULLY
+            trading_collection_version.executed_at = portfolio_status.last_portfolio_rebalance_at
             self.trading_repository.persist(trading_collection_version)
 
     def update_trading_orders_pending_execution_from_portfolio_status(
@@ -111,6 +116,7 @@ class DriveWealthProviderBase:
                     (trading_order.id, trading_order.pending_execution_since,
                      portfolio_status.last_portfolio_rebalance_at))
             trading_order.status = TradingOrderStatus.EXECUTED_FULLY
+            trading_order.executed_at = portfolio_status.last_portfolio_rebalance_at
             self.trading_repository.persist(trading_order)
 
     def iterate_profile_funds(self,
@@ -128,7 +134,8 @@ class DriveWealthProviderBase:
 
     def _get_portfolio_status(
             self,
-            portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
+            portfolio: DriveWealthPortfolio,
+            force: bool = False) -> DriveWealthPortfolioStatus:
 
         portfolio_status: DriveWealthPortfolioStatus = self.repository.find_one(
             DriveWealthPortfolioStatus, {
@@ -141,7 +148,7 @@ class DriveWealthProviderBase:
                         seconds=DRIVE_WEALTH_PORTFOLIO_STATUS_TTL)),
             }, [("created_at", "DESC")])
 
-        if portfolio_status:
+        if not force and portfolio_status:
             return portfolio_status
 
         data = self.api.get_portfolio_status(portfolio)

@@ -129,9 +129,6 @@ class TradingCollectionVersion(BaseModel):
 
     def set_status(self, status: TradingOrderStatus):
         self.status = status
-        if status == TradingOrderStatus.EXECUTED_FULLY:
-            # TODO set from actual autopilot execution data
-            self.executed_at = datetime.datetime.now()
 
     def is_pending(self) -> bool:
         return self.status in [
@@ -191,9 +188,6 @@ class TradingOrder(BaseModel):
 
     def set_status(self, status: TradingOrderStatus):
         self.status = status
-        if status == TradingOrderStatus.EXECUTED_FULLY:
-            # TODO set from actual autopilot execution data
-            self.executed_at = datetime.datetime.now()
 
     def is_pending(self) -> bool:
         return self.status in [
