@@ -49,6 +49,8 @@ class RebalancePortfoliosJob:
 
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
             portfolio: DriveWealthPortfolio
+            if portfolio.is_artificial:
+                continue
 
             account: DriveWealthAccount = self.repo.find_one(
                 DriveWealthAccount,
