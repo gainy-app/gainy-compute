@@ -57,13 +57,28 @@ LOG_LEVEL = logging.DEBUG if env() == ENV_LOCAL else logging.INFO
 LOG_HANDLER = logging.StreamHandler()
 LOG_HANDLER.setFormatter(formatter)
 logging.basicConfig(level=LOG_LEVEL, handlers=[LOG_HANDLER], force=True)
+LOGGING_MIDDLEWARES = set()
 
 
 def get_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(LOG_LEVEL)
 
+    for f in LOGGING_MIDDLEWARES:
+        logger = f(logger)
+
     return logger
+
+
+def setup_lambda_logging_middleware(context):
+    LOGGING_MIDDLEWARES.add(lambda _logger: logging.LoggerAdapter(
+        _logger, {
+            'invoked_function_arn': context.invoked_function_arn,
+            'log_stream_name': context.log_stream_name,
+            'log_group_name': context.log_group_name,
+            'aws_request_id': context.aws_request_id,
+            'memory_limit_in_mb': context.memory_limit_in_mb,
+        }))
 
 
 def setup_exception_logger_hook():
