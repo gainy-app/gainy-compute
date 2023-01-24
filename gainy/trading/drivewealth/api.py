@@ -235,8 +235,6 @@ class DriveWealthApi:
             raise DriveWealthApiException.create_from_response(
                 response_data, status_code)
 
-        logger.info("[DRIVEWEALTH] %s %s" % (method, url), extra=logging_extra)
-
         return response_data
 
     @backoff.on_predicate(backoff.expo,
@@ -249,8 +247,22 @@ class DriveWealthApi:
                          params=None,
                          data=None,
                          headers=None):
-        return requests.request(method,
-                                url,
-                                params=params,
-                                data=data,
-                                headers=headers)
+        response = requests.request(method,
+                                    url,
+                                    params=params,
+                                    data=data,
+                                    headers=headers)
+
+        status_code = response.status_code
+        logging_extra = {
+            "headers": headers,
+            "get_data": params,
+            "post_data": data,
+            "status_code": status_code,
+            "response_data": response.text,
+            "requestId": response.headers.get("dw-request-id"),
+        }
+
+        logger.info("[DRIVEWEALTH] %s %s" % (method, url), extra=logging_extra)
+
+        return response
