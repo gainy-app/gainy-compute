@@ -349,10 +349,11 @@ def test_reconfigure_collection_holdings(monkeypatch):
 
     provider = DriveWealthProvider(repository, None, None)
     provider.reconfigure_collection_holdings(portfolio, collection_version)
-    assert (target_amount_delta, portfolio, fund) in [
+    assert (collection_version, portfolio, fund) in [
         args[1:] for args, kwargs in handle_cash_amount_change_calls
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
+    assert collection_version in persisted_objects[TradingCollectionVersion]
 
 
 def test_execute_order_in_portfolio(monkeypatch):
@@ -397,10 +398,11 @@ def test_execute_order_in_portfolio(monkeypatch):
 
     provider = DriveWealthProvider(repository, None, None)
     provider.execute_order_in_portfolio(portfolio, trading_order)
-    assert (target_amount_delta, portfolio, fund) in [
+    assert (trading_order, portfolio, fund) in [
         args[1:] for args, kwargs in handle_cash_amount_change_calls
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
+    assert trading_order in persisted_objects[TradingOrder]
 
 
 def test_rebalance_portfolio_cash(monkeypatch):

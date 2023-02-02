@@ -5,7 +5,7 @@ from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
-from gainy.trading.models import TradingCollectionVersion, TradingOrder
+from gainy.trading.models import TradingCollectionVersion, TradingOrder, AmountAwareTradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
@@ -80,12 +80,13 @@ class DriveWealthProviderRebalanceHelper:
 
         return fund
 
-    def handle_cash_amount_change(
-            self,
-            target_amount_delta: Decimal,
-            portfolio: DriveWealthPortfolio,
-            chosen_fund: DriveWealthFund,
-            target_amount_delta_relative: Decimal = None):
+    def handle_cash_amount_change(self,
+                                  amount_aware_order: AmountAwareTradingOrder,
+                                  portfolio: DriveWealthPortfolio,
+                                  chosen_fund: DriveWealthFund):
+
+        target_amount_delta = amount_aware_order.target_amount_delta
+        target_amount_delta_relative = amount_aware_order.target_amount_delta_relative
         if target_amount_delta_relative:
             if chosen_fund.collection_id:
                 holding_amount = self.trading_repository.get_collection_holding_value(
@@ -97,6 +98,7 @@ class DriveWealthProviderRebalanceHelper:
                 raise Exception('Fund must be tied to collection or symbol')
 
             target_amount_delta = target_amount_delta_relative * holding_amount
+            amount_aware_order.target_amount_delta = target_amount_delta
 
         if not target_amount_delta:
             return 0
