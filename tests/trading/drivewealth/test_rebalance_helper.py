@@ -334,8 +334,8 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
     helper.handle_cash_amount_change(trading_order, portfolio, fund)
 
     # check that relative amount was written in the target_amount_delta field
-    assert trading_order.target_amount_delta == Decimal(
-        FUND1_VALUE) * amount_relative
+    assert trading_order.target_amount_delta == FUND1_VALUE * Decimal(
+        amount_relative)
 
 
 def get_test_handle_cash_amount_change_amounts_ko():
