@@ -87,21 +87,9 @@ class DriveWealthProviderRebalanceHelper:
 
         target_amount_delta = amount_aware_order.target_amount_delta
         target_amount_delta_relative = amount_aware_order.target_amount_delta_relative
-        if target_amount_delta_relative:
-            if chosen_fund.collection_id:
-                holding_amount = self.trading_repository.get_collection_holding_value(
-                    portfolio.profile_id, chosen_fund.collection_id)
-            elif chosen_fund.symbol:
-                holding_amount = self.trading_repository.get_ticker_holding_value(
-                    portfolio.profile_id, chosen_fund.symbol)
-            else:
-                raise Exception('Fund must be tied to collection or symbol')
 
-            target_amount_delta = target_amount_delta_relative * holding_amount
-            amount_aware_order.target_amount_delta = target_amount_delta
-
-        if not target_amount_delta:
-            return 0
+        if not target_amount_delta and not target_amount_delta_relative:
+            return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
         if portfolio.is_pending_rebalance():
@@ -142,6 +130,7 @@ class DriveWealthProviderRebalanceHelper:
             if fund_actual_weight < DW_WEIGHT_THRESHOLD:
                 raise InsufficientFundsException()
             weight_delta = target_amount_delta_relative * fund_actual_weight
+            amount_aware_order.target_amount_delta = target_amount_delta_relative * fund_value
         elif target_amount_delta > 0:
             if target_amount_delta - cash_value > PRECISION:
                 raise InsufficientFundsException()
