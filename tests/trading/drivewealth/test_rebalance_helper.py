@@ -14,6 +14,7 @@ from gainy.trading.drivewealth.provider import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
 
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthFund
+from gainy.trading.repository import TradingRepository
 
 _FUND_WEIGHTS = {
     "symbol_B": Decimal(0.3),
@@ -252,7 +253,7 @@ def get_test_handle_cash_amount_change_amounts_ok():
 
 @pytest.mark.parametrize("amount",
                          get_test_handle_cash_amount_change_amounts_ok())
-def test_handle_cash_amount_change_ok(amount, monkeypatch):
+def test_handle_cash_amount_change_ok_absolute(amount, monkeypatch):
     amount = Decimal(amount)
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(PORTFOLIO)
@@ -278,7 +279,9 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
     assert abs(portfolio.get_fund_weight(FUND1_ID) -
                FUND1_TARGET_WEIGHT) < 1e-3
 
-    helper.handle_cash_amount_change(amount, portfolio, fund)
+    trading_order = TradingOrder()
+    trading_order.target_amount_delta = Decimal(amount)
+    helper.handle_cash_amount_change(trading_order, portfolio, fund)
 
     if amount:
         assert abs(portfolio.cash_target_weight -
@@ -290,6 +293,72 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
         assert abs(portfolio.cash_target_weight - CASH_TARGET_WEIGHT) < 1e-3
         assert abs(portfolio.get_fund_weight(FUND1_ID) -
                    FUND1_TARGET_WEIGHT) < 1e-3
+
+
+def get_test_handle_cash_amount_change_ok_relative_types():
+    return ['stock', 'collection']
+
+
+@pytest.mark.parametrize(
+    "type", get_test_handle_cash_amount_change_ok_relative_types())
+def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
+    _profile_id = 1
+    _collection_id = 2
+    _symbol = "symbol"
+    holding_value = 100
+    amount_relative = -0.5
+    amount = Decimal(amount_relative) * holding_value
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.set_from_response(PORTFOLIO)
+    monkeypatch.setattr(portfolio, "profile_id", _profile_id)
+
+    drivewealth_repository = DriveWealthRepository(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+
+    trading_repository = TradingRepository(None)
+
+    def mock_get_collection_holding_value(profile_id, collection_id):
+        assert _profile_id == profile_id
+        assert _collection_id == collection_id
+        return holding_value
+
+    monkeypatch.setattr(trading_repository, "get_collection_holding_value",
+                        mock_get_collection_holding_value)
+
+    def mock_get_ticker_holding_value(profile_id, symbol):
+        assert _profile_id == profile_id
+        assert _symbol == symbol
+        return holding_value
+
+    monkeypatch.setattr(trading_repository, "get_ticker_holding_value",
+                        mock_get_ticker_holding_value)
+
+    provider = DriveWealthProvider(drivewealth_repository, None, None)
+
+    def mock_sync_portfolio_status(_portfolio):
+        assert _portfolio == portfolio
+        status = DriveWealthPortfolioStatus()
+        status.set_from_response(PORTFOLIO_STATUS)
+        return status
+
+    monkeypatch.setattr(provider, "sync_portfolio_status",
+                        mock_sync_portfolio_status)
+
+    helper = DriveWealthProviderRebalanceHelper(provider, trading_repository)
+    fund = DriveWealthFund()
+    monkeypatch.setattr(fund, "ref_id", FUND1_ID)
+    if type == 'collection':
+        monkeypatch.setattr(fund, "collection_id", _collection_id)
+    else:
+        monkeypatch.setattr(fund, "symbol", _symbol)
+
+    trading_order = TradingOrder()
+    trading_order.target_amount_delta_relative = Decimal(amount_relative)
+    helper.handle_cash_amount_change(trading_order, portfolio, fund)
+
+    # check that relative amount was written in the target_amount_delta field
+    assert trading_order.target_amount_delta == Decimal(amount)
 
 
 def get_test_handle_cash_amount_change_amounts_ko():
@@ -320,8 +389,11 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", FUND1_ID)
 
+    trading_order = TradingOrder()
+    trading_order.target_amount_delta = amount
+
     with pytest.raises(InsufficientFundsException) as error_info:
-        helper.handle_cash_amount_change(amount, portfolio, fund)
+        helper.handle_cash_amount_change(trading_order, portfolio, fund)
         assert error_info.__class__ == InsufficientFundsException
 
 

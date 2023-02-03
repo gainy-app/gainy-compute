@@ -143,12 +143,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
                                                     self.trading_repository)
         profile_id = collection_version.profile_id
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
-        helper.handle_cash_amount_change(
-            collection_version.target_amount_delta,
-            portfolio,
-            chosen_fund,
-            target_amount_delta_relative=collection_version.
-            target_amount_delta_relative)
+        helper.handle_cash_amount_change(collection_version, portfolio,
+                                         chosen_fund)
+        self.repository.persist(collection_version)
         self.repository.persist(portfolio)
 
     def execute_order_in_portfolio(self, portfolio: DriveWealthPortfolio,
@@ -157,8 +154,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
                                                     self.trading_repository)
         profile_id = trading_order.profile_id
         chosen_fund = helper.upsert_stock_fund(profile_id, trading_order)
-        helper.handle_cash_amount_change(trading_order.target_amount_delta,
-                                         portfolio, chosen_fund)
+        helper.handle_cash_amount_change(trading_order, portfolio, chosen_fund)
+        self.repository.persist(trading_order)
         self.repository.persist(portfolio)
 
     def ensure_portfolio(self, profile_id, trading_account_id):

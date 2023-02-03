@@ -1,3 +1,5 @@
+from abc import ABC
+
 import datetime
 import enum
 import json
@@ -77,7 +79,12 @@ class TradingAccount(BaseModel):
         return "trading_accounts"
 
 
-class TradingCollectionVersion(BaseModel):
+class AmountAwareTradingOrder(ABC):
+    target_amount_delta: Decimal = None
+    target_amount_delta_relative: Decimal = None
+
+
+class TradingCollectionVersion(BaseModel, AmountAwareTradingOrder):
     id = None
     profile_id = None
     collection_id = None
@@ -139,7 +146,7 @@ class TradingCollectionVersion(BaseModel):
         return self.status == TradingOrderStatus.EXECUTED_FULLY
 
 
-class TradingOrder(BaseModel):
+class TradingOrder(BaseModel, AmountAwareTradingOrder):
     id = None
     profile_id = None
     symbol = None
