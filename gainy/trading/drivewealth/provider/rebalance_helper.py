@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Dict, Any, Optional, List
 
 from gainy.exceptions import EntityNotFoundException
-from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, PRECISION, DW_WEIGHT_THRESHOLD
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import TradingCollectionVersion, TradingOrder, AmountAwareTradingOrder
@@ -87,21 +87,9 @@ class DriveWealthProviderRebalanceHelper:
 
         target_amount_delta = amount_aware_order.target_amount_delta
         target_amount_delta_relative = amount_aware_order.target_amount_delta_relative
-        if target_amount_delta_relative:
-            if chosen_fund.collection_id:
-                holding_amount = self.trading_repository.get_collection_holding_value(
-                    portfolio.profile_id, chosen_fund.collection_id)
-            elif chosen_fund.symbol:
-                holding_amount = self.trading_repository.get_ticker_holding_value(
-                    portfolio.profile_id, chosen_fund.symbol)
-            else:
-                raise Exception('Fund must be tied to collection or symbol')
 
-            target_amount_delta = target_amount_delta_relative * holding_amount
-            amount_aware_order.target_amount_delta = target_amount_delta
-
-        if not target_amount_delta:
-            return 0
+        if not target_amount_delta and not target_amount_delta_relative:
+            return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
         if portfolio.is_pending_rebalance():
@@ -133,7 +121,17 @@ class DriveWealthProviderRebalanceHelper:
         }
         logger.info('_handle_cash_amount_change step0', extra=logging_extra)
 
-        if target_amount_delta > 0:
+        if target_amount_delta_relative is not None:
+            if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
+                raise Exception(
+                    'target_amount_delta_relative must be within [-1, 0).')
+
+            # negative target_amount_delta_relative - check fund_value is > 0
+            if fund_actual_weight < DW_WEIGHT_THRESHOLD:
+                raise InsufficientFundsException()
+            weight_delta = target_amount_delta_relative * fund_actual_weight
+            amount_aware_order.target_amount_delta = target_amount_delta_relative * fund_value
+        elif target_amount_delta > 0:
             if target_amount_delta - cash_value > PRECISION:
                 raise InsufficientFundsException()
             weight_delta = target_amount_delta / cash_value * cash_actual_weight
