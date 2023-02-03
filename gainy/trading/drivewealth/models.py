@@ -7,6 +7,8 @@ import json
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+import pytz
+
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
 from gainy.trading.models import TradingAccount
@@ -294,6 +296,7 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     last_portfolio_rebalance_at: datetime.datetime = None
     next_portfolio_rebalance_at: datetime.datetime = None
     holdings: Dict[str, DriveWealthPortfolioStatusHolding] = None
+    date: datetime.date = None
     data = None
     created_at = None
 
@@ -313,6 +316,8 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     def set_from_response(self, data=None):
         self.data = data
         self._reset_holdings()
+        self.date = datetime.datetime.now(
+            pytz.timezone('America/New_York')).date()
 
         if not data:
             return
