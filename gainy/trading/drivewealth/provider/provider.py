@@ -146,6 +146,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
         helper.handle_cash_amount_change(collection_version, portfolio,
                                          chosen_fund)
         self.repository.persist(collection_version)
+        portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
     def execute_order_in_portfolio(self, portfolio: DriveWealthPortfolio,
@@ -156,6 +157,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
         chosen_fund = helper.upsert_stock_fund(profile_id, trading_order)
         helper.handle_cash_amount_change(trading_order, portfolio, chosen_fund)
         self.repository.persist(trading_order)
+        portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
     def ensure_portfolio(self, profile_id, trading_account_id):

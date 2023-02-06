@@ -102,10 +102,6 @@ class TradingService:
                                                  -target_amount_delta,
                                                  collection_id=collection_id)
 
-                holding_amount = self.trading_repository.get_collection_holding_value(
-                    profile_id, collection_id)
-                target_amount_delta_relative = target_amount_delta / holding_amount
-
         collection_version = TradingCollectionVersion()
         collection_version.source = source
         collection_version.status = TradingOrderStatus.PENDING
