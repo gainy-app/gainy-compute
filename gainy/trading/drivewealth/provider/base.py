@@ -1,3 +1,4 @@
+import regex
 from decimal import Decimal
 
 import datetime
@@ -7,7 +8,7 @@ from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
-    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION
+    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
     AmountAwareTradingOrder
@@ -17,6 +18,13 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
+
+
+# also in https://github.com/gainy-app/gainy-app/blob/main/src/meltano/meltano/seed/00_functions.sql
+# also in https://github.com/gainy-app/gainy-compute/blob/main/fixtures/functions.sql
+def normalize_symbol(s: str):
+    s = regex.sub(r'\.([AB])$', '-\\1', s)
+    return regex.sub(r'\.(.*)$', '', s)
 
 
 class DriveWealthProviderBase:
@@ -168,6 +176,9 @@ class DriveWealthProviderBase:
         portfolio_status = DriveWealthPortfolioStatus()
         portfolio_status.set_from_response(data)
         self.repository.persist(portfolio_status)
+
+        self._create_portfolio_holdings_from_status(portfolio_status)
+
         return portfolio_status
 
     def _get_user(self, profile_id) -> DriveWealthUser:
@@ -235,3 +246,45 @@ class DriveWealthProviderBase:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
                 order.executed_at = last_portfolio_rebalance_at
         self.trading_repository.persist(orders)
+
+    def _create_portfolio_holdings_from_status(
+            self, portfolio_status: DriveWealthPortfolioStatus):
+        portfolio: DriveWealthPortfolio = self.repository.find_one(
+            DriveWealthPortfolio,
+            {"ref_id": portfolio_status.drivewealth_portfolio_id})
+        if not portfolio:
+            return
+        profile_id = portfolio.profile_id
+
+        holdings = []
+        for holding_data in portfolio_status.data["holdings"]:
+            if holding_data["type"] != "FUND":
+                continue
+            fund_id = holding_data["id"]
+            fund: DriveWealthFund = self.repository.find_one(
+                DriveWealthFund, {"ref_id": fund_id})
+            if not fund:
+                continue
+
+            collection_id = fund.collection_id
+            for fund_folding_data in holding_data['holdings']:
+                symbol = normalize_symbol(fund_folding_data['symbol'])
+                if collection_id:
+                    holding_id_v2 = f"dw_ttf_{profile_id}_{collection_id}_{symbol}"
+                else:
+                    holding_id_v2 = f"dw_ticker_{profile_id}_{symbol}"
+
+                quantity = Decimal(fund_folding_data["openQty"])
+
+                holding = DriveWealthPortfolioHolding()
+                holding.drivewealth_portfolio_status_id = portfolio_status.id
+                holding.profile_id = profile_id
+                holding.holding_id_v2 = holding_id_v2
+                holding.actual_value = fund_folding_data["value"]
+                holding.quantity = quantity
+                holding.symbol = symbol
+                holding.collection_uniq_id = f"0_{collection_id}"
+                holding.collection_id = collection_id
+                holdings.append(holding)
+
+        self.repository.persist(holdings)

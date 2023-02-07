@@ -384,6 +384,28 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         }
 
 
+class DriveWealthPortfolioHolding(BaseDriveWealthModel):
+    drivewealth_portfolio_status_id = None
+    profile_id: int = None
+    holding_id_v2: str = None
+    actual_value: Decimal = None
+    quantity: Decimal = None
+    quantity_norm_for_valuation: Decimal = None
+    symbol: str = None
+    collection_uniq_id: str = None
+    collection_id: int = None
+    updated_at: datetime.datetime = None
+
+    key_fields = ["holding_id_v2"]
+
+    db_excluded_fields = ["updated_at"]
+    non_persistent_fields = ["updated_at"]
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_portfolio_holdings"
+
+
 class DriveWealthFund(BaseDriveWealthModel):
     ref_id = None
     profile_id = None

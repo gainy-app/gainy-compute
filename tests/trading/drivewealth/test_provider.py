@@ -5,14 +5,16 @@ from decimal import Decimal
 
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
-    mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, FUND1_TARGET_WEIGHT
+    mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, \
+    FUND1_TARGET_WEIGHT, FUND2_ID
+from gainy.trading.drivewealth.provider.base import normalize_symbol
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
     DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
-    DriveWealthPortfolioStatus, DriveWealthFund, PRECISION
+    DriveWealthPortfolioStatus, DriveWealthFund, PRECISION, DriveWealthPortfolioHolding
 from gainy.trading.repository import TradingRepository
 
 _ACCOUNT_ID = "bf98c335-57ad-4337-ae9f-ed1fcfb447af.1662377145557"
@@ -537,11 +539,79 @@ def test_get_portfolio_status(monkeypatch):
     monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
 
     provider = DriveWealthProvider(repository, api, None)
+    create_portfolio_holdings_from_status_calls = []
+    monkeypatch.setattr(
+        provider, "_create_portfolio_holdings_from_status",
+        mock_record_calls(create_portfolio_holdings_from_status_calls))
     portfolio_status = provider._get_portfolio_status(portfolio)
 
     assert portfolio_status.drivewealth_portfolio_id == PORTFOLIO_STATUS["id"]
     assert DriveWealthPortfolioStatus in persisted_objects
     assert portfolio_status in persisted_objects[DriveWealthPortfolioStatus]
+    assert portfolio_status in [
+        args[0] for args, kwargs in create_portfolio_holdings_from_status_calls
+    ]
+
+
+def test_create_portfolio_holdings_from_status(monkeypatch):
+    profile_id = 1
+    collection_id = 2
+    portfolio_status_id = 3
+    symbol = "symbol"
+
+    fund1 = DriveWealthFund()
+    fund1.collection_id = collection_id
+    fund2 = DriveWealthFund()
+    fund2.symbol = symbol
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.id = portfolio_status_id
+    portfolio_status.set_from_response(PORTFOLIO_STATUS)
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.profile_id = profile_id
+
+    persisted_objects = {}
+    repository = DriveWealthRepository(None)
+    monkeypatch.setattr(
+        repository, "find_one",
+        mock_find([
+            (DriveWealthPortfolio, {
+                "ref_id": PORTFOLIO_REF_ID
+            }, portfolio),
+            (DriveWealthFund, {
+                "ref_id": FUND1_ID
+            }, fund1),
+            (DriveWealthFund, {
+                "ref_id": FUND2_ID
+            }, fund2),
+        ]))
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    provider = DriveWealthProvider(repository, None, None)
+    provider._create_portfolio_holdings_from_status(portfolio_status)
+
+    assert DriveWealthPortfolioHolding in persisted_objects
+    holdings_by_id: dict[str, DriveWealthPortfolioHolding] = {
+        i.holding_id_v2: i
+        for i in persisted_objects[DriveWealthPortfolioHolding]
+    }
+    assert "dw_ttf_1_2_TSLA" in holdings_by_id
+    assert "dw_ttf_1_2_AAPL" in holdings_by_id
+    assert len(holdings_by_id) == 2
+
+    for holding in holdings_by_id.values():
+        assert holding.drivewealth_portfolio_status_id == portfolio_status_id
+        assert holding.profile_id == profile_id
+        idx = int(holding.holding_id_v2 == "dw_ttf_1_2_AAPL")
+        assert holding.actual_value == Decimal(
+            PORTFOLIO_STATUS["holdings"][1]["holdings"][idx]["value"])
+        assert holding.quantity == Decimal(
+            PORTFOLIO_STATUS["holdings"][1]["holdings"][idx]["openQty"])
+        assert holding.symbol == normalize_symbol(
+            PORTFOLIO_STATUS["holdings"][1]["holdings"][idx]["symbol"])
+        assert holding.collection_uniq_id == f"0_{collection_id}"
+        assert holding.collection_id == collection_id
 
 
 def test_update_trading_collection_versions_pending_execution_from_portfolio_status(
