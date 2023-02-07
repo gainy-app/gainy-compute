@@ -174,3 +174,30 @@ class DriveWealthRepository(Repository):
                 entity = DriveWealthPortfolio()
                 entity.set_from_dict(row)
                 yield entity
+
+    def is_portfolio_pending_rebalance(
+            self, portfolio: DriveWealthPortfolio) -> bool:
+        query = """
+            select exists(
+                           select trading_collection_versions.id
+                           from app.trading_collection_versions
+                                    join app.drivewealth_accounts using (trading_account_id)
+                           where drivewealth_accounts.ref_id = %(drivewealth_account_id)s
+                             and trading_collection_versions.status = %(status)s
+                       ) or exists(
+                           select trading_orders.id
+                           from app.trading_orders
+                                    join app.drivewealth_accounts using (trading_account_id)
+                           where drivewealth_accounts.ref_id = %(drivewealth_account_id)s
+                             and trading_orders.status = %(status)s
+                       )
+            """
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                query, {
+                    "drivewealth_account_id": portfolio.drivewealth_account_id,
+                    "status": TradingOrderStatus.PENDING_EXECUTION
+                })
+            row = cursor.fetchone()
+        return row[0]

@@ -8,7 +8,7 @@ from typing import Iterable, Tuple
 import time
 
 from gainy.context_container import ContextContainer
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
     DriveWealthFund
@@ -24,9 +24,11 @@ logger = get_logger(__name__)
 class RebalancePortfoliosJob:
 
     def __init__(self, trading_repository: TradingRepository,
+                 drivewealth_repository: DriveWealthRepository,
                  provider: DriveWealthProvider,
                  trading_service: TradingService):
         self.repo = trading_repository
+        self.drivewealth_repository = drivewealth_repository
         self.provider = provider
         self.trading_service = trading_service
 
@@ -68,7 +70,8 @@ class RebalancePortfoliosJob:
                 portfolio.normalize_weights()
                 self.provider.send_portfolio_to_api(portfolio)
 
-                if trading_collection_versions or trading_orders:
+                if self.drivewealth_repository.is_portfolio_pending_rebalance(
+                        portfolio):
                     self.force_rebalance(
                         portfolio,
                         trading_collection_versions=trading_collection_versions,
@@ -332,6 +335,7 @@ def cli():
         with ContextContainer() as context_container:
             job = RebalancePortfoliosJob(
                 context_container.trading_repository,
+                context_container.drivewealth_repository,
                 context_container.drivewealth_provider,
                 context_container.trading_service)
             job.run()

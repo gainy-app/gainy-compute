@@ -33,6 +33,8 @@ class UpdateAccountBalancesJob:
         trading_accounts: Iterable[TradingAccount] = self.repo.iterate_all(
             TradingAccount)
         for account in trading_accounts:
+            if account.is_artificial:
+                continue
             start_time = time.time()
 
             try:
@@ -67,6 +69,8 @@ class UpdateAccountBalancesJob:
                 DriveWealthPortfolio)
 
         for portfolio in portfolios:
+            if portfolio.is_artificial:
+                continue
             start_time = time.time()
 
             try:

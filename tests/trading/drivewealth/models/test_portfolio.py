@@ -72,10 +72,3 @@ def test_set_target_weights_from_status_actual_weights(monkeypatch):
     assert portfolio.cash_target_weight == CASH_ACTUAL_WEIGHT
     assert portfolio.get_fund_weight(FUND1_ID) == FUND1_ACTUAL_WEIGHT
     assert portfolio.get_fund_weight(FUND2_ID) == FUND2_ACTUAL_WEIGHT
-
-
-def test_set_pending_rebalance(monkeypatch):
-    portfolio = DriveWealthPortfolio()
-    assert not portfolio.is_pending_rebalance()
-    portfolio.set_pending_rebalance()
-    assert portfolio.is_pending_rebalance()

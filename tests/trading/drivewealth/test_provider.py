@@ -1,4 +1,5 @@
 import datetime
+import pytest
 
 from decimal import Decimal
 
@@ -419,7 +420,6 @@ def test_rebalance_portfolio_cash(monkeypatch):
     rebalance_cash_calls = []
     monkeypatch.setattr(portfolio, "rebalance_cash",
                         mock_record_calls(rebalance_cash_calls))
-    monkeypatch.setattr(portfolio, "is_pending_rebalance", lambda: False)
 
     portfolio_status = DriveWealthPortfolioStatus()
     monkeypatch.setattr(portfolio_status, "equity_value", equity_value)
@@ -427,6 +427,8 @@ def test_rebalance_portfolio_cash(monkeypatch):
                         cash_target_weight)
 
     repository = DriveWealthRepository(None)
+    monkeypatch.setattr(repository, "is_portfolio_pending_rebalance",
+                        lambda portfolio: False)
     calculate_portfolio_cash_target_value_calls = []
     monkeypatch.setattr(
         repository, "calculate_portfolio_cash_target_value",
@@ -547,8 +549,10 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
     last_portfolio_rebalance_at = datetime.datetime.now()
     profile_id = 1
     trading_account_id = 2
+    collection_id = 3
 
     trading_collection_version = TradingCollectionVersion()
+    trading_collection_version.collection_id = collection_id
 
     trading_account = TradingAccount()
     trading_account.profile_id = profile_id
@@ -557,7 +561,6 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
     portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at
 
-    persisted_objects = {}
     repository = TradingRepository(None)
 
     def mock_iterate_trading_collection_versions(**kwargs):
@@ -569,7 +572,6 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
 
     monkeypatch.setattr(repository, "iterate_trading_collection_versions",
                         mock_iterate_trading_collection_versions)
-    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
     def mock_get_trading_account_by_portfolio_status(*args):
         assert args[0] == portfolio_status
@@ -578,14 +580,17 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
     provider = DriveWealthProvider(None, None, repository)
     monkeypatch.setattr(provider, "_get_trading_account_by_portfolio_status",
                         mock_get_trading_account_by_portfolio_status)
+    fill_executed_amount_calls = []
+    monkeypatch.setattr(provider, "_fill_executed_amount",
+                        mock_record_calls(fill_executed_amount_calls))
 
     portfolio_status = provider.update_trading_collection_versions_pending_execution_from_portfolio_status(
         portfolio_status)
 
-    assert trading_collection_version.status == TradingOrderStatus.EXECUTED_FULLY
-    assert TradingCollectionVersion in persisted_objects
-    assert trading_collection_version in persisted_objects[
-        TradingCollectionVersion]
+    assert ((profile_id, [trading_collection_version],
+             last_portfolio_rebalance_at), {
+                 "collection_id": collection_id
+             }) in fill_executed_amount_calls
 
 
 def test_update_trading_orders_pending_execution_from_portfolio_status(
@@ -593,8 +598,10 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
     last_portfolio_rebalance_at = datetime.datetime.now()
     profile_id = 1
     trading_account_id = 2
+    symbol = "symbol"
 
     trading_order = TradingOrder()
+    trading_order.symbol = symbol
 
     trading_account = TradingAccount()
     trading_account.profile_id = profile_id
@@ -603,7 +610,6 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
     portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at
 
-    persisted_objects = {}
     repository = TradingRepository(None)
 
     def mock_iterate_trading_orders(**kwargs):
@@ -615,7 +621,6 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
 
     monkeypatch.setattr(repository, "iterate_trading_orders",
                         mock_iterate_trading_orders)
-    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
     def mock_get_trading_account_by_portfolio_status(*args):
         assert args[0] == portfolio_status
@@ -624,10 +629,224 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
     provider = DriveWealthProvider(None, None, repository)
     monkeypatch.setattr(provider, "_get_trading_account_by_portfolio_status",
                         mock_get_trading_account_by_portfolio_status)
+    fill_executed_amount_calls = []
+    monkeypatch.setattr(provider, "_fill_executed_amount",
+                        mock_record_calls(fill_executed_amount_calls))
 
     portfolio_status = provider.update_trading_orders_pending_execution_from_portfolio_status(
         portfolio_status)
 
-    assert trading_order.status == TradingOrderStatus.EXECUTED_FULLY
-    assert TradingOrder in persisted_objects
-    assert trading_order in persisted_objects[TradingOrder]
+    assert ((profile_id, [trading_order], last_portfolio_rebalance_at), {
+        "symbol": symbol
+    }) in fill_executed_amount_calls
+
+
+def get_fill_executed_amount_data():
+
+    def assert_persisted(orders, persisted_objects):
+        assert TradingOrder in persisted_objects
+        assert len(
+            set(orders).intersection(set(
+                persisted_objects[TradingOrder]))) == len(orders)
+
+    def test_set1():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(100)
+        orders = [trading_order1]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1100, orders, assert_func)
+
+    yield test_set1()
+
+    def test_set2():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(50)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(100)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1160, orders, assert_func)
+
+    yield test_set2()
+
+    def test_set3():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(50)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(100)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(90)
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1140, orders, assert_func)
+
+    yield test_set3()
+
+    def test_set4():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(100)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(-50)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-40)
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1060, orders, assert_func)
+
+    yield test_set4()
+
+    def test_set5():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(100)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(-50)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order1.executed_amount == Decimal(90)
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1040, orders, assert_func)
+
+    yield test_set5()
+
+    def test_set6():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(-50)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(100)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order1.executed_amount == Decimal(-40)
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1060, orders, assert_func)
+
+    yield test_set6()
+
+    def test_set7():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(-50)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(100)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(90)
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 1040, orders, assert_func)
+
+    yield test_set7()
+
+    def test_set8():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(-50)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(-100)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 840, orders, assert_func)
+
+    yield test_set8()
+
+    def test_set9():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(-50)
+        trading_order2 = TradingOrder()
+        trading_order2.target_amount_delta = Decimal(-100)
+        orders = [trading_order1, trading_order2]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-90)
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 860, orders, assert_func)
+
+    yield test_set9()
+
+    def test_set10():
+        trading_order1 = TradingOrder()
+        trading_order1.target_amount_delta = Decimal(-100)
+        orders = [trading_order1]
+
+        def assert_func(persisted_objects):
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert_persisted(orders, persisted_objects)
+
+        return (1000, 900, orders, assert_func)
+
+    yield test_set10()
+
+
+@pytest.mark.parametrize(
+    "executed_amount_sum, cash_flow_sum, orders, assert_func",
+    get_fill_executed_amount_data())
+def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
+                              orders, assert_func):
+    last_portfolio_rebalance_at = datetime.datetime.now()
+    profile_id = 1
+    collection_id = 2
+    executed_amount_sum = Decimal(executed_amount_sum)
+    cash_flow_sum = Decimal(cash_flow_sum)
+
+    repository = TradingRepository(None)
+
+    def mock_calculate_executed_amount_sum(*args, **kwargs):
+        assert args[0] == profile_id
+        assert kwargs["collection_id"] == collection_id
+        return executed_amount_sum
+
+    monkeypatch.setattr(repository, "calculate_executed_amount_sum",
+                        mock_calculate_executed_amount_sum)
+
+    def mock_calculate_cash_flow_sum(*args, **kwargs):
+        assert args[0] == profile_id
+        assert kwargs["collection_id"] == collection_id
+        return cash_flow_sum
+
+    monkeypatch.setattr(repository, "calculate_cash_flow_sum",
+                        mock_calculate_cash_flow_sum)
+
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    provider = DriveWealthProvider(None, None, repository)
+
+    provider._fill_executed_amount(profile_id,
+                                   orders,
+                                   last_portfolio_rebalance_at,
+                                   collection_id=collection_id)
+
+    assert_func(persisted_objects)

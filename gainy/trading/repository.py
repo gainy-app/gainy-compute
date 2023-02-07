@@ -123,3 +123,69 @@ class TradingRepository(Repository):
             return Decimal(row[0])
 
         return Decimal(0)
+
+    def calculate_executed_amount_sum(self,
+                                      profile_id: int,
+                                      collection_id: int = None,
+                                      symbol: str = None) -> Decimal:
+        if collection_id:
+            query = """select sum(target_amount_delta)
+                from app.trading_collection_versions
+                where profile_id = %(profile_id)s
+                  and collection_id = %(collection_id)s
+                  and status = %(status)s"""
+            params = {
+                "profile_id": profile_id,
+                "collection_id": collection_id,
+                "status": TradingOrderStatus.EXECUTED_FULLY,
+            }
+        elif symbol:
+            query = """select sum(target_amount_delta)
+                from app.trading_orders
+                where profile_id = %(profile_id)s
+                  and symbol = %(symbol)s
+                  and status = %(status)s"""
+            params = {
+                "profile_id": profile_id,
+                "symbol": symbol,
+                "status": TradingOrderStatus.EXECUTED_FULLY,
+            }
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def calculate_cash_flow_sum(self,
+                                profile_id: int,
+                                collection_id: int = None,
+                                symbol: str = None) -> Decimal:
+        query = """select sum(cash_flow_sum_total)
+            from drivewealth_portfolio_holding_gains
+            where profile_id = %(profile_id)s"""
+        params = {
+            "profile_id": profile_id,
+        }
+        if collection_id:
+            query = query + " and collection_id = %(collection_id)s"
+            params["collection_id"] = collection_id
+        elif symbol:
+            query = query + " and symbol = %(symbol)s"
+            params["symbol"] = symbol
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(0)

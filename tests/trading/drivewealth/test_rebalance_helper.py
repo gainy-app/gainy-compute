@@ -259,6 +259,9 @@ def test_handle_cash_amount_change_ok_absolute(amount, monkeypatch):
     portfolio.set_from_response(PORTFOLIO)
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(drivewealth_repository,
+                        "is_portfolio_pending_rebalance",
+                        lambda portfolio: False)
 
     provider = DriveWealthProvider(drivewealth_repository, None, None)
 
@@ -313,6 +316,9 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
 
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(drivewealth_repository,
+                        "is_portfolio_pending_rebalance",
+                        lambda portfolio: False)
 
     provider = DriveWealthProvider(drivewealth_repository, None, None)
 
@@ -350,6 +356,9 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
 
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+    monkeypatch.setattr(drivewealth_repository,
+                        "is_portfolio_pending_rebalance",
+                        lambda portfolio: False)
 
     provider = DriveWealthProvider(drivewealth_repository, None, None)
 

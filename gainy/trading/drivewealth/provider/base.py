@@ -1,13 +1,16 @@
+from decimal import Decimal
+
 import datetime
-from typing import List, Iterable
+from typing import List, Iterable, Dict
 
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
-    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount
+    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION
 from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.trading.models import TradingOrderStatus, TradingAccount
+from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
+    AmountAwareTradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
@@ -73,6 +76,9 @@ class DriveWealthProviderBase:
         except EntityNotFoundException:
             return
 
+        profile_id = trading_account.profile_id
+
+        by_collection: Dict[int, list[TradingCollectionVersion]] = {}
         for trading_collection_version in self.trading_repository.iterate_trading_collection_versions(
                 profile_id=trading_account.profile_id,
                 trading_account_id=trading_account.id,
@@ -80,16 +86,18 @@ class DriveWealthProviderBase:
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
-            if trading_collection_version.pending_execution_since and trading_collection_version.pending_execution_since > portfolio_status.last_portfolio_rebalance_at:
-                raise Exception(
-                    'Trying to update trading_collection_version %d, which is pending execution since %s, '
-                    'with latest rebalance happened on %s' %
-                    (trading_collection_version.id,
-                     trading_collection_version.pending_execution_since,
-                     portfolio_status.last_portfolio_rebalance_at))
-            trading_collection_version.status = TradingOrderStatus.EXECUTED_FULLY
-            trading_collection_version.executed_at = portfolio_status.last_portfolio_rebalance_at
-            self.trading_repository.persist(trading_collection_version)
+            collection_id = trading_collection_version.collection_id
+            if collection_id not in by_collection:
+                by_collection[collection_id] = []
+            by_collection[collection_id].append(trading_collection_version)
+
+        for collection_id, trading_collection_versions in by_collection.items(
+        ):
+            self._fill_executed_amount(
+                profile_id,
+                trading_collection_versions,
+                portfolio_status.last_portfolio_rebalance_at,
+                collection_id=collection_id)
 
     def update_trading_orders_pending_execution_from_portfolio_status(
             self, portfolio_status: DriveWealthPortfolioStatus):
@@ -102,6 +110,9 @@ class DriveWealthProviderBase:
         except EntityNotFoundException:
             return
 
+        profile_id = trading_account.profile_id
+
+        by_symbol: Dict[str, list[TradingOrder]] = {}
         for trading_order in self.trading_repository.iterate_trading_orders(
                 profile_id=trading_account.profile_id,
                 trading_account_id=trading_account.id,
@@ -109,15 +120,17 @@ class DriveWealthProviderBase:
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
-            if trading_order.pending_execution_since and trading_order.pending_execution_since > portfolio_status.last_portfolio_rebalance_at:
-                raise Exception(
-                    'Trying to update trading_order %d, which is pending execution since %s, '
-                    'with latest rebalance happened on %s' %
-                    (trading_order.id, trading_order.pending_execution_since,
-                     portfolio_status.last_portfolio_rebalance_at))
-            trading_order.status = TradingOrderStatus.EXECUTED_FULLY
-            trading_order.executed_at = portfolio_status.last_portfolio_rebalance_at
-            self.trading_repository.persist(trading_order)
+            symbol = trading_order.symbol
+            if symbol not in by_symbol:
+                by_symbol[symbol] = []
+            by_symbol[symbol].append(trading_order)
+
+        for symbol, trading_orders in by_symbol.items():
+            self._fill_executed_amount(
+                profile_id,
+                trading_orders,
+                portfolio_status.last_portfolio_rebalance_at,
+                symbol=symbol)
 
     def iterate_profile_funds(self,
                               profile_id: int) -> Iterable[DriveWealthFund]:
@@ -183,3 +196,42 @@ class DriveWealthProviderBase:
             raise EntityNotFoundException
 
         return trading_account
+
+    def _fill_executed_amount(self,
+                              profile_id,
+                              orders: List[AmountAwareTradingOrder],
+                              last_portfolio_rebalance_at: datetime.datetime,
+                              collection_id: int = None,
+                              symbol: str = None):
+        pending_amount_sum = sum(order.target_amount_delta for order in orders)
+
+        if collection_id:
+            executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
+                profile_id, collection_id=collection_id)
+            cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
+                profile_id, collection_id=collection_id)
+        elif symbol:
+            executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
+                profile_id, symbol=symbol)
+            cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
+                profile_id, symbol=symbol)
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        # executed_amount_sum + pending_amount_sum = cash_flow_sum
+        diff = executed_amount_sum + pending_amount_sum - cash_flow_sum
+        for order in reversed(orders):
+            if order.target_amount_delta > 0:
+                error = max(Decimal(0), min(order.target_amount_delta, diff))
+            elif order.target_amount_delta < 0:
+                error = min(Decimal(0), max(order.target_amount_delta, diff))
+            else:
+                continue
+
+            diff = diff - error
+            order.executed_amount = order.target_amount_delta - error
+
+            if abs(error) < EXECUTED_AMOUNT_PRECISION:
+                order.status = TradingOrderStatus.EXECUTED_FULLY
+                order.executed_at = last_portfolio_rebalance_at
+        self.trading_repository.persist(orders)

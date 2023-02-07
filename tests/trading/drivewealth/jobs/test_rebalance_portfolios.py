@@ -79,7 +79,7 @@ def test_rebalance_portfolios(monkeypatch):
             }, account2),
         ]))
 
-    job = RebalancePortfoliosJob(trading_repository, provider, None)
+    job = RebalancePortfoliosJob(trading_repository, None, provider, None)
     monkeypatch.setattr(
         job, "_iterate_accounts_with_pending_trading_collection_versions",
         lambda: [(profile_id1, trading_account_id_1)])
@@ -150,7 +150,7 @@ def test_apply_trading_collection_versions(monkeypatch):
         provider, "reconfigure_collection_holdings",
         mock_record_calls(reconfigure_collection_holdings_calls))
 
-    RebalancePortfoliosJob(repository, provider,
+    RebalancePortfoliosJob(repository, None, provider,
                            None).apply_trading_collection_versions(portfolio)
 
     assert (portfolio, trading_collection_version) in [
@@ -196,7 +196,7 @@ def test_apply_trading_orders(monkeypatch):
     monkeypatch.setattr(provider, "execute_order_in_portfolio",
                         mock_record_calls(execute_order_in_portfolio_calls))
 
-    RebalancePortfoliosJob(repository, provider,
+    RebalancePortfoliosJob(repository, None, provider,
                            None).apply_trading_orders(portfolio)
 
     assert (portfolio, trading_order) in [
@@ -287,7 +287,7 @@ def test_rebalance_existing_funds(monkeypatch):
         provider, "reconfigure_collection_holdings",
         mock_record_calls(reconfigure_collection_holdings_calls))
 
-    job = RebalancePortfoliosJob(repository, provider, trading_service)
+    job = RebalancePortfoliosJob(repository, None, provider, trading_service)
 
     def mock_get_trading_account_id(_portfolio):
         assert _portfolio == portfolio
@@ -325,7 +325,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
     persisted_objects = {}
     monkeypatch.setattr(trading_repository, "persist",
                         mock_persist(persisted_objects))
-    RebalancePortfoliosJob(trading_repository, provider,
+    RebalancePortfoliosJob(trading_repository, None, provider,
                            None).rebalance_portfolio_cash(portfolio)
 
     assert portfolio in [

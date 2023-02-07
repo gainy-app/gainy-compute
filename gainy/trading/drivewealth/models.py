@@ -16,6 +16,7 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
+EXECUTED_AMOUNT_PRECISION = Decimal(1)
 PRECISION = Decimal(10)**-3
 ONE = Decimal(1)
 ZERO = Decimal(0)
@@ -650,14 +651,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def set_pending_rebalance(self):
         self.waiting_rebalance_since = datetime.datetime.now(
             tz=datetime.timezone.utc)
-
-    def is_pending_rebalance(self) -> bool:
-        if self.waiting_rebalance_since is None:
-            return False
-        if self.last_rebalance_at is None:
-            return True
-
-        return self.waiting_rebalance_since > self.last_rebalance_at
 
     def update_from_status(self, portfolio_status: DriveWealthPortfolioStatus):
         if self.last_rebalance_at:

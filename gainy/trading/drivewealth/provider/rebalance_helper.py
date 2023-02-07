@@ -92,7 +92,7 @@ class DriveWealthProviderRebalanceHelper:
             return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
-        if portfolio.is_pending_rebalance():
+        if self.repository.is_portfolio_pending_rebalance(portfolio):
             cash_actual_weight = portfolio_status.cash_target_weight
             cash_value = cash_actual_weight * portfolio_status.equity_value
             fund_actual_weight = portfolio.get_fund_weight(chosen_fund.ref_id)
@@ -112,7 +112,6 @@ class DriveWealthProviderRebalanceHelper:
             "target_amount_delta_relative": target_amount_delta_relative,
             "portfolio_status": portfolio_status.to_dict(),
             "portfolio": portfolio.to_dict(),
-            "is_pending_rebalance": portfolio.is_pending_rebalance(),
             "chosen_fund": chosen_fund.to_dict(),
             "cash_actual_weight": cash_actual_weight,
             "cash_value": cash_value,
