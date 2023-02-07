@@ -390,7 +390,6 @@ class DriveWealthPortfolioHolding(BaseDriveWealthModel):
     holding_id_v2: str = None
     actual_value: Decimal = None
     quantity: Decimal = None
-    quantity_norm_for_valuation: Decimal = None
     symbol: str = None
     collection_uniq_id: str = None
     collection_id: int = None
