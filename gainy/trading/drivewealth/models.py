@@ -384,7 +384,7 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         }
 
 
-class DriveWealthPortfolioHolding(BaseDriveWealthModel):
+class DriveWealthPortfolioHolding(BaseModel):
     portfolio_status_id = None
     profile_id: int = None
     holding_id_v2: str = None
@@ -399,6 +399,10 @@ class DriveWealthPortfolioHolding(BaseDriveWealthModel):
 
     db_excluded_fields = ["updated_at"]
     non_persistent_fields = ["updated_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
 
     @classproperty
     def table_name(self) -> str:
