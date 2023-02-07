@@ -197,7 +197,7 @@ class DriveWealthRepository(Repository):
             cursor.execute(
                 query, {
                     "drivewealth_account_id": portfolio.drivewealth_account_id,
-                    "status": TradingOrderStatus.PENDING_EXECUTION
+                    "status": TradingOrderStatus.PENDING_EXECUTION.name
                 })
             row = cursor.fetchone()
         return row[0]
