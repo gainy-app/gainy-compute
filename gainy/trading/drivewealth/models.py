@@ -385,7 +385,7 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
 
 class DriveWealthPortfolioHolding(BaseDriveWealthModel):
-    drivewealth_portfolio_status_id = None
+    portfolio_status_id = None
     profile_id: int = None
     holding_id_v2: str = None
     actual_value: Decimal = None

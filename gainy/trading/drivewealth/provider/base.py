@@ -277,7 +277,7 @@ class DriveWealthProviderBase:
                 quantity = Decimal(fund_folding_data["openQty"])
 
                 holding = DriveWealthPortfolioHolding()
-                holding.drivewealth_portfolio_status_id = portfolio_status.id
+                holding.portfolio_status_id = portfolio_status.id
                 holding.profile_id = profile_id
                 holding.holding_id_v2 = holding_id_v2
                 holding.actual_value = fund_folding_data["value"]

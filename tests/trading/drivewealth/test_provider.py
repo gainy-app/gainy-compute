@@ -601,7 +601,7 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
     assert len(holdings_by_id) == 2
 
     for holding in holdings_by_id.values():
-        assert holding.drivewealth_portfolio_status_id == portfolio_status_id
+        assert holding.portfolio_status_id == portfolio_status_id
         assert holding.profile_id == profile_id
         idx = int(holding.holding_id_v2 == "dw_ttf_1_2_AAPL")
         assert holding.actual_value == Decimal(
