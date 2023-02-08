@@ -124,6 +124,52 @@ class TradingRepository(Repository):
 
         return Decimal(0)
 
+    def get_pending_orders_amounts(self,
+                                   profile_id: int,
+                                   symbol: str = None,
+                                   collection_id: int = None):
+        if collection_id:
+            query = """select coalesce(sum(target_amount_delta), 0), 
+                              coalesce(sum(target_amount_delta_relative), 0)
+                from app.trading_collection_versions
+                where profile_id = %(profile_id)s
+                  and collection_id = %(collection_id)s
+                  and status in %(statuses)s"""
+            params = {
+                "profile_id":
+                profile_id,
+                "collection_id":
+                collection_id,
+                "statuses": (TradingOrderStatus.PENDING.name,
+                             TradingOrderStatus.PENDING_EXECUTION.name),
+            }
+        elif symbol:
+            query = """select coalesce(sum(target_amount_delta), 0), 
+                              coalesce(sum(target_amount_delta_relative), 0)
+                from app.trading_orders
+                where profile_id = %(profile_id)s
+                  and symbol = %(symbol)s
+                  and status in %(statuses)s"""
+            params = {
+                "profile_id":
+                profile_id,
+                "symbol":
+                symbol,
+                "statuses": (TradingOrderStatus.PENDING.name,
+                             TradingOrderStatus.PENDING_EXECUTION.name),
+            }
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0]), Decimal(row[1])
+
+        return Decimal(0), Decimal(0)
+
     def calculate_executed_amount_sum(self,
                                       profile_id: int,
                                       collection_id: int = None,

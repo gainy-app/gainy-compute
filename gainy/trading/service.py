@@ -7,6 +7,7 @@ from typing import Iterable, Dict, List, Any
 from gainy.exceptions import EntityNotFoundException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
+from gainy.trading.drivewealth.models import PRECISION
 from gainy.trading.exceptions import InsufficientFundsException, InsufficientHoldingValueException
 from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth.provider import DriveWealthProvider
@@ -87,6 +88,10 @@ class TradingService:
                 raise Exception(
                     'target_amount_delta_relative must be within [-1, 0) span.'
                 )
+            self.check_enough_holding_amount(
+                trading_account_id,
+                needed_amount_relative=-target_amount_delta_relative,
+                collection_id=collection_id)
 
         if target_amount_delta:
             if target_amount_delta_relative:
@@ -98,9 +103,10 @@ class TradingService:
                 self.check_enough_buying_power(trading_account_id,
                                                target_amount_delta)
             elif target_amount_delta < Decimal(0):
-                self.check_enough_holding_amount(trading_account_id,
-                                                 -target_amount_delta,
-                                                 collection_id=collection_id)
+                self.check_enough_holding_amount(
+                    trading_account_id,
+                    needed_amount=-target_amount_delta,
+                    collection_id=collection_id)
 
         collection_version = TradingCollectionVersion()
         collection_version.source = source
@@ -131,6 +137,10 @@ class TradingService:
                 raise Exception(
                     'target_amount_delta_relative must be within [-1, 0) span.'
                 )
+            self.check_enough_holding_amount(
+                trading_account_id,
+                needed_amount_relative=-target_amount_delta_relative,
+                symbol=symbol)
 
         if target_amount_delta:
             if target_amount_delta_relative:
@@ -142,9 +152,10 @@ class TradingService:
                 self.check_enough_buying_power(trading_account_id,
                                                target_amount_delta)
             else:
-                self.check_enough_holding_amount(trading_account_id,
-                                                 -target_amount_delta,
-                                                 symbol=symbol)
+                self.check_enough_holding_amount(
+                    trading_account_id,
+                    needed_amount=-target_amount_delta,
+                    symbol=symbol)
 
         trading_order = TradingOrder()
         trading_order.profile_id = profile_id
@@ -169,7 +180,8 @@ class TradingService:
 
     def check_enough_holding_amount(self,
                                     trading_account_id: int,
-                                    needed_amount: Decimal,
+                                    needed_amount: Decimal = None,
+                                    needed_amount_relative: Decimal = None,
                                     collection_id: int = None,
                                     symbol: str = None):
         if collection_id is not None and symbol is not None:
@@ -192,8 +204,28 @@ class TradingService:
         else:
             raise Exception('You must specify either collection_id or symbol.')
 
-        if needed_amount > holding_amount:
-            raise InsufficientHoldingValueException()
+        pending_amount, pending_amount_relative = self.trading_repository.get_pending_orders_amounts(
+            profile_id, symbol=symbol, collection_id=collection_id)
+
+        logger.info('check_enough_holding_amount',
+                    extra={
+                        "profile_id": profile_id,
+                        "trading_account_id": trading_account_id,
+                        "needed_amount": needed_amount,
+                        "needed_amount_relative": needed_amount_relative,
+                        "collection_id": collection_id,
+                        "symbol": symbol,
+                        "pending_amount": pending_amount,
+                        "pending_amount_relative": pending_amount_relative,
+                        "holding_amount": holding_amount,
+                    })
+
+        if needed_amount is not None:
+            if needed_amount > holding_amount + pending_amount:
+                raise InsufficientHoldingValueException()
+        if needed_amount_relative is not None:
+            if needed_amount_relative > 1 + pending_amount_relative or holding_amount < PRECISION:
+                raise InsufficientHoldingValueException()
 
     def check_enough_withdrawable_cash(self, trading_account_id: int,
                                        needed_amount: Decimal):
