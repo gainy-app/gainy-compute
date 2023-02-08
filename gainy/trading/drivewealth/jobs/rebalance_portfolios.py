@@ -61,7 +61,11 @@ class RebalancePortfoliosJob:
                 continue
 
             try:
-                self.rebalance_portfolio_cash(portfolio)
+                is_portfolio_pending_rebalance = self.drivewealth_repository.is_portfolio_pending_rebalance(
+                    portfolio)
+                if not is_portfolio_pending_rebalance:
+                    self.rebalance_portfolio_cash(portfolio)
+
                 trading_collection_versions = self.apply_trading_collection_versions(
                     portfolio)
                 trading_orders = self.apply_trading_orders(portfolio)
@@ -100,15 +104,16 @@ class RebalancePortfoliosJob:
                 trading_account_id=trading_account_id,
                 status=TradingOrderStatus.PENDING):
             start_time = time.time()
+
+            logger.info(
+                "Executing order %s for profile %d account %d, symbol %s in %fs",
+                trading_order.id, profile_id, trading_account_id,
+                trading_order.symbol,
+                time.time() - start_time)
+
             try:
                 self.provider.execute_order_in_portfolio(
                     portfolio, trading_order)
-
-                logger.info(
-                    "Executed order %s for profile %d account %d, symbol %s in %fs",
-                    trading_order.id, profile_id, trading_account_id,
-                    trading_order.symbol,
-                    time.time() - start_time)
 
                 trading_orders.append(trading_order)
                 trading_order.status = TradingOrderStatus.PENDING_EXECUTION
@@ -139,16 +144,16 @@ class RebalancePortfoliosJob:
                 trading_account_id=trading_account_id,
                 status=TradingOrderStatus.PENDING):
             start_time = time.time()
+
+            logger.info(
+                "Reconfiguring collection holdings %s for profile %d account %d, collections %s in %fs",
+                trading_collection_version.id, profile_id, trading_account_id,
+                trading_collection_version.collection_id,
+                time.time() - start_time)
+
             try:
                 self.provider.reconfigure_collection_holdings(
                     portfolio, trading_collection_version)
-
-                logger.info(
-                    "Reconfigured collection holdings %s for profile %d account %d, collections %s in %fs",
-                    trading_collection_version.id, profile_id,
-                    trading_account_id,
-                    trading_collection_version.collection_id,
-                    time.time() - start_time)
 
                 trading_collection_versions.append(trading_collection_version)
                 trading_collection_version.status = TradingOrderStatus.PENDING_EXECUTION
