@@ -214,6 +214,9 @@ class DriveWealthProviderBase:
                               last_portfolio_rebalance_at: datetime.datetime,
                               collection_id: int = None,
                               symbol: str = None):
+        orders = [
+            order for order in orders if order.target_amount_delta is not None
+        ]
         pending_amount_sum = sum(order.target_amount_delta for order in orders)
 
         if collection_id:
