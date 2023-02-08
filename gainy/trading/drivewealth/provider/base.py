@@ -286,8 +286,9 @@ class DriveWealthProviderBase:
                 holding.actual_value = fund_folding_data["value"]
                 holding.quantity = quantity
                 holding.symbol = symbol
-                holding.collection_uniq_id = f"0_{collection_id}"
-                holding.collection_id = collection_id
+                if collection_id:
+                    holding.collection_uniq_id = f"0_{collection_id}"
+                    holding.collection_id = collection_id
                 holdings.append(holding)
 
         self.repository.persist(holdings)
