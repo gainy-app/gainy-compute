@@ -234,6 +234,12 @@ class DriveWealthProviderBase:
 
         # executed_amount_sum + pending_amount_sum = cash_flow_sum
         diff = executed_amount_sum + pending_amount_sum - cash_flow_sum
+        logger_extra = {
+            "profile_id": profile_id,
+            "executed_amount_sum": executed_amount_sum,
+            "pending_amount_sum": pending_amount_sum,
+            "cash_flow_sum": cash_flow_sum,
+        }
         for order in reversed(orders):
             if order.target_amount_delta > 0:
                 error = max(Decimal(0), min(order.target_amount_delta, diff))
@@ -242,12 +248,18 @@ class DriveWealthProviderBase:
             else:
                 continue
 
+            logger_extra["order_class"] = order.__class__.__name__
+            logger_extra["order_id"] = order.id
+            logger_extra["diff"] = diff
+
             diff = diff - error
             order.executed_amount = order.target_amount_delta - error
+            logger_extra["executed_amount"] = order.executed_amount
 
             if abs(error) < EXECUTED_AMOUNT_PRECISION:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
                 order.executed_at = last_portfolio_rebalance_at
+            logger.info('_fill_executed_amount', extra=logger_extra)
         self.trading_repository.persist(orders)
 
     def _create_portfolio_holdings_from_status(

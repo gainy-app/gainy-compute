@@ -81,6 +81,7 @@ class TradingAccount(BaseModel):
 
 
 class AmountAwareTradingOrder(ABC):
+    id = None
     target_amount_delta: Decimal = None
     target_amount_delta_relative: Decimal = None
     executed_amount: Decimal = None
