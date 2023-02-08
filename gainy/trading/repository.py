@@ -137,7 +137,7 @@ class TradingRepository(Repository):
             params = {
                 "profile_id": profile_id,
                 "collection_id": collection_id,
-                "status": TradingOrderStatus.EXECUTED_FULLY,
+                "status": TradingOrderStatus.EXECUTED_FULLY.name,
             }
         elif symbol:
             query = """select sum(target_amount_delta)
@@ -148,7 +148,7 @@ class TradingRepository(Repository):
             params = {
                 "profile_id": profile_id,
                 "symbol": symbol,
-                "status": TradingOrderStatus.EXECUTED_FULLY,
+                "status": TradingOrderStatus.EXECUTED_FULLY.name,
             }
         else:
             raise Exception("You must specify either collection_id or symbol")
