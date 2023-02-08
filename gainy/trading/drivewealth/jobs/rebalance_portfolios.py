@@ -70,8 +70,18 @@ class RebalancePortfoliosJob:
                 portfolio.normalize_weights()
                 self.provider.send_portfolio_to_api(portfolio)
 
-                if self.drivewealth_repository.is_portfolio_pending_rebalance(
-                        portfolio):
+                is_portfolio_pending_rebalance = self.drivewealth_repository.is_portfolio_pending_rebalance(
+                    portfolio)
+                logger.info("is_portfolio_pending_rebalance",
+                            extra={
+                                "profile_id":
+                                portfolio.profile_id,
+                                "portfolio_ref_id":
+                                portfolio.ref_id,
+                                "is_portfolio_pending_rebalance":
+                                is_portfolio_pending_rebalance,
+                            })
+                if is_portfolio_pending_rebalance:
                     self.force_rebalance(
                         portfolio,
                         trading_collection_versions=trading_collection_versions,
@@ -242,7 +252,11 @@ class RebalancePortfoliosJob:
                             "portfolio_red_id": portfolio.ref_id,
                             "profile_id": portfolio.profile_id
                         })
-        except DriveWealthApiException:
+        except DriveWealthApiException as e:
+            logger.info("Failed to force portfolio rebalance",
+                        extra={
+                            "e": e,
+                        })
             pass
 
     def rebalance_existing_collection_fund(self,
