@@ -207,11 +207,24 @@ class TradingService:
         pending_amount, pending_amount_relative = self.trading_repository.get_pending_orders_amounts(
             profile_id, symbol=symbol, collection_id=collection_id)
 
+        logger.info('check_enough_holding_amount',
+                    extra={
+                        "profile_id": profile_id,
+                        "trading_account_id": trading_account_id,
+                        "needed_amount": needed_amount,
+                        "needed_amount_relative": needed_amount_relative,
+                        "collection_id": collection_id,
+                        "symbol": symbol,
+                        "pending_amount": pending_amount,
+                        "pending_amount_relative": pending_amount_relative,
+                        "holding_amount": holding_amount,
+                    })
+
         if needed_amount is not None:
             if needed_amount > holding_amount + pending_amount:
                 raise InsufficientHoldingValueException()
         if needed_amount_relative is not None:
-            if needed_amount_relative > pending_amount_relative or holding_amount < PRECISION:
+            if needed_amount_relative > 1 + pending_amount_relative or holding_amount < PRECISION:
                 raise InsufficientHoldingValueException()
 
     def check_enough_withdrawable_cash(self, trading_account_id: int,
