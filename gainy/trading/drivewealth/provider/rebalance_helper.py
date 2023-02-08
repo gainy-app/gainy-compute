@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Dict, Any, Optional, List
 
 from gainy.exceptions import EntityNotFoundException
-from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, DW_WEIGHT_THRESHOLD
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, DW_WEIGHT_THRESHOLD, PRECISION
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import TradingCollectionVersion, TradingOrder, AmountAwareTradingOrder
@@ -132,11 +132,12 @@ class DriveWealthProviderRebalanceHelper:
             weight_delta = target_amount_delta_relative * fund_actual_weight
             amount_aware_order.target_amount_delta = target_amount_delta_relative * fund_value
         elif target_amount_delta > 0:
-            if cash_value - target_amount_delta < 0:
+            if cash_value - target_amount_delta < -PRECISION:
                 raise InsufficientFundsException()
             weight_delta = target_amount_delta / cash_value * cash_actual_weight
         else:
-            if fund_value + target_amount_delta < 0:
+            print(fund_value, target_amount_delta)
+            if fund_value + target_amount_delta < -PRECISION:
                 raise InsufficientFundsException()
             weight_delta = target_amount_delta / fund_value * fund_actual_weight
 
