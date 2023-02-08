@@ -289,6 +289,9 @@ class DriveWealthProviderBase:
                 if collection_id:
                     holding.collection_uniq_id = f"0_{collection_id}"
                     holding.collection_id = collection_id
+                else:
+                    holding.collection_uniq_id = None
+                    holding.collection_id = None
                 holdings.append(holding)
 
         self.repository.persist(holdings)
