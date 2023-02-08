@@ -92,13 +92,10 @@ class DriveWealthProviderRebalanceHelper:
             return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
-<<<<<<< HEAD
-        if self.repository.is_portfolio_pending_rebalance(portfolio):
-            cash_actual_weight = portfolio_status.cash_target_weight
-=======
-        if portfolio.is_pending_rebalance():
+        is_pending_rebalance = self.repository.is_portfolio_pending_rebalance(
+            portfolio)
+        if is_pending_rebalance:
             cash_actual_weight = portfolio.cash_target_weight
->>>>>>> main
             cash_value = cash_actual_weight * portfolio_status.equity_value
             fund_actual_weight = portfolio.get_fund_weight(chosen_fund.ref_id)
             fund_value = fund_actual_weight * portfolio_status.equity_value
@@ -117,6 +114,7 @@ class DriveWealthProviderRebalanceHelper:
             "target_amount_delta_relative": target_amount_delta_relative,
             "portfolio_status": portfolio_status.to_dict(),
             "portfolio": portfolio.to_dict(),
+            "is_pending_rebalance": is_pending_rebalance,
             "chosen_fund": chosen_fund.to_dict(),
             "cash_actual_weight": cash_actual_weight,
             "cash_value": cash_value,
@@ -140,7 +138,6 @@ class DriveWealthProviderRebalanceHelper:
                 raise InsufficientFundsException()
             weight_delta = target_amount_delta / cash_value * cash_actual_weight
         else:
-            print(fund_value, target_amount_delta)
             if fund_value + target_amount_delta < -PRECISION:
                 raise InsufficientFundsException()
             weight_delta = target_amount_delta / fund_value * fund_actual_weight
