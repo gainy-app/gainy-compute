@@ -4,7 +4,7 @@ from decimal import Decimal
 import datetime
 from typing import List, Iterable, Dict
 
-from gainy.data_access.operators import OperatorGt
+from gainy.data_access.operators import OperatorGt, OperatorNot, OperatorIn
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
@@ -307,3 +307,7 @@ class DriveWealthProviderBase:
                 holdings.append(holding)
 
         self.repository.persist(holdings)
+        holding_ids = [i.holding_id_v2 for i in holdings]
+        self.repository.delete_by(
+            DriveWealthPortfolioHolding,
+            {"holding_id_v2": OperatorNot(OperatorIn(holding_ids))})
