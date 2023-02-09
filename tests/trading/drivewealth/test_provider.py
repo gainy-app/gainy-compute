@@ -3,6 +3,7 @@ import pytest
 
 from decimal import Decimal
 
+from gainy.data_access.operators import OperatorIn, OperatorNot
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, \
@@ -587,6 +588,9 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
             }, fund2),
         ]))
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+    delete_by_calls = []
+    monkeypatch.setattr(repository, "delete_by",
+                        mock_record_calls(delete_by_calls))
 
     provider = DriveWealthProvider(repository, None, None)
     provider._create_portfolio_holdings_from_status(portfolio_status)
@@ -612,6 +616,14 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
             PORTFOLIO_STATUS["holdings"][1]["holdings"][idx]["symbol"])
         assert holding.collection_uniq_id == f"0_{collection_id}"
         assert holding.collection_id == collection_id
+
+    assert len(delete_by_calls) == 1
+    call = delete_by_calls[0][0]
+    assert call[0] == DriveWealthPortfolioHolding
+    operator = call[1]["holding_id_v2"]
+    assert isinstance(operator, OperatorNot)
+    assert isinstance(operator.operator, OperatorIn)
+    assert set(operator.operator.param) == set(holdings_by_id.keys())
 
 
 def test_update_trading_collection_versions_pending_execution_from_portfolio_status(
