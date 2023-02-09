@@ -309,5 +309,7 @@ class DriveWealthProviderBase:
         self.repository.persist(holdings)
         holding_ids = [i.holding_id_v2 for i in holdings]
         self.repository.delete_by(
-            DriveWealthPortfolioHolding,
-            {"holding_id_v2": OperatorNot(OperatorIn(holding_ids))})
+            DriveWealthPortfolioHolding, {
+                "profile_id": profile_id,
+                "holding_id_v2": OperatorNot(OperatorIn(holding_ids))
+            })

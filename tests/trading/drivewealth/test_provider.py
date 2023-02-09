@@ -620,6 +620,7 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
     assert len(delete_by_calls) == 1
     call = delete_by_calls[0][0]
     assert call[0] == DriveWealthPortfolioHolding
+    assert call[1]["profile_id"] == profile_id
     operator = call[1]["holding_id_v2"]
     assert isinstance(operator, OperatorNot)
     assert isinstance(operator.operator, OperatorIn)
