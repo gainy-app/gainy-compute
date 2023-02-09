@@ -54,6 +54,8 @@ def test_rebalance_portfolios(monkeypatch):
     portfolio2.holdings = {}
 
     repository = DriveWealthRepository(None)
+    monkeypatch.setattr(repository, "is_portfolio_pending_rebalance",
+                        lambda portfolio: False)
 
     provider = DriveWealthProvider(repository, None, None)
     send_portfolio_to_api_calls = []
@@ -79,7 +81,8 @@ def test_rebalance_portfolios(monkeypatch):
             }, account2),
         ]))
 
-    job = RebalancePortfoliosJob(trading_repository, None, provider, None)
+    job = RebalancePortfoliosJob(trading_repository, repository, provider,
+                                 None)
     monkeypatch.setattr(
         job, "_iterate_accounts_with_pending_trading_collection_versions",
         lambda: [(profile_id1, trading_account_id_1)])
