@@ -110,6 +110,7 @@ class DriveWealthProviderRebalanceHelper:
                 portfolio_status)
 
         logging_extra = {
+            "profile_id": portfolio.profile_id,
             "target_amount_delta": target_amount_delta,
             "target_amount_delta_relative": target_amount_delta_relative,
             "portfolio_status": portfolio_status.to_dict(),

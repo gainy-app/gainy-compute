@@ -44,8 +44,11 @@ class RebalancePortfoliosJob:
 
                 logger.info(
                     "Upsert portfolio %s for profile %d account %d in %fs",
-                    portfolio.ref_id, profile_id, trading_account_id,
-                    time.time() - start_time)
+                    portfolio.ref_id,
+                    profile_id,
+                    trading_account_id,
+                    time.time() - start_time,
+                    extra={"profile_id": profile_id})
             except Exception as e:
                 logger.exception(e)
 
@@ -107,9 +110,12 @@ class RebalancePortfoliosJob:
 
             logger.info(
                 "Executing order %s for profile %d account %d, symbol %s in %fs",
-                trading_order.id, profile_id, trading_account_id,
+                trading_order.id,
+                profile_id,
+                trading_account_id,
                 trading_order.symbol,
-                time.time() - start_time)
+                time.time() - start_time,
+                extra={"profile_id": profile_id})
 
             try:
                 self.provider.execute_order_in_portfolio(
@@ -122,8 +128,12 @@ class RebalancePortfoliosJob:
             except InsufficientFundsException as e:
                 logger.info(
                     "Skipping order %s for profile %d account %d, symbol %s: %s",
-                    trading_order.id, profile_id, trading_account_id,
-                    trading_order.symbol, e.__class__.__name__)
+                    trading_order.id,
+                    profile_id,
+                    trading_account_id,
+                    trading_order.symbol,
+                    e.__class__.__name__,
+                    extra={"profile_id": profile_id})
                 # let it stay pending until there are money on the account
                 continue
             except DriveWealthApiException as e:
@@ -147,9 +157,12 @@ class RebalancePortfoliosJob:
 
             logger.info(
                 "Reconfiguring collection holdings %s for profile %d account %d, collections %s in %fs",
-                trading_collection_version.id, profile_id, trading_account_id,
+                trading_collection_version.id,
+                profile_id,
+                trading_account_id,
                 trading_collection_version.collection_id,
-                time.time() - start_time)
+                time.time() - start_time,
+                extra={"profile_id": profile_id})
 
             try:
                 self.provider.reconfigure_collection_holdings(
@@ -163,10 +176,12 @@ class RebalancePortfoliosJob:
             except InsufficientFundsException as e:
                 logger.info(
                     "Skipping trading_collection_version %s for profile %d account %d, collections %s: %s",
-                    trading_collection_version.id, profile_id,
+                    trading_collection_version.id,
+                    profile_id,
                     trading_account_id,
                     trading_collection_version.collection_id,
-                    e.__class__.__name__)
+                    e.__class__.__name__,
+                    extra={"profile_id": profile_id})
                 # let it stay pending until there are money on the account
                 continue
             except DriveWealthApiException as e:
@@ -187,6 +202,7 @@ class RebalancePortfoliosJob:
             for fund in self.provider.iterate_profile_funds(profile_id):
                 fund_weight = portfolio.get_fund_weight(fund.ref_id)
                 logging_extra = {
+                    "profile_id": profile_id,
                     "fund_ref_id": fund.ref_id,
                     "fund_weight": str(fund_weight),
                 }
@@ -202,7 +218,8 @@ class RebalancePortfoliosJob:
 
             logger.info("Automatically rebalanced portfolio %s in %fs",
                         portfolio.ref_id,
-                        time.time() - start_time)
+                        time.time() - start_time,
+                        extra={"profile_id": profile_id})
         except DriveWealthApiException as e:
             logger.exception(e)
 
@@ -212,8 +229,10 @@ class RebalancePortfoliosJob:
         try:
             self.provider.rebalance_portfolio_cash(portfolio)
             self.repo.persist(portfolio)
-            logger.info("Rebalanced portfolio %s in %fs", portfolio.ref_id,
-                        time.time() - start_time)
+            logger.info("Rebalanced portfolio %s in %fs",
+                        portfolio.ref_id,
+                        time.time() - start_time,
+                        extra={"profile_id": profile_id})
         except DriveWealthApiException as e:
             logger.exception(e)
 
@@ -260,6 +279,7 @@ class RebalancePortfoliosJob:
         except DriveWealthApiException as e:
             logger.info("Failed to force portfolio rebalance",
                         extra={
+                            "profile_id": portfolio.profile_id,
                             "e": e,
                         })
             pass
@@ -268,6 +288,7 @@ class RebalancePortfoliosJob:
                                            portfolio: DriveWealthPortfolio,
                                            fund: DriveWealthFund):
         logging_extra = {
+            "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
             "trading_collection_version_id":
             fund.trading_collection_version_id,
@@ -325,6 +346,7 @@ class RebalancePortfoliosJob:
     def rebalance_existing_ticker_fund(self, portfolio: DriveWealthPortfolio,
                                        fund: DriveWealthFund):
         logging_extra = {
+            "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
             "symbol": fund.symbol,
         }

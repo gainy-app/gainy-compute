@@ -119,6 +119,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
         cash_weight_delta = cash_delta / portfolio_status.equity_value
 
         logging_extra = {
+            "profile_id": portfolio.profile_id,
             "portfolio_status": portfolio_status.to_dict(),
             "portfolio": portfolio.to_dict(),
             "cash_delta": cash_delta,

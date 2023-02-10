@@ -1,3 +1,5 @@
+from _decimal import Decimal
+
 from psycopg2.extras import RealDictCursor
 
 from typing import List, Iterable, Optional
@@ -74,27 +76,26 @@ class DriveWealthRepository(Repository):
     def calculate_portfolio_cash_target_value(self,
                                               portfolio: DriveWealthPortfolio):
         query = """
-            select sum(amount)
-            from (
-                     select amount + coalesce(fees_total_amount, 0) as amount
-                     from app.trading_money_flow
-                     where profile_id = %(profile_id)s
-                       and status in %(trading_money_flow_statuses)s
-            
-                     union all
-            
-                     select -target_amount_delta as amount
-                     from app.trading_collection_versions
-                     where profile_id = %(profile_id)s
-                       and status in %(trading_collection_version_statuses)s
-            
-                     union all
-            
-                     select -target_amount_delta as amount
-                     from app.trading_orders
-                     where profile_id = %(profile_id)s
-                       and status in %(trading_order_statuses)s
-                 ) t
+            select 'tmf:' || id as id, amount + coalesce(fees_total_amount, 0) as amount
+            from app.trading_money_flow
+            where profile_id = %(profile_id)s
+              and status in %(trading_money_flow_statuses)s
+
+            union all
+
+            select 'collection:' || collection_id as id, sum(-target_amount_delta) as amount
+            from app.trading_collection_versions
+            where profile_id = %(profile_id)s
+              and status in %(trading_collection_version_statuses)s
+            group by collection_id
+
+            union all
+
+            select 'ticker:' || symbol as id, sum(-target_amount_delta) as amount
+            from app.trading_orders
+            where profile_id = %(profile_id)s
+              and status in %(trading_order_statuses)s
+            group by symbol
         """
 
         trading_money_flow_statuses = [
@@ -112,6 +113,7 @@ class DriveWealthRepository(Repository):
             TradingOrderStatus.EXECUTED_FULLY.name,
         )
 
+        cash_target_value = Decimal(0)
         with self.db_conn.cursor() as cursor:
             cursor.execute(
                 query, {
@@ -124,12 +126,17 @@ class DriveWealthRepository(Repository):
                     "trading_order_statuses":
                     trading_order_statuses,
                 })
-            row = cursor.fetchone()
+            rows = cursor.fetchall()
+        for row in rows:
+            cash_target_value += Decimal(row[1])
 
-            if row and row[0]:
-                cash_target_value = row[0]
-            else:
-                cash_target_value = 0
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "cash_target_value": cash_target_value,
+            "data": rows,
+        }
+        logger.info('calculate_portfolio_cash_target_value',
+                    extra=logging_extra)
 
         portfolio.cash_target_value = cash_target_value
         self.persist(portfolio)
