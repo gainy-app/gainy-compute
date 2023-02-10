@@ -232,7 +232,7 @@ class RebalancePortfoliosJob:
             logger.info("Rebalanced portfolio %s in %fs",
                         portfolio.ref_id,
                         time.time() - start_time,
-                        extra={"profile_id": profile_id})
+                        extra={"profile_id": portfolio.profile_id})
         except DriveWealthApiException as e:
             logger.exception(e)
 
