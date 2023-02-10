@@ -57,6 +57,8 @@ class RebalancePortfoliosJob:
             if portfolio.is_artificial:
                 continue
 
+            self.provider.sync_portfolio_status(portfolio)
+
             account: DriveWealthAccount = self.repo.find_one(
                 DriveWealthAccount,
                 {"ref_id": portfolio.drivewealth_account_id})

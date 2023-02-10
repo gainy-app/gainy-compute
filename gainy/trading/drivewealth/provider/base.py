@@ -251,6 +251,7 @@ class DriveWealthProviderBase:
             logger_extra["order_class"] = order.__class__.__name__
             logger_extra["order_id"] = order.id
             logger_extra["diff"] = diff
+            logger_extra["error"] = error
 
             diff = diff - error
             order.executed_amount = order.target_amount_delta - error
