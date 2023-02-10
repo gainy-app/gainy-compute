@@ -65,6 +65,9 @@ def test_rebalance_portfolios(monkeypatch):
     monkeypatch.setattr(
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
+    sync_portfolio_status_calls = []
+    monkeypatch.setattr(provider, "sync_portfolio_status",
+                        mock_record_calls(sync_portfolio_status_calls))
 
     trading_repository = TradingRepository(None)
     monkeypatch.setattr(
@@ -104,17 +107,23 @@ def test_rebalance_portfolios(monkeypatch):
     job.run()
 
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
-    assert {portfolio1, portfolio2}.issubset(
-        set(args[0] for args, kwargs in rebalance_portfolio_cash_calls))
-    assert {portfolio1, portfolio2}.issubset(
-        set(args[0]
-            for args, kwargs in apply_trading_collection_versions_calls))
-    assert {portfolio1, portfolio2}.issubset(
-        set(args[0] for args, kwargs in apply_trading_orders_calls))
-    assert {portfolio1, portfolio2}.issubset(
-        set(args[0] for args, kwargs in rebalance_existing_funds_calls))
-    assert {portfolio1, portfolio2}.issubset(
-        set(args[0] for args, kwargs in send_portfolio_to_api_calls))
+    assert {portfolio1, portfolio2
+            } == set(args[0]
+                     for args, kwargs in rebalance_portfolio_cash_calls)
+    assert {portfolio1, portfolio2} == set(
+        args[0] for args, kwargs in apply_trading_collection_versions_calls)
+    assert {portfolio1,
+            portfolio2} == set(args[0]
+                               for args, kwargs in apply_trading_orders_calls)
+    assert {portfolio1, portfolio2
+            } == set(args[0]
+                     for args, kwargs in rebalance_existing_funds_calls)
+    assert {portfolio1,
+            portfolio2} == set(args[0]
+                               for args, kwargs in send_portfolio_to_api_calls)
+    assert {portfolio1,
+            portfolio2} == set(args[0]
+                               for args, kwargs in sync_portfolio_status_calls)
 
 
 def test_apply_trading_collection_versions(monkeypatch):
