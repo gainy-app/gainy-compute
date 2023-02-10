@@ -273,8 +273,19 @@ class DriveWealthProviderBase:
 
         holdings = []
         for holding_data in portfolio_status.data["holdings"]:
-            if holding_data["type"] != "FUND":
+            if holding_data["type"] == "CASH_RESERVE":
+                holding = DriveWealthPortfolioHolding()
+                holding.portfolio_status_id = portfolio_status.id
+                holding.profile_id = profile_id
+                holding.holding_id_v2 = f"{profile_id}_cash_CUR:USD"
+                holding.actual_value = holding_data["value"]
+                holding.quantity = holding_data["value"]
+                holding.symbol = "CUR:USD"
+                holding.collection_uniq_id = None
+                holding.collection_id = None
+                holdings.append(holding)
                 continue
+
             fund_id = holding_data["id"]
             fund: DriveWealthFund = self.repository.find_one(
                 DriveWealthFund, {"ref_id": fund_id})

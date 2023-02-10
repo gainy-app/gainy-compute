@@ -7,7 +7,7 @@ from gainy.data_access.operators import OperatorIn, OperatorNot
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, \
-    FUND1_TARGET_WEIGHT, FUND2_ID
+    FUND1_TARGET_WEIGHT, FUND2_ID, CASH_VALUE
 from gainy.trading.drivewealth.provider.base import normalize_symbol
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
@@ -602,11 +602,19 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
     }
     assert "dw_ttf_1_2_TSLA" in holdings_by_id
     assert "dw_ttf_1_2_AAPL" in holdings_by_id
-    assert len(holdings_by_id) == 2
+    assert "1_cash_CUR:USD" in holdings_by_id
+    assert len(holdings_by_id) == 3
 
     for holding in holdings_by_id.values():
         assert holding.portfolio_status_id == portfolio_status_id
         assert holding.profile_id == profile_id
+
+        if holding.holding_id_v2 == "1_cash_CUR:USD":
+            assert holding.actual_value == Decimal(CASH_VALUE)
+            assert holding.quantity == Decimal(CASH_VALUE)
+            assert holding.symbol == "CUR:USD"
+            continue
+
         idx = int(holding.holding_id_v2 == "dw_ttf_1_2_AAPL")
         assert holding.actual_value == Decimal(
             PORTFOLIO_STATUS["holdings"][1]["holdings"][idx]["value"])
