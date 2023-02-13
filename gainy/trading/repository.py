@@ -231,7 +231,7 @@ class TradingRepository(Repository):
             cursor.execute(query, params)
             row = cursor.fetchone()
 
-        if row:
+        if row and row[0] is not None:
             return Decimal(row[0])
 
         return Decimal(0)
