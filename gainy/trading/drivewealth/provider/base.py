@@ -8,7 +8,8 @@ from gainy.data_access.operators import OperatorGt, OperatorNot, OperatorIn
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
-    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding
+    DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
+    PRECISION
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
     AmountAwareTradingOrder
@@ -214,10 +215,8 @@ class DriveWealthProviderBase:
                               last_portfolio_rebalance_at: datetime.datetime,
                               collection_id: int = None,
                               symbol: str = None):
-        orders = [
-            order for order in orders if order.target_amount_delta is not None
-        ]
-        pending_amount_sum = sum(order.target_amount_delta for order in orders)
+        pending_amount_sum = sum(order.target_amount_delta for order in orders
+                                 if order.target_amount_delta is not None)
 
         if collection_id:
             executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
@@ -241,12 +240,17 @@ class DriveWealthProviderBase:
             "cash_flow_sum": cash_flow_sum,
         }
         for order in reversed(orders):
-            if order.target_amount_delta > 0:
-                error = max(Decimal(0), min(order.target_amount_delta, diff))
-            elif order.target_amount_delta < 0:
-                error = min(Decimal(0), max(order.target_amount_delta, diff))
-            else:
+            if order.target_amount_delta is None or abs(
+                    order.target_amount_delta) < PRECISION:
+                if last_portfolio_rebalance_at > order.waiting_rebalance_since:
+                    order.status = TradingOrderStatus.EXECUTED_FULLY
+                    order.executed_at = last_portfolio_rebalance_at
+
                 continue
+            elif order.target_amount_delta > 0:
+                error = max(Decimal(0), min(order.target_amount_delta, diff))
+            else:
+                error = min(Decimal(0), max(order.target_amount_delta, diff))
 
             logger_extra["order_class"] = order.__class__.__name__
             logger_extra["order_id"] = order.id
