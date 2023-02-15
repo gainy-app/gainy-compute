@@ -242,7 +242,7 @@ class DriveWealthProviderBase:
         for order in reversed(orders):
             if order.target_amount_delta is None or abs(
                     order.target_amount_delta) < PRECISION:
-                if last_portfolio_rebalance_at > order.waiting_rebalance_since:
+                if last_portfolio_rebalance_at > order.pending_execution_since:
                     order.status = TradingOrderStatus.EXECUTED_FULLY
                     order.executed_at = last_portfolio_rebalance_at
 

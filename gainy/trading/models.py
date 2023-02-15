@@ -86,7 +86,7 @@ class AmountAwareTradingOrder(ABC):
     target_amount_delta_relative: Decimal = None
     executed_amount: Decimal = None
     status: TradingOrderStatus = None
-    waiting_rebalance_since: datetime.datetime
+    pending_execution_since: datetime.datetime
     executed_at: datetime.datetime
 
 
