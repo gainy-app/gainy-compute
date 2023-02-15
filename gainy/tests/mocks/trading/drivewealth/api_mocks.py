@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from gainy.trading.drivewealth.models import DriveWealthAccountStatus
+
 USER_ID = "41dde78c-e31b-43e5-9418-44ae08098738"
 CASH_VALUE = 11001
 CASH_TARGET_WEIGHT = Decimal(0.11)
@@ -105,7 +107,7 @@ def _get_account_data(account_ref_id,
             "description": "Robo Advisor Managed Account"
         },
         "status": {
-            "name": "OPEN",
+            "name": DriveWealthAccountStatus.OPEN.name,
             "description": "Open"
         },
         "tradingType": {

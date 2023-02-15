@@ -15,7 +15,7 @@ from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, Dri
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
     DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
-    DriveWealthPortfolioStatus, DriveWealthFund, PRECISION, DriveWealthPortfolioHolding
+    DriveWealthPortfolioStatus, DriveWealthFund, PRECISION, DriveWealthPortfolioHolding, DriveWealthAccountStatus
 from gainy.trading.repository import TradingRepository
 
 _ACCOUNT_ID = "bf98c335-57ad-4337-ae9f-ed1fcfb447af.1662377145557"
@@ -235,6 +235,7 @@ def test_ensure_portfolio(monkeypatch):
     monkeypatch.setattr(user, "ref_id", USER_ID)
     account = DriveWealthAccount()
     monkeypatch.setattr(account, "ref_id", _ACCOUNT_ID)
+    monkeypatch.setattr(account, "status", DriveWealthAccountStatus.OPEN.name)
 
     def mock_get_user(_profile_id):
         assert _profile_id == profile_id
@@ -262,6 +263,11 @@ def test_ensure_portfolio(monkeypatch):
                         mock_get_user_accounts)
     monkeypatch.setattr(drivewealth_repository, "get_account",
                         _mock_get_account)
+    monkeypatch.setattr(
+        drivewealth_repository, "find_one",
+        mock_find([(DriveWealthAccount, {
+            "trading_account_id": trading_account_id
+        }, account)]))
 
     api = DriveWealthApi(None)
 

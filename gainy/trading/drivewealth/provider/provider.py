@@ -4,6 +4,7 @@ import datetime
 
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException
+from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, PRECISION, ONE, DriveWealthInstrumentStatus
 
@@ -163,6 +164,11 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
     def ensure_portfolio(self, profile_id, trading_account_id):
         repository = self.repository
+        account: DriveWealthAccount = repository.find_one(
+            DriveWealthAccount, {"trading_account_id": trading_account_id})
+        if not account or not account.is_open():
+            raise TradingAccountNotOpenException()
+
         portfolio = repository.get_profile_portfolio(profile_id,
                                                      trading_account_id)
 

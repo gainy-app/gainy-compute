@@ -35,3 +35,7 @@ class InstrumentNotFoundException(DriveWealthApiException):
 
 class BadMissingParametersBodyException(DriveWealthApiException):
     pass
+
+
+class TradingAccountNotOpenException(Exception):
+    pass

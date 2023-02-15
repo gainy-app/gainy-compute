@@ -9,7 +9,7 @@ import time
 
 from gainy.context_container import ContextContainer
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
-from gainy.trading.drivewealth.exceptions import DriveWealthApiException
+from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
     DriveWealthFund
 from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
@@ -49,12 +49,20 @@ class RebalancePortfoliosJob:
                     trading_account_id,
                     time.time() - start_time,
                     extra={"profile_id": profile_id})
+            except TradingAccountNotOpenException:
+                pass
             except Exception as e:
                 logger.exception(e)
 
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
             portfolio: DriveWealthPortfolio
             if portfolio.is_artificial:
+                continue
+
+            account: DriveWealthAccount = self.repo.find_one(
+                DriveWealthAccount,
+                {"ref_id": portfolio.drivewealth_account_id})
+            if not account or not account.is_open():
                 continue
 
             self.provider.sync_portfolio_status(portfolio)
