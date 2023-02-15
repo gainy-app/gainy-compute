@@ -59,21 +59,21 @@ class RebalancePortfoliosJob:
             if portfolio.is_artificial:
                 continue
 
-            account: DriveWealthAccount = self.repo.find_one(
-                DriveWealthAccount,
-                {"ref_id": portfolio.drivewealth_account_id})
-            if not account or not account.is_open():
-                continue
-
-            self.provider.sync_portfolio_status(portfolio)
-
-            account: DriveWealthAccount = self.repo.find_one(
-                DriveWealthAccount,
-                {"ref_id": portfolio.drivewealth_account_id})
-            if account and not account.is_open():
-                continue
-
             try:
+                account: DriveWealthAccount = self.repo.find_one(
+                    DriveWealthAccount,
+                    {"ref_id": portfolio.drivewealth_account_id})
+                if not account or not account.is_open():
+                    continue
+
+                self.provider.sync_portfolio_status(portfolio)
+
+                account: DriveWealthAccount = self.repo.find_one(
+                    DriveWealthAccount,
+                    {"ref_id": portfolio.drivewealth_account_id})
+                if account and not account.is_open():
+                    continue
+
                 is_portfolio_pending_rebalance = self.drivewealth_repository.is_portfolio_pending_rebalance(
                     portfolio)
                 if not is_portfolio_pending_rebalance:
