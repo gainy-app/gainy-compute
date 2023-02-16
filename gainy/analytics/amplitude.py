@@ -1,8 +1,11 @@
+import datetime
+
 import os
 
 from amplitude import Amplitude, Identify, EventOptions
 
-from analytics.interfaces import AnalyticsSinkInterface
+from gainy.analytics.interfaces import AnalyticsSinkInterface
+from gainy.utils import DATETIME_ISO8601_FORMAT_TZ
 
 AMPLITUDE_API_KEY = os.getenv("AMPLITUDE_API_KEY")
 
@@ -19,6 +22,8 @@ class AmplitudeService(AnalyticsSinkInterface):
     def update_profile_attribution(self, profile_id: int, attributes: dict):
         identify_obj = Identify()
         for k, i in attributes.items():
+            if isinstance(i, datetime.datetime):
+                i = i.strftime(DATETIME_ISO8601_FORMAT_TZ)
             identify_obj.set(k, i)
 
         self.client.identify(identify_obj,

@@ -1,6 +1,6 @@
 from psycopg2.extras import RealDictCursor
 
-from analytics.interfaces import AttributionSourceInterface
+from gainy.analytics.interfaces import AttributionSourceInterface
 from gainy.data_access.repository import Repository
 from gainy.utils import get_logger
 

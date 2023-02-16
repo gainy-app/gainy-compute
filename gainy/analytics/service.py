@@ -1,4 +1,4 @@
-from analytics.interfaces import AnalyticsSinkInterface, AttributionSourceInterface
+from gainy.analytics.interfaces import AnalyticsSinkInterface, AttributionSourceInterface
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
