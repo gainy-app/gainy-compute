@@ -241,21 +241,27 @@ class DriveWealthProviderBase:
             "cash_flow_sum": cash_flow_sum,
         }
         for order in reversed(orders):
+            logger_extra["order_class"] = order.__class__.__name__
+            logger_extra["order_id"] = order.id
+            logger_extra["diff"] = diff
+
             if order.target_amount_delta is None or abs(
                     order.target_amount_delta) < PRECISION:
                 if last_portfolio_rebalance_at > order.pending_execution_since:
                     order.status = TradingOrderStatus.EXECUTED_FULLY
                     order.executed_at = last_portfolio_rebalance_at
 
+                    logger_extra[
+                        "target_amount_delta"] = order.target_amount_delta
+                    logger.info('_fill_executed_amount', extra=logger_extra)
+
                 continue
-            elif order.target_amount_delta > 0:
+
+            if order.target_amount_delta > 0:
                 error = max(Decimal(0), min(order.target_amount_delta, diff))
             else:
                 error = min(Decimal(0), max(order.target_amount_delta, diff))
 
-            logger_extra["order_class"] = order.__class__.__name__
-            logger_extra["order_id"] = order.id
-            logger_extra["diff"] = diff
             logger_extra["error"] = error
 
             diff = diff - error
