@@ -83,7 +83,8 @@ class DriveWealthProviderRebalanceHelper:
     def handle_cash_amount_change(self,
                                   amount_aware_order: AmountAwareTradingOrder,
                                   portfolio: DriveWealthPortfolio,
-                                  chosen_fund: DriveWealthFund):
+                                  chosen_fund: DriveWealthFund,
+                                  is_pending_rebalance: bool):
 
         target_amount_delta = amount_aware_order.target_amount_delta
         target_amount_delta_relative = amount_aware_order.target_amount_delta_relative
@@ -92,7 +93,6 @@ class DriveWealthProviderRebalanceHelper:
             return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
-        is_pending_rebalance = portfolio_status.is_pending_rebalance()
         if is_pending_rebalance:
             cash_actual_weight = portfolio.cash_target_weight
             cash_value = cash_actual_weight * portfolio_status.equity_value
@@ -105,8 +105,6 @@ class DriveWealthProviderRebalanceHelper:
             fund_actual_weight = portfolio_status.get_fund_actual_weight(
                 chosen_fund.ref_id)
             fund_value = portfolio_status.get_fund_value(chosen_fund.ref_id)
-            portfolio.set_target_weights_from_status_actual_weights(
-                portfolio_status)
 
         logging_extra = {
             "profile_id": portfolio.profile_id,

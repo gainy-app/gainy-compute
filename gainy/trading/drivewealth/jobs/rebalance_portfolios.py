@@ -67,7 +67,9 @@ class RebalancePortfoliosJob:
                 if not account or not account.is_open():
                     continue
 
-                self.provider.sync_portfolio_status(portfolio)
+                portfolio_status = self.provider.sync_portfolio_status(
+                    portfolio)
+                is_pending_rebalance = portfolio_status.is_pending_rebalance()
 
                 account: DriveWealthAccount = self.repo.find_one(
                     DriveWealthAccount,
@@ -78,8 +80,11 @@ class RebalancePortfoliosJob:
                 self.rebalance_portfolio_cash(portfolio)
 
                 trading_collection_versions = self.apply_trading_collection_versions(
-                    portfolio)
-                trading_orders = self.apply_trading_orders(portfolio)
+                    portfolio, is_pending_rebalance)
+                is_pending_rebalance = is_pending_rebalance or len(
+                    trading_collection_versions) > 0
+                trading_orders = self.apply_trading_orders(
+                    portfolio, is_pending_rebalance)
                 self.rebalance_existing_funds(portfolio)
 
                 portfolio.normalize_weights()
@@ -109,8 +114,8 @@ class RebalancePortfoliosJob:
             except Exception as e:
                 logger.exception(e)
 
-    def apply_trading_orders(
-            self, portfolio: DriveWealthPortfolio) -> list[TradingOrder]:
+    def apply_trading_orders(self, portfolio: DriveWealthPortfolio,
+                             is_pending_rebalance: bool) -> list[TradingOrder]:
         profile_id = portfolio.profile_id
         trading_account_id = self._get_trading_account_id(portfolio)
 
@@ -132,7 +137,8 @@ class RebalancePortfoliosJob:
 
             try:
                 self.provider.execute_order_in_portfolio(
-                    portfolio, trading_order)
+                    portfolio, trading_order, is_pending_rebalance)
+                is_pending_rebalance = True
 
                 trading_orders.append(trading_order)
                 trading_order.status = TradingOrderStatus.PENDING_EXECUTION
@@ -155,8 +161,8 @@ class RebalancePortfoliosJob:
         return trading_orders
 
     def apply_trading_collection_versions(
-            self,
-            portfolio: DriveWealthPortfolio) -> list[TradingCollectionVersion]:
+            self, portfolio: DriveWealthPortfolio,
+            is_pending_rebalance: bool) -> list[TradingCollectionVersion]:
         profile_id = portfolio.profile_id
         trading_account_id = self._get_trading_account_id(portfolio)
 
@@ -179,7 +185,9 @@ class RebalancePortfoliosJob:
 
             try:
                 self.provider.reconfigure_collection_holdings(
-                    portfolio, trading_collection_version)
+                    portfolio, trading_collection_version,
+                    is_pending_rebalance)
+                is_pending_rebalance = True
 
                 trading_collection_versions.append(trading_collection_version)
                 trading_collection_version.status = TradingOrderStatus.PENDING_EXECUTION
