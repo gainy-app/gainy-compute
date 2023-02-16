@@ -5,7 +5,9 @@ logger = get_logger(__name__)
 
 
 class AnalyticsService:
-    def __init__(self, attribution_sources: list[AttributionSourceInterface], sinks: list[AnalyticsSinkInterface]):
+
+    def __init__(self, attribution_sources: list[AttributionSourceInterface],
+                 sinks: list[AnalyticsSinkInterface]):
         self.attribution_sources = attribution_sources
         self.sinks = sinks
 

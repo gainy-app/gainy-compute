@@ -12,6 +12,7 @@ def _get_user_id(profile_id: int) -> str:
 
 
 class AmplitudeService(AnalyticsSinkInterface):
+
     def __init__(self):
         self.client = Amplitude(AMPLITUDE_API_KEY)
 
@@ -20,4 +21,5 @@ class AmplitudeService(AnalyticsSinkInterface):
         for k, i in attributes.items():
             identify_obj.set(k, i)
 
-        self.client.identify(identify_obj, EventOptions(user_id=_get_user_id(profile_id)))
+        self.client.identify(identify_obj,
+                             EventOptions(user_id=_get_user_id(profile_id)))
