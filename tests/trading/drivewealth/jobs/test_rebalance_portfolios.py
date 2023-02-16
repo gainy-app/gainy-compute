@@ -2,7 +2,7 @@ import datetime
 
 from decimal import Decimal
 
-from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, mock_persist
+from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, mock_persist, mock_noop
 from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.jobs.rebalance_portfolios import RebalancePortfoliosJob
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DriveWealthFund
@@ -73,6 +73,7 @@ def test_rebalance_portfolios(monkeypatch):
     monkeypatch.setattr(
         trading_repository, "iterate_all",
         mock_find([(DriveWealthPortfolio, None, [portfolio1, portfolio2])]))
+    monkeypatch.setattr(trading_repository, "commit", mock_noop)
     monkeypatch.setattr(
         trading_repository, "find_one",
         mock_find([

@@ -1,3 +1,4 @@
+import psycopg2.errors
 from decimal import Decimal
 
 import datetime
@@ -103,6 +104,11 @@ class RebalancePortfoliosJob:
                         portfolio,
                         trading_collection_versions=trading_collection_versions,
                         trading_orders=trading_orders)
+
+                self.repo.commit()
+            except psycopg2.errors.OperationalError as e:
+                logger.exception(e)
+                self.repo.rollback()
             except Exception as e:
                 logger.exception(e)
 
