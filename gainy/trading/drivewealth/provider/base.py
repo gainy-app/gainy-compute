@@ -62,9 +62,10 @@ class DriveWealthProviderBase:
         portfolio.last_sync_at = datetime.datetime.now()
         self.repository.persist(portfolio)
 
-    def sync_portfolio_status(self,
-                              portfolio: DriveWealthPortfolio,
-                              force: bool = False):
+    def sync_portfolio_status(
+            self,
+            portfolio: DriveWealthPortfolio,
+            force: bool = False) -> DriveWealthPortfolioStatus:
         portfolio_status = self._get_portfolio_status(portfolio, force=force)
         portfolio.update_from_status(portfolio_status)
         self.repository.persist(portfolio)

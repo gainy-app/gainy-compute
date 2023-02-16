@@ -92,8 +92,7 @@ class DriveWealthProviderRebalanceHelper:
             return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
-        is_pending_rebalance = self.repository.is_portfolio_pending_rebalance(
-            portfolio)
+        is_pending_rebalance = portfolio_status.is_pending_rebalance()
         if is_pending_rebalance:
             cash_actual_weight = portfolio.cash_target_weight
             cash_value = cash_actual_weight * portfolio_status.equity_value

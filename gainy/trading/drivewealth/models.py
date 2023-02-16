@@ -387,6 +387,10 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             json.dumps(holdings, cls=DecimalEncoder),
         }
 
+    def is_pending_rebalance(self):
+        return self.data and "rebalanceRequired" in self.data and self.data[
+            "rebalanceRequired"]
+
 
 class DriveWealthPortfolioHolding(BaseModel):
     portfolio_status_id = None

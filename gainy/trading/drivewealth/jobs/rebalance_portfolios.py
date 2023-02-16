@@ -75,10 +75,7 @@ class RebalancePortfoliosJob:
                 if account and not account.is_open():
                     continue
 
-                is_portfolio_pending_rebalance = self.drivewealth_repository.is_portfolio_pending_rebalance(
-                    portfolio)
-                if not is_portfolio_pending_rebalance:
-                    self.rebalance_portfolio_cash(portfolio)
+                self.rebalance_portfolio_cash(portfolio)
 
                 trading_collection_versions = self.apply_trading_collection_versions(
                     portfolio)
