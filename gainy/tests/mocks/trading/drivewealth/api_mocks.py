@@ -3,17 +3,19 @@ from decimal import Decimal
 from gainy.trading.drivewealth.models import DriveWealthAccountStatus
 
 USER_ID = "41dde78c-e31b-43e5-9418-44ae08098738"
-CASH_VALUE = 11001
 CASH_TARGET_WEIGHT = Decimal(0.11)
 CASH_ACTUAL_WEIGHT = Decimal(0.1)
+CASH_ACTUAL_VALUE = 11001
+CASH_TARGET_VALUE = CASH_ACTUAL_VALUE / CASH_ACTUAL_WEIGHT * CASH_TARGET_WEIGHT
 
 PORTFOLIO_REF_ID = "portfolio_24338197-62da-4ac8-a0c9-3204e396f9c7"
 PORTFOLIO_STATUS_EQUITY_VALUE = Decimal(110045.62)
 
 FUND1_ID = "fund_b567f1d3-486e-4e5f-aacd-0d551113ebf6"
-FUND1_VALUE = Decimal(33604.12)
-FUND1_TARGET_WEIGHT = Decimal(0.3)
 FUND1_ACTUAL_WEIGHT = Decimal(0.3054)
+FUND1_TARGET_WEIGHT = Decimal(0.3)
+FUND1_ACTUAL_VALUE = Decimal(33604.12)
+FUND1_TARGET_VALUE = FUND1_ACTUAL_VALUE / FUND1_ACTUAL_WEIGHT * FUND1_TARGET_WEIGHT
 FUND2_ID = "fund_9a51b36f-faac-41a7-8c9d-b15bb29a05fc"
 FUND2_VALUE = Decimal(65440.5)
 FUND2_TARGET_WEIGHT = Decimal(0.59)
@@ -32,7 +34,7 @@ PORTFOLIO_STATUS = {
         "type": "CASH_RESERVE",
         "target": CASH_TARGET_WEIGHT,
         "actual": CASH_ACTUAL_WEIGHT,
-        "value": CASH_VALUE,
+        "value": CASH_ACTUAL_VALUE,
     }, {
         "id":
         FUND1_ID,
@@ -43,7 +45,7 @@ PORTFOLIO_STATUS = {
         "actual":
         FUND1_ACTUAL_WEIGHT,
         "value":
-        FUND1_VALUE,
+        FUND1_ACTUAL_VALUE,
         "holdings": [{
             "instrumentID": "5b85fabb-d57c-44e6-a7f6-a3efc760226c",
             "symbol": "TSLA",

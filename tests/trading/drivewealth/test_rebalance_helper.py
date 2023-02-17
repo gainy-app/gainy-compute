@@ -4,7 +4,9 @@ import pytest
 
 from gainy.tests.mocks.repository_mocks import mock_noop
 from gainy.tests.mocks.trading.drivewealth.api_mocks import CASH_TARGET_WEIGHT, FUND1_ID, FUND1_TARGET_WEIGHT, \
-    PORTFOLIO_STATUS, CASH_VALUE, FUND1_VALUE, USER_ID, PORTFOLIO
+    PORTFOLIO_STATUS, CASH_ACTUAL_VALUE, FUND1_ACTUAL_VALUE, USER_ID, PORTFOLIO, CASH_ACTUAL_WEIGHT, \
+    FUND1_ACTUAL_WEIGHT, \
+    FUND1_TARGET_VALUE, CASH_TARGET_VALUE
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
@@ -245,31 +247,97 @@ def test_generate_new_fund_holdings(monkeypatch):
     assert abs(new_holdings["C"] - Decimal(0.7)) < PRECISION
 
 
-def get_test_handle_cash_amount_change_amounts_ok():
-    yield from [100, CASH_VALUE - 100, CASH_VALUE]
+def get_test_handle_cash_amount_change_amounts_ok_not_pending_rebalance():
+    yield from [100, CASH_ACTUAL_VALUE - 100, CASH_ACTUAL_VALUE]
     yield 0
-    yield from [-100, -CASH_VALUE, -FUND1_VALUE + 100, -FUND1_VALUE]
+    yield from [
+        -100, -CASH_ACTUAL_VALUE, -FUND1_ACTUAL_VALUE + 100,
+        -FUND1_ACTUAL_VALUE
+    ]
 
 
-@pytest.mark.parametrize("amount",
-                         get_test_handle_cash_amount_change_amounts_ok())
-def test_handle_cash_amount_change_ok_absolute(amount, monkeypatch):
+@pytest.mark.parametrize(
+    "amount",
+    get_test_handle_cash_amount_change_amounts_ok_not_pending_rebalance())
+def test_handle_cash_amount_change_ok_not_pending_rebalance(
+        amount, monkeypatch):
+    is_pending_rebalance = False
     amount = Decimal(amount)
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.set_from_response(PORTFOLIO_STATUS)
+
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(PORTFOLIO)
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
-    monkeypatch.setattr(drivewealth_repository,
-                        "is_portfolio_pending_rebalance",
-                        lambda portfolio: False)
 
     provider = DriveWealthProvider(drivewealth_repository, None, None)
 
     def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
-        status = DriveWealthPortfolioStatus()
-        status.set_from_response(PORTFOLIO_STATUS)
-        return status
+        return portfolio_status
+
+    monkeypatch.setattr(provider, "sync_portfolio_status",
+                        mock_sync_portfolio_status)
+
+    helper = DriveWealthProviderRebalanceHelper(provider, None)
+    fund = DriveWealthFund()
+    monkeypatch.setattr(fund, "ref_id", FUND1_ID)
+
+    portfolio.set_target_weights_from_status_actual_weights(portfolio_status)
+    assert abs(portfolio.cash_target_weight - CASH_ACTUAL_WEIGHT) < 1e-3
+    assert abs(portfolio.get_fund_weight(FUND1_ID) -
+               FUND1_ACTUAL_WEIGHT) < 1e-3
+
+    trading_order = TradingOrder()
+    trading_order.target_amount_delta = Decimal(amount)
+
+    helper.handle_cash_amount_change(trading_order, portfolio, fund,
+                                     is_pending_rebalance)
+
+    if amount:
+        assert abs(portfolio.cash_target_weight -
+                   (CASH_ACTUAL_VALUE - amount) /
+                   PORTFOLIO_STATUS['equity']) < 1e-3
+        assert abs(
+            portfolio.get_fund_weight(FUND1_ID) -
+            (FUND1_ACTUAL_VALUE + amount) / PORTFOLIO_STATUS['equity']) < 1e-3
+    else:
+        assert abs(portfolio.cash_target_weight - CASH_ACTUAL_WEIGHT) < 1e-3
+        assert abs(portfolio.get_fund_weight(FUND1_ID) -
+                   FUND1_ACTUAL_WEIGHT) < 1e-3
+
+
+def get_test_handle_cash_amount_change_amounts_ok_pending_rebalance():
+    yield from [100, CASH_ACTUAL_VALUE - 100, CASH_ACTUAL_VALUE]
+    yield 0
+    yield from [
+        -100, -CASH_ACTUAL_VALUE, -FUND1_TARGET_VALUE + 100,
+        -FUND1_TARGET_VALUE
+    ]
+
+
+@pytest.mark.parametrize(
+    "amount",
+    get_test_handle_cash_amount_change_amounts_ok_pending_rebalance())
+def test_handle_cash_amount_change_ok_pending_rebalance(amount, monkeypatch):
+    is_pending_rebalance = True
+    amount = Decimal(amount)
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.set_from_response(PORTFOLIO_STATUS)
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.set_from_response(PORTFOLIO)
+    drivewealth_repository = DriveWealthRepository(None)
+    monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
+
+    provider = DriveWealthProvider(drivewealth_repository, None, None)
+
+    def mock_sync_portfolio_status(_portfolio):
+        assert _portfolio == portfolio
+        return portfolio_status
 
     monkeypatch.setattr(provider, "sync_portfolio_status",
                         mock_sync_portfolio_status)
@@ -284,14 +352,17 @@ def test_handle_cash_amount_change_ok_absolute(amount, monkeypatch):
 
     trading_order = TradingOrder()
     trading_order.target_amount_delta = Decimal(amount)
-    helper.handle_cash_amount_change(trading_order, portfolio, fund)
+
+    helper.handle_cash_amount_change(trading_order, portfolio, fund,
+                                     is_pending_rebalance)
 
     if amount:
         assert abs(portfolio.cash_target_weight -
-                   (CASH_VALUE - amount) / PORTFOLIO_STATUS['equity']) < 1e-3
+                   (CASH_TARGET_VALUE - amount) /
+                   PORTFOLIO_STATUS['equity']) < 1e-3
         assert abs(
             portfolio.get_fund_weight(FUND1_ID) -
-            (FUND1_VALUE + amount) / PORTFOLIO_STATUS['equity']) < 1e-3
+            (FUND1_TARGET_VALUE + amount) / PORTFOLIO_STATUS['equity']) < 1e-3
     else:
         assert abs(portfolio.cash_target_weight - CASH_TARGET_WEIGHT) < 1e-3
         assert abs(portfolio.get_fund_weight(FUND1_ID) -
@@ -309,6 +380,7 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
     _collection_id = 2
     _symbol = "symbol"
     amount_relative = -0.5
+    is_pending_rebalance = False
 
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(PORTFOLIO)
@@ -316,9 +388,6 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
 
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
-    monkeypatch.setattr(drivewealth_repository,
-                        "is_portfolio_pending_rebalance",
-                        lambda portfolio: False)
 
     provider = DriveWealthProvider(drivewealth_repository, None, None)
 
@@ -337,15 +406,16 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
 
     trading_order = TradingOrder()
     trading_order.target_amount_delta_relative = Decimal(amount_relative)
-    helper.handle_cash_amount_change(trading_order, portfolio, fund)
+    helper.handle_cash_amount_change(trading_order, portfolio, fund,
+                                     is_pending_rebalance)
 
     # check that relative amount was written in the target_amount_delta field
-    assert trading_order.target_amount_delta == FUND1_VALUE * Decimal(
+    assert trading_order.target_amount_delta == FUND1_ACTUAL_VALUE * Decimal(
         amount_relative)
 
 
 def get_test_handle_cash_amount_change_amounts_ko():
-    return [CASH_VALUE + 1, -FUND1_VALUE - 1]
+    return [CASH_ACTUAL_VALUE + 1, -FUND1_ACTUAL_VALUE - 1]
 
 
 @pytest.mark.parametrize("amount",
@@ -379,7 +449,7 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
     trading_order.target_amount_delta = amount
 
     with pytest.raises(InsufficientFundsException) as error_info:
-        helper.handle_cash_amount_change(trading_order, portfolio, fund)
+        helper.handle_cash_amount_change(trading_order, portfolio, fund, False)
         assert error_info.__class__ == InsufficientFundsException
 
 

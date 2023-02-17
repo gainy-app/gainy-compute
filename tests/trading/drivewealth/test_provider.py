@@ -7,7 +7,7 @@ from gainy.data_access.operators import OperatorIn, OperatorNot
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, \
-    FUND1_TARGET_WEIGHT, FUND2_ID, CASH_VALUE
+    FUND1_TARGET_WEIGHT, FUND2_ID, CASH_ACTUAL_VALUE
 from gainy.trading.drivewealth.provider.base import normalize_symbol
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
@@ -321,6 +321,7 @@ def test_reconfigure_collection_holdings(monkeypatch):
     profile_id = 1
     target_amount_delta = 2
     trading_account_id = 3
+    is_pending_rebalance = True
 
     collection_version = TradingCollectionVersion()
     monkeypatch.setattr(collection_version, "profile_id", profile_id)
@@ -358,8 +359,9 @@ def test_reconfigure_collection_holdings(monkeypatch):
                         mock_record_calls(handle_cash_amount_change_calls))
 
     provider = DriveWealthProvider(repository, None, None)
-    provider.reconfigure_collection_holdings(portfolio, collection_version)
-    assert (collection_version, portfolio, fund) in [
+    provider.reconfigure_collection_holdings(portfolio, collection_version,
+                                             is_pending_rebalance)
+    assert (collection_version, portfolio, fund, is_pending_rebalance) in [
         args[1:] for args, kwargs in handle_cash_amount_change_calls
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
@@ -370,6 +372,7 @@ def test_execute_order_in_portfolio(monkeypatch):
     profile_id = 1
     target_amount_delta = 2
     trading_account_id = 3
+    is_pending_rebalance = True
 
     trading_order = TradingOrder()
     monkeypatch.setattr(trading_order, "profile_id", profile_id)
@@ -407,8 +410,9 @@ def test_execute_order_in_portfolio(monkeypatch):
                         mock_record_calls(handle_cash_amount_change_calls))
 
     provider = DriveWealthProvider(repository, None, None)
-    provider.execute_order_in_portfolio(portfolio, trading_order)
-    assert (trading_order, portfolio, fund) in [
+    provider.execute_order_in_portfolio(portfolio, trading_order,
+                                        is_pending_rebalance)
+    assert (trading_order, portfolio, fund, is_pending_rebalance) in [
         args[1:] for args, kwargs in handle_cash_amount_change_calls
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
@@ -616,8 +620,8 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
         assert holding.profile_id == profile_id
 
         if holding.holding_id_v2 == "1_cash_CUR:USD":
-            assert holding.actual_value == Decimal(CASH_VALUE)
-            assert holding.quantity == Decimal(CASH_VALUE)
+            assert holding.actual_value == Decimal(CASH_ACTUAL_VALUE)
+            assert holding.quantity == Decimal(CASH_ACTUAL_VALUE)
             assert holding.symbol == "CUR:USD"
             continue
 

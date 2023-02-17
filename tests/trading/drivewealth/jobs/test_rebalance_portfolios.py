@@ -5,7 +5,8 @@ from decimal import Decimal
 from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, mock_persist, mock_noop
 from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.jobs.rebalance_portfolios import RebalancePortfoliosJob
-from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DriveWealthFund
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DriveWealthFund, \
+    DriveWealthPortfolioStatus
 from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
@@ -38,6 +39,7 @@ def test_rebalance_portfolios(monkeypatch):
     trading_account_id_1 = 3
     drivewealth_account_id1 = "drivewealth_account_id1"
     drivewealth_account_id2 = "drivewealth_account_id2"
+    is_pending_rebalance = True
 
     account1 = DriveWealthAccount()
     monkeypatch.setattr(account1, "is_open", lambda: True)
@@ -53,9 +55,11 @@ def test_rebalance_portfolios(monkeypatch):
     portfolio2.cash_target_weight = Decimal(1)
     portfolio2.holdings = {}
 
+    portfolio_status = DriveWealthPortfolioStatus()
+    monkeypatch.setattr(portfolio_status, "is_pending_rebalance",
+                        lambda: is_pending_rebalance)
+
     repository = DriveWealthRepository(None)
-    monkeypatch.setattr(repository, "is_portfolio_pending_rebalance",
-                        lambda portfolio: False)
 
     provider = DriveWealthProvider(repository, None, None)
     send_portfolio_to_api_calls = []
@@ -66,8 +70,13 @@ def test_rebalance_portfolios(monkeypatch):
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
     sync_portfolio_status_calls = []
+
+    def mock_sync_portfolio_status(*args, **kwargs):
+        mock_record_calls(sync_portfolio_status_calls)(*args, **kwargs)
+        return portfolio_status
+
     monkeypatch.setattr(provider, "sync_portfolio_status",
-                        mock_record_calls(sync_portfolio_status_calls))
+                        mock_sync_portfolio_status)
 
     trading_repository = TradingRepository(None)
     monkeypatch.setattr(
@@ -108,28 +117,38 @@ def test_rebalance_portfolios(monkeypatch):
     job.run()
 
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
-    assert {portfolio1, portfolio2
-            } == set(args[0]
-                     for args, kwargs in rebalance_portfolio_cash_calls)
-    assert {portfolio1, portfolio2} == set(
-        args[0] for args, kwargs in apply_trading_collection_versions_calls)
-    assert {portfolio1,
-            portfolio2} == set(args[0]
-                               for args, kwargs in apply_trading_orders_calls)
-    assert {portfolio1, portfolio2
-            } == set(args[0]
-                     for args, kwargs in rebalance_existing_funds_calls)
-    assert {portfolio1,
-            portfolio2} == set(args[0]
-                               for args, kwargs in send_portfolio_to_api_calls)
-    assert {portfolio1,
-            portfolio2} == set(args[0]
-                               for args, kwargs in sync_portfolio_status_calls)
+
+    calls_args = [args for args, kwargs in rebalance_portfolio_cash_calls]
+    assert (portfolio1, ) in calls_args
+    assert (portfolio2, ) in calls_args
+
+    calls_args = [
+        args for args, kwargs in apply_trading_collection_versions_calls
+    ]
+    assert (portfolio1, is_pending_rebalance) in calls_args
+    assert (portfolio2, is_pending_rebalance) in calls_args
+
+    calls_args = [args for args, kwargs in apply_trading_orders_calls]
+    assert (portfolio1, is_pending_rebalance) in calls_args
+    assert (portfolio2, is_pending_rebalance) in calls_args
+
+    calls_args = [args for args, kwargs in rebalance_existing_funds_calls]
+    assert (portfolio1, is_pending_rebalance) in calls_args
+    assert (portfolio2, is_pending_rebalance) in calls_args
+
+    calls_args = [args for args, kwargs in send_portfolio_to_api_calls]
+    assert (portfolio1, ) in calls_args
+    assert (portfolio2, ) in calls_args
+
+    calls_args = [args for args, kwargs in sync_portfolio_status_calls]
+    assert (portfolio1, ) in calls_args
+    assert (portfolio2, ) in calls_args
 
 
 def test_apply_trading_collection_versions(monkeypatch):
     profile_id = 1
     trading_account_id = 1
+    is_pending_rebalance = True
 
     portfolio = DriveWealthPortfolio()
     monkeypatch.setattr(portfolio, "profile_id", profile_id)
@@ -164,9 +183,10 @@ def test_apply_trading_collection_versions(monkeypatch):
         mock_record_calls(reconfigure_collection_holdings_calls))
 
     RebalancePortfoliosJob(repository, None, provider,
-                           None).apply_trading_collection_versions(portfolio)
+                           None).apply_trading_collection_versions(
+                               portfolio, is_pending_rebalance)
 
-    assert (portfolio, trading_collection_version) in [
+    assert (portfolio, trading_collection_version, is_pending_rebalance) in [
         args for args, kwargs in reconfigure_collection_holdings_calls
     ]
     assert trading_collection_version.status == TradingOrderStatus.PENDING_EXECUTION
@@ -177,6 +197,7 @@ def test_apply_trading_collection_versions(monkeypatch):
 def test_apply_trading_orders(monkeypatch):
     profile_id = 1
     trading_account_id = 1
+    is_pending_rebalance = True
 
     portfolio = DriveWealthPortfolio()
     monkeypatch.setattr(portfolio, "profile_id", profile_id)
@@ -210,9 +231,10 @@ def test_apply_trading_orders(monkeypatch):
                         mock_record_calls(execute_order_in_portfolio_calls))
 
     RebalancePortfoliosJob(repository, None, provider,
-                           None).apply_trading_orders(portfolio)
+                           None).apply_trading_orders(portfolio,
+                                                      is_pending_rebalance)
 
-    assert (portfolio, trading_order) in [
+    assert (portfolio, trading_order, is_pending_rebalance) in [
         args for args, kwargs in execute_order_in_portfolio_calls
     ]
     assert trading_order.status == TradingOrderStatus.PENDING_EXECUTION
@@ -231,6 +253,7 @@ def test_rebalance_existing_funds(monkeypatch):
     last_optimization_at = collection_last_optimization_at - datetime.timedelta(
         days=1)
     trading_account_id = 4
+    is_pending_rebalance = True
 
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", fund_ref_id)
@@ -309,11 +332,12 @@ def test_rebalance_existing_funds(monkeypatch):
     monkeypatch.setattr(job, "_get_trading_account_id",
                         mock_get_trading_account_id)
 
-    job.rebalance_existing_funds(portfolio)
+    job.rebalance_existing_funds(portfolio, is_pending_rebalance)
 
-    assert (portfolio, new_trading_collection_version) in [
-        args for args, kwargs in reconfigure_collection_holdings_calls
-    ]
+    assert (portfolio, new_trading_collection_version,
+            is_pending_rebalance) in [
+                args for args, kwargs in reconfigure_collection_holdings_calls
+            ]
 
 
 def test_rebalance_portfolio_cash(monkeypatch):
