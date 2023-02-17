@@ -3,6 +3,9 @@ from contextlib import AbstractContextManager
 from psycopg2._psycopg import connection
 from functools import cached_property, cache
 
+from gainy.analytics.amplitude import AmplitudeService
+from gainy.analytics.attribution_sources.db import DBAttributionSource
+from gainy.analytics.service import AnalyticsService
 from gainy.billing.repository import BillingRepository
 from gainy.billing.service import BillingService
 from gainy.billing.stripe.api import StripeApi
@@ -56,6 +59,16 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def plaid_service(self) -> PlaidService:
         return PlaidService()
+
+    @cached_property
+    def amplitude_service(self) -> AmplitudeService:
+        return AmplitudeService()
+
+    @cached_property
+    def analytics_service(self) -> AnalyticsService:
+        db_attribution_source = DBAttributionSource(self.get_repository())
+        return AnalyticsService([db_attribution_source],
+                                [self.amplitude_service])
 
     # Stripe
     @cached_property
