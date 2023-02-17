@@ -75,66 +75,45 @@ class DriveWealthRepository(Repository):
 
     def calculate_portfolio_cash_target_value(self,
                                               portfolio: DriveWealthPortfolio):
+        money_flow_sum = self._get_money_flow_sum(portfolio.profile_id)
+
         query = """
-            select 'tmf:' || id as id, amount + coalesce(fees_total_amount, 0) as amount
-            from app.trading_money_flow
+            select collection_id, symbol, sum(cash_flow) as cash_flow
+            from drivewealth_portfolio_historical_holdings
             where profile_id = %(profile_id)s
-              and status in %(trading_money_flow_statuses)s
-
-            union all
-
-            select 'collection:' || collection_id as id, sum(-target_amount_delta) as amount
-            from app.trading_collection_versions
-            where profile_id = %(profile_id)s
-              and status in %(trading_collection_version_statuses)s
-            group by collection_id
-
-            union all
-
-            select 'ticker:' || symbol as id, sum(-target_amount_delta) as amount
-            from app.trading_orders
-            where profile_id = %(profile_id)s
-              and status in %(trading_order_statuses)s
-            group by symbol
+            group by collection_id, symbol
         """
+        params = {
+            "profile_id": portfolio.profile_id,
+        }
 
-        trading_money_flow_statuses = [
-            TradingMoneyFlowStatus.SUCCESS.name,
-            TradingMoneyFlowStatus.APPROVED.name,
-        ]
-
-        trading_collection_version_statuses = (
-            TradingOrderStatus.PENDING_EXECUTION.name,
-            TradingOrderStatus.EXECUTED_FULLY.name,
-        )
-
-        trading_order_statuses = (
-            TradingOrderStatus.PENDING_EXECUTION.name,
-            TradingOrderStatus.EXECUTED_FULLY.name,
-        )
-
-        cash_target_value = Decimal(0)
+        cash_target_value = None
+        cash_flow_sum = Decimal(0)
         with self.db_conn.cursor() as cursor:
-            cursor.execute(
-                query, {
-                    "profile_id":
-                    portfolio.profile_id,
-                    "trading_money_flow_statuses":
-                    tuple(trading_money_flow_statuses),
-                    "trading_collection_version_statuses":
-                    trading_collection_version_statuses,
-                    "trading_order_statuses":
-                    trading_order_statuses,
-                })
+            cursor.execute(query, params)
             rows = cursor.fetchall()
-        for row in rows:
-            cash_target_value += Decimal(row[1])
+            for row in rows:
+                if row[1] == 'CUR:USD':
+                    cash_target_value = Decimal(row[2])
+                cash_flow_sum += Decimal(row[2])
 
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "cash_target_value": cash_target_value,
+            "money_flow_sum": money_flow_sum,
             "data": rows,
         }
+
+        if cash_target_value is None:
+            msg = 'calculate_portfolio_cash_target_value: cash_target_value is None'
+            logger.error(msg, extra=logging_extra)
+            raise Exception(msg)
+
+        if abs(money_flow_sum - cash_flow_sum) > 1:
+            msg = 'calculate_portfolio_cash_target_value: money_flow_sum != cash_flow_sum'
+            logger.error(msg, extra=logging_extra)
+            raise Exception(msg)
+
         logger.info('calculate_portfolio_cash_target_value',
                     extra=logging_extra)
 
@@ -208,3 +187,29 @@ class DriveWealthRepository(Repository):
                 })
             row = cursor.fetchone()
         return row[0]
+
+    def _get_money_flow_sum(self, profile_id: int) -> Decimal:
+        query = """
+            select sum(amount + coalesce(fees_total_amount, 0))
+            from app.trading_money_flow
+            where profile_id = %(profile_id)s
+              and status in %(trading_money_flow_statuses)s
+        """
+
+        trading_money_flow_statuses = [
+            TradingMoneyFlowStatus.SUCCESS.name,
+            TradingMoneyFlowStatus.APPROVED.name,
+        ]
+        params = {
+            "profile_id": profile_id,
+            "trading_money_flow_statuses": tuple(trading_money_flow_statuses),
+        }
+
+        money_flow_sum = Decimal(0)
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+            if row[0] is not None:
+                money_flow_sum = row[0]
+
+        return money_flow_sum
