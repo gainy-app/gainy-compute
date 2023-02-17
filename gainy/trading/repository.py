@@ -213,7 +213,7 @@ class TradingRepository(Repository):
                                 collection_id: int = None,
                                 symbol: str = None) -> Decimal:
         query = """select sum(cash_flow_sum_total)
-            from drivewealth_portfolio_holding_gains
+            from drivewealth_portfolio_historical_holdings_marked
             where profile_id = %(profile_id)s"""
         params = {
             "profile_id": profile_id,
@@ -222,7 +222,7 @@ class TradingRepository(Repository):
             query = query + " and collection_id = %(collection_id)s"
             params["collection_id"] = collection_id
         elif symbol:
-            query = query + " and symbol = %(symbol)s"
+            query = query + " and collection_id is null and symbol = %(symbol)s"
             params["symbol"] = symbol
         else:
             raise Exception("You must specify either collection_id or symbol")
