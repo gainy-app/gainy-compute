@@ -175,7 +175,7 @@ class TradingRepository(Repository):
                                       collection_id: int = None,
                                       symbol: str = None) -> Decimal:
         if collection_id:
-            query = """select sum(target_amount_delta)
+            query = """select sum(executed_amount)
                 from app.trading_collection_versions
                 where profile_id = %(profile_id)s
                   and collection_id = %(collection_id)s
@@ -186,7 +186,7 @@ class TradingRepository(Repository):
                 "status": TradingOrderStatus.EXECUTED_FULLY.name,
             }
         elif symbol:
-            query = """select sum(target_amount_delta)
+            query = """select sum(executed_amount)
                 from app.trading_orders
                 where profile_id = %(profile_id)s
                   and symbol = %(symbol)s
