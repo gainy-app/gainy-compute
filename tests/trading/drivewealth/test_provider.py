@@ -422,7 +422,7 @@ def test_execute_order_in_portfolio(monkeypatch):
 def test_rebalance_portfolio_cash(monkeypatch):
     equity_value = Decimal(10)
     cash_target_value = Decimal(equity_value)
-    cash_target_weight = Decimal(0.9)
+    cash_target_weight = Decimal(0.89)
 
     portfolio = DriveWealthPortfolio()
     monkeypatch.setattr(portfolio, "cash_target_value", cash_target_value)
@@ -433,11 +433,10 @@ def test_rebalance_portfolio_cash(monkeypatch):
     rebalance_cash_calls = []
     monkeypatch.setattr(portfolio, "rebalance_cash",
                         mock_record_calls(rebalance_cash_calls))
+    monkeypatch.setattr(portfolio, "cash_target_weight", cash_target_weight)
 
     portfolio_status = DriveWealthPortfolioStatus()
     monkeypatch.setattr(portfolio_status, "equity_value", equity_value)
-    monkeypatch.setattr(portfolio_status, "cash_target_weight",
-                        cash_target_weight)
     monkeypatch.setattr(portfolio_status, "is_pending_rebalance",
                         lambda: False)
 
