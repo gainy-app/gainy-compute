@@ -169,3 +169,77 @@ class TradingRepository(Repository):
             return Decimal(row[0]), Decimal(row[1])
 
         return Decimal(0), Decimal(0)
+
+    def calculate_executed_amount_sum(self,
+                                      profile_id: int,
+                                      min_date: datetime.date = None,
+                                      collection_id: int = None,
+                                      symbol: str = None) -> Decimal:
+        params = {
+            "profile_id": profile_id,
+            "status": TradingOrderStatus.EXECUTED_FULLY.name,
+        }
+
+        if collection_id:
+            query = """select sum(executed_amount)
+                from app.trading_collection_versions
+                where profile_id = %(profile_id)s
+                  and collection_id = %(collection_id)s
+                  and status = %(status)s"""
+            params["collection_id"] = collection_id
+        elif symbol:
+            query = """select sum(executed_amount)
+                from app.trading_orders
+                where profile_id = %(profile_id)s
+                  and symbol = %(symbol)s
+                  and status = %(status)s"""
+            params["symbol"] = symbol
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        if min_date:
+            query = query + " and pending_execution_since >= %(min_date)s"
+            params["min_date"] = min_date
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row and row[0] is not None:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def calculate_cash_flow_sum(self,
+                                profile_id: int,
+                                min_date: datetime.date = None,
+                                collection_id: int = None,
+                                symbol: str = None) -> Decimal:
+        query = """select sum(cash_flow)
+            from drivewealth_portfolio_historical_holdings
+            where profile_id = %(profile_id)s"""
+        params = {
+            "profile_id": profile_id,
+        }
+
+        if min_date:
+            query = query + " and date >= %(min_date)s"
+            params["min_date"] = min_date
+
+        if collection_id:
+            query = query + " and collection_id = %(collection_id)s"
+            params["collection_id"] = collection_id
+        elif symbol:
+            query = query + " and collection_id is null and symbol = %(symbol)s"
+            params["symbol"] = symbol
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row and row[0] is not None:
+            return Decimal(row[0])
+
+        return Decimal(0)

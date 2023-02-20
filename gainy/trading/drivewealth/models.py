@@ -7,6 +7,8 @@ import json
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+import pytz
+
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
 from gainy.trading.models import TradingAccount
@@ -14,6 +16,7 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
+EXECUTED_AMOUNT_PRECISION = Decimal(1)
 PRECISION = Decimal(10)**-3
 ONE = Decimal(1)
 ZERO = Decimal(0)
@@ -97,6 +100,10 @@ class DriveWealthUser(BaseDriveWealthModel):
         self.data = data
 
 
+class DriveWealthAccountStatus(str, enum.Enum):
+    OPEN = "OPEN"
+
+
 class DriveWealthAccount(BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
@@ -144,7 +151,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         pass
 
     def is_open(self):
-        return self.status == "OPEN"
+        return self.status == DriveWealthAccountStatus.OPEN.name
 
 
 class DriveWealthAccountMoney(BaseDriveWealthModel):
@@ -294,6 +301,7 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     last_portfolio_rebalance_at: datetime.datetime = None
     next_portfolio_rebalance_at: datetime.datetime = None
     holdings: Dict[str, DriveWealthPortfolioStatusHolding] = None
+    date: datetime.date = None
     data = None
     created_at = None
 
@@ -313,6 +321,8 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     def set_from_response(self, data=None):
         self.data = data
         self._reset_holdings()
+        self.date = datetime.datetime.now(
+            pytz.timezone('America/New_York')).date()
 
         if not data:
             return
@@ -376,6 +386,35 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             "holdings":
             json.dumps(holdings, cls=DecimalEncoder),
         }
+
+    def is_pending_rebalance(self):
+        return self.data and "rebalanceRequired" in self.data and self.data[
+            "rebalanceRequired"]
+
+
+class DriveWealthPortfolioHolding(BaseModel):
+    portfolio_status_id = None
+    profile_id: int = None
+    holding_id_v2: str = None
+    actual_value: Decimal = None
+    quantity: Decimal = None
+    symbol: str = None
+    collection_uniq_id: str = None
+    collection_id: int = None
+    updated_at: datetime.datetime = None
+
+    key_fields = ["holding_id_v2"]
+
+    db_excluded_fields = ["updated_at"]
+    non_persistent_fields = ["updated_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_portfolio_holdings"
 
 
 class DriveWealthFund(BaseDriveWealthModel):
@@ -645,14 +684,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def set_pending_rebalance(self):
         self.waiting_rebalance_since = datetime.datetime.now(
             tz=datetime.timezone.utc)
-
-    def is_pending_rebalance(self) -> bool:
-        if self.waiting_rebalance_since is None:
-            return False
-        if self.last_rebalance_at is None:
-            return True
-
-        return self.waiting_rebalance_since > self.last_rebalance_at
 
     def update_from_status(self, portfolio_status: DriveWealthPortfolioStatus):
         if self.last_rebalance_at:

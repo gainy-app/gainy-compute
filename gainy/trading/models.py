@@ -62,6 +62,7 @@ class TradingAccount(BaseModel):
     cash_balance = None
     equity_value = None
     account_no = None
+    is_artificial: bool = None
     created_at = None
     updated_at = None
 
@@ -80,8 +81,13 @@ class TradingAccount(BaseModel):
 
 
 class AmountAwareTradingOrder(ABC):
+    id = None
     target_amount_delta: Decimal = None
     target_amount_delta_relative: Decimal = None
+    executed_amount: Decimal = None
+    status: TradingOrderStatus = None
+    pending_execution_since: datetime.datetime
+    executed_at: datetime.datetime
 
 
 class TradingCollectionVersion(BaseModel, AmountAwareTradingOrder):
@@ -95,10 +101,11 @@ class TradingCollectionVersion(BaseModel, AmountAwareTradingOrder):
     target_amount_delta_relative: Decimal = None
     weights: Dict[str, Decimal] = None
     trading_account_id: int = None
-    created_at = None
     pending_execution_since = None
     last_optimization_at: datetime.date = None
+    executed_amount: Decimal = None
     executed_at = None
+    created_at = None
     updated_at = None
 
     key_fields = ["id"]
@@ -157,6 +164,7 @@ class TradingOrder(BaseModel, AmountAwareTradingOrder):
     source: TradingOrderSource = None
     fail_reason: str = None
     pending_execution_since = None
+    executed_amount: Decimal = None
     executed_at = None
     created_at = None
     updated_at = None

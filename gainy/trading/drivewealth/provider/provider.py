@@ -4,8 +4,9 @@ import datetime
 
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException
+from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, PRECISION, ONE, DriveWealthInstrumentStatus
+    DriveWealthUser, DriveWealthPortfolio, ONE, DriveWealthInstrumentStatus
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -112,56 +113,69 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if portfolio_status.equity_value < ONE:
             return
 
-        cash_delta = portfolio.cash_target_value - portfolio_status.equity_value * portfolio_status.cash_target_weight
-        if abs(cash_delta) < PRECISION:
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "portfolio_status": portfolio_status.to_dict(),
+            "portfolio_pre": portfolio.to_dict(),
+        }
+
+        if not portfolio_status.is_pending_rebalance():
+            portfolio.set_target_weights_from_status_actual_weights(
+                portfolio_status)
+            logging_extra["portfolio_post"] = portfolio.to_dict()
+            logger.info('set_target_weights_from_status_actual_weights',
+                        extra=logging_extra)
+
+        cash_delta = portfolio.cash_target_value - portfolio_status.equity_value * portfolio.cash_target_weight
+
+        logging_extra["cash_delta"] = cash_delta
+        logger.info('calculate_portfolio_cash_target_value',
+                    extra=logging_extra)
+        if abs(cash_delta) < 1:
             return
 
         cash_weight_delta = cash_delta / portfolio_status.equity_value
 
-        logging_extra = {
-            "portfolio_status": portfolio_status.to_dict(),
-            "portfolio": portfolio.to_dict(),
-            "cash_delta": cash_delta,
-            "cash_weight_delta": cash_weight_delta,
-        }
-        logger.info('rebalance_portfolio_cash step0', extra=logging_extra)
-
-        if not portfolio.is_pending_rebalance():
-            portfolio.set_target_weights_from_status_actual_weights(
-                portfolio_status)
-            logging_extra["portfolio"] = portfolio.to_dict()
-            logger.info('rebalance_portfolio_cash step1', extra=logging_extra)
-
         portfolio.rebalance_cash(cash_weight_delta)
-        logging_extra["portfolio"] = portfolio.to_dict()
-        logger.info('rebalance_portfolio_cash step2', extra=logging_extra)
+
+        logging_extra["cash_weight_delta"] = cash_weight_delta
+        logging_extra["portfolio_post"] = portfolio.to_dict()
+        logger.info('rebalance_portfolio_cash', extra=logging_extra)
 
     def reconfigure_collection_holdings(
             self, portfolio: DriveWealthPortfolio,
-            collection_version: TradingCollectionVersion):
+            collection_version: TradingCollectionVersion,
+            is_pending_rebalance: bool):
         helper = DriveWealthProviderRebalanceHelper(self,
                                                     self.trading_repository)
         profile_id = collection_version.profile_id
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
         helper.handle_cash_amount_change(collection_version, portfolio,
-                                         chosen_fund)
+                                         chosen_fund, is_pending_rebalance)
         self.repository.persist(collection_version)
         portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
     def execute_order_in_portfolio(self, portfolio: DriveWealthPortfolio,
-                                   trading_order: TradingOrder):
+                                   trading_order: TradingOrder,
+                                   is_pending_rebalance: bool):
         helper = DriveWealthProviderRebalanceHelper(self,
                                                     self.trading_repository)
         profile_id = trading_order.profile_id
         chosen_fund = helper.upsert_stock_fund(profile_id, trading_order)
-        helper.handle_cash_amount_change(trading_order, portfolio, chosen_fund)
+        helper.handle_cash_amount_change(trading_order, portfolio, chosen_fund,
+                                         is_pending_rebalance)
         self.repository.persist(trading_order)
         portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
     def ensure_portfolio(self, profile_id, trading_account_id):
         repository = self.repository
+        account: DriveWealthAccount = repository.find_one(
+            DriveWealthAccount, {"trading_account_id": trading_account_id})
+        if not account or not account.is_open():
+            raise TradingAccountNotOpenException()
+
         portfolio = repository.get_profile_portfolio(profile_id,
                                                      trading_account_id)
 

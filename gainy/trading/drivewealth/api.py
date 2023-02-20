@@ -76,7 +76,7 @@ class DriveWealthApi:
                 }],
                 "triggers": [{
                     "child": None,
-                    "maxAllowed": 0.01,
+                    "maxAllowed": 0.001,
                     "lowerBound": None,
                     "upperBound": None,
                     "type": "TOTAL_DRIFT"
@@ -95,10 +95,14 @@ class DriveWealthApi:
             "target": weight,
         } for fund_id, weight in portfolio.holdings.items()]
 
-        data = self._make_request("PATCH",
-                                  f"/managed/portfolios/{portfolio.ref_id}", {
-                                      'holdings': holdings,
-                                  })
+        data = self._make_request(
+            "PATCH", f"/managed/portfolios/{portfolio.ref_id}", {
+                'holdings': holdings,
+                "triggers": [{
+                    "maxAllowed": 0.001,
+                    "type": "TOTAL_DRIFT"
+                }],
+            })
         portfolio.set_from_response(data)
 
     def create_autopilot_run(self, account_ids: list):
@@ -127,7 +131,7 @@ class DriveWealthApi:
                 fund.holdings,
                 'triggers': [{
                     "child": None,
-                    "maxAllowed": 0.01,
+                    "maxAllowed": 0.001,
                     "lowerBound": None,
                     "upperBound": None,
                     "type": "TOTAL_DRIFT"
@@ -136,9 +140,18 @@ class DriveWealthApi:
         fund.set_from_response(data)
 
     def update_fund(self, fund: DriveWealthFund):
-        data = self._make_request("PATCH", f"/managed/funds/{fund.ref_id}", {
-            'holdings': fund.holdings,
-        })
+        data = self._make_request(
+            "PATCH", f"/managed/funds/{fund.ref_id}", {
+                'holdings':
+                fund.holdings,
+                'triggers': [{
+                    "child": None,
+                    "maxAllowed": 0.001,
+                    "lowerBound": None,
+                    "upperBound": None,
+                    "type": "TOTAL_DRIFT"
+                }]
+            })
         fund.set_from_response(data)
 
     # Instrument
