@@ -199,14 +199,14 @@ class DriveWealthRepository(Repository):
             from (
                      select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
                      from app.drivewealth_redemptions
-                     where trading_account_ref_id in %(trading_account_ref_id)s
+                     where trading_account_ref_id = %(trading_account_ref_id)s
                        and status in %(statuses)s
             
                      union all
             
                      select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
                      from app.drivewealth_deposits
-                     where trading_account_ref_id in %(trading_account_ref_id)s
+                     where trading_account_ref_id = %(trading_account_ref_id)s
                        and status in %(statuses)s
                  ) t
         """
