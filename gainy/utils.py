@@ -10,6 +10,7 @@ from psycopg2._psycopg import connection
 import numpy as np
 from pythonjsonlogger import jsonlogger
 
+DATE_ISO8601_FORMAT = '%Y-%m-%d'
 DATETIME_ISO8601_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DATETIME_ISO8601_FORMAT_TZ = DATETIME_ISO8601_FORMAT + '%z'
 
