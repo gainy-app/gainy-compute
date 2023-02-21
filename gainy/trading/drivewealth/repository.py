@@ -195,32 +195,19 @@ class DriveWealthRepository(Repository):
 
     def _get_money_flow_sum(self, drivewealth_account_id: str) -> Decimal:
         query = """
-            select sum(total_amount)
-            from (
-                     select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
-                     from app.drivewealth_redemptions
-                     where trading_account_ref_id = %(trading_account_ref_id)s
-                       and status in %(statuses)s
-            
-                     union all
-            
-                     select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
-                     from app.drivewealth_deposits
-                     where trading_account_ref_id = %(trading_account_ref_id)s
-                       and status in %(statuses)s
-                 ) t
+            select sum(account_amount_delta) as total_amount
+            from app.drivewealth_transactions
+            where account_id = %(account_id)s
         """
 
         params = {
-            "trading_account_ref_id": drivewealth_account_id,
-            "statuses": (DriveWealthRedemptionStatus.Successful.name, ),
+            "account_id": drivewealth_account_id,
         }
 
-        money_flow_sum = Decimal(0)
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, params)
             row = cursor.fetchone()
-            if row[0] is not None:
-                money_flow_sum = row[0]
+            if row and row[0]:
+                return Decimal(row[0])
 
-        return money_flow_sum
+        return Decimal(0)
