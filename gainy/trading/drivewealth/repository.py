@@ -7,7 +7,7 @@ from typing import List, Iterable, Optional
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
-    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument
+    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthRedemptionStatus
 from gainy.trading.models import TradingMoneyFlowStatus, TradingOrderStatus
 from gainy.utils import get_logger
 
@@ -75,7 +75,8 @@ class DriveWealthRepository(Repository):
 
     def calculate_portfolio_cash_target_value(self,
                                               portfolio: DriveWealthPortfolio):
-        money_flow_sum = self._get_money_flow_sum(portfolio.profile_id)
+        money_flow_sum = self._get_money_flow_sum(
+            portfolio.drivewealth_account_id)
 
         query = """
             select collection_id, symbol, sum(cash_flow) as cash_flow
@@ -92,6 +93,10 @@ class DriveWealthRepository(Repository):
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
+            if not rows:
+                # no holdings - nothing to rebalance
+                return
+
             for row in rows:
                 if row[1] == 'CUR:USD':
                     cash_target_value = Decimal(row[2])
@@ -188,21 +193,27 @@ class DriveWealthRepository(Repository):
             row = cursor.fetchone()
         return row[0]
 
-    def _get_money_flow_sum(self, profile_id: int) -> Decimal:
+    def _get_money_flow_sum(self, drivewealth_account_id: str) -> Decimal:
         query = """
-            select sum(amount + coalesce(fees_total_amount, 0))
-            from app.trading_money_flow
-            where profile_id = %(profile_id)s
-              and status in %(trading_money_flow_statuses)s
+            select sum(total_amount)
+            from (
+                     select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
+                     from app.drivewealth_redemptions
+                     where trading_account_ref_id = %(trading_account_ref_id)s
+                       and status in %(statuses)s
+            
+                     union all
+            
+                     select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
+                     from app.drivewealth_deposits
+                     where trading_account_ref_id = %(trading_account_ref_id)s
+                       and status in %(statuses)s
+                 ) t
         """
 
-        trading_money_flow_statuses = [
-            TradingMoneyFlowStatus.SUCCESS.name,
-            TradingMoneyFlowStatus.APPROVED.name,
-        ]
         params = {
-            "profile_id": profile_id,
-            "trading_money_flow_statuses": tuple(trading_money_flow_statuses),
+            "trading_account_ref_id": drivewealth_account_id,
+            "statuses": (DriveWealthRedemptionStatus.Successful.name, ),
         }
 
         money_flow_sum = Decimal(0)

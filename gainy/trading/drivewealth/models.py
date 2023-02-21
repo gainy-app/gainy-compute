@@ -24,6 +24,12 @@ DW_WEIGHT_PRECISION = 4
 DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
 
 
+class DriveWealthRedemptionStatus(str, enum.Enum):
+    RIA_Pending = 'RIA_Pending'
+    RIA_Approved = 'RIA_Approved'
+    Successful = 'Successful'
+
+
 class BaseDriveWealthModel(BaseModel, ABC):
     data = None
 
@@ -116,7 +122,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
     cash_balance = None
     data = None
     is_artificial = False
-    created_at = None
+    created_at: datetime.datetime = None
     updated_at = None
 
     key_fields = ["ref_id"]
