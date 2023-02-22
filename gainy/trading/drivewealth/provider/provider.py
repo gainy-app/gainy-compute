@@ -143,6 +143,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             new_transactions_amount_sum += transaction.account_amount_delta
 
         if not new_transactions_amount_sum:
+            self.repository.persist(portfolio)
             return None
 
         new_equity_value = portfolio_status.equity_value

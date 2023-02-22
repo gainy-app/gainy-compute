@@ -521,6 +521,55 @@ def test_rebalance_portfolio_cash(monkeypatch):
     assert portfolio in persisted_objects[DriveWealthPortfolio]
 
 
+def get_test_rebalance_portfolio_cash_transaction_exists():
+    return [True, False]
+
+
+@pytest.mark.parametrize(
+    "transaction_exists",
+    get_test_rebalance_portfolio_cash_transaction_exists())
+def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
+    account_id = "account_id"
+    last_transaction_id = 1
+    new_transaction_id = 2
+    transaction_account_amount_delta = Decimal(0)
+    last_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.set_from_response(PORTFOLIO)
+    monkeypatch.setattr(portfolio, "drivewealth_account_id", account_id)
+    monkeypatch.setattr(portfolio, "last_equity_value", last_equity_value)
+    monkeypatch.setattr(portfolio, "last_transaction_id", last_transaction_id)
+
+    # portfolio_status = DriveWealthPortfolioStatus()
+    # portfolio_status.set_from_response(PORTFOLIO_STATUS)
+
+    transaction = DriveWealthTransaction()
+    monkeypatch.setattr(transaction, "id", new_transaction_id)
+    monkeypatch.setattr(transaction, "account_amount_delta",
+                        transaction_account_amount_delta)
+
+    repository = DriveWealthRepository(None)
+
+    monkeypatch.setattr(
+        repository, "get_new_transactions", lambda x, y: [transaction]
+        if transaction_exists else [])
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    provider = DriveWealthProvider(repository, None, None)
+    provider.rebalance_portfolio_cash(portfolio, None)
+
+    assert DriveWealthPortfolio in persisted_objects
+    assert portfolio in persisted_objects[DriveWealthPortfolio]
+    if transaction_exists:
+        assert portfolio.last_transaction_id == new_transaction_id
+    else:
+        assert portfolio.last_transaction_id == last_transaction_id
+
+    assert portfolio.last_equity_value == last_equity_value
+
+
 def test_sync_portfolio(monkeypatch):
     data = {}
 
