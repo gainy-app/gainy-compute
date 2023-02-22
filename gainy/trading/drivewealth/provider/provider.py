@@ -166,8 +166,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
             "portfolio_pre": portfolio.to_dict(),
         }
 
+        if portfolio.last_equity_value:
+            last_equity_value = portfolio.last_equity_value
+        else:
+            last_equity_value = Decimal(0)
+
         cash_weight_delta = (
-            portfolio.cash_target_weight * portfolio.last_equity_value +
+            portfolio.cash_target_weight * last_equity_value +
             new_transactions_amount_sum
         ) / new_equity_value - portfolio.cash_target_weight
         logging_extra["cash_weight_delta"] = cash_weight_delta

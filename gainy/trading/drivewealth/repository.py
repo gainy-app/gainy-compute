@@ -141,9 +141,13 @@ class DriveWealthRepository(Repository):
         return row[0]
 
     def get_new_transactions(
-            self, account_id,
-            last_transaction_id) -> list[DriveWealthTransaction]:
-        return self.find_all(DriveWealthTransaction, {
+            self, account_id: str, last_transaction_id: Optional[int]
+    ) -> list[DriveWealthTransaction]:
+
+        params = {
             "account_id": account_id,
-            "id": OperatorGt(last_transaction_id)
-        })
+        }
+        if last_transaction_id:
+            params["id"] = OperatorGt(last_transaction_id)
+
+        return self.find_all(DriveWealthTransaction, params)
