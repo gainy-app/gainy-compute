@@ -272,7 +272,8 @@ class RebalancePortfoliosJob:
             logger.info("Forced portfolio rebalance",
                         extra={
                             "portfolio_red_id": portfolio.ref_id,
-                            "profile_id": portfolio.profile_id
+                            "profile_id": portfolio.profile_id,
+                            "data": data,
                         })
         except DriveWealthApiException as e:
             logger.info("Failed to force portfolio rebalance",
