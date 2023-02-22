@@ -171,17 +171,22 @@ class DriveWealthProvider(DriveWealthProviderBase):
         else:
             last_equity_value = Decimal(0)
 
-        cash_weight_delta = (
-            portfolio.cash_target_weight * last_equity_value +
-            new_transactions_amount_sum
-        ) / new_equity_value - portfolio.cash_target_weight
-        logging_extra["cash_weight_delta"] = cash_weight_delta
-        portfolio.rebalance_cash(cash_weight_delta)
-        portfolio.last_equity_value = new_equity_value
-        logging_extra["portfolio_post"] = portfolio.to_dict()
+        try:
+            cash_weight_delta = (
+                portfolio.cash_target_weight * last_equity_value +
+                new_transactions_amount_sum
+            ) / new_equity_value - portfolio.cash_target_weight
+            logging_extra["cash_weight_delta"] = cash_weight_delta
+            portfolio.rebalance_cash(cash_weight_delta)
+            portfolio.last_equity_value = new_equity_value
+            logging_extra["portfolio_post"] = portfolio.to_dict()
 
-        logger.info('rebalance_portfolio_cash', extra=logging_extra)
-        self.repository.persist(portfolio)
+            logger.info('rebalance_portfolio_cash', extra=logging_extra)
+            self.repository.persist(portfolio)
+        except Exception as e:
+            logging_extra["exc"] = e
+            logger.exception('rebalance_portfolio_cash', extra=logging_extra)
+            raise e
 
     def reconfigure_collection_holdings(
             self, portfolio: DriveWealthPortfolio,
