@@ -109,9 +109,11 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         return account
 
-    def actualize_portfolio(self, portfolio: DriveWealthPortfolio):
+    def actualize_portfolio(
+            self,
+            portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
         self.sync_portfolio(portfolio)
-        portfolio_status = self.sync_portfolio_status(portfolio)
+        portfolio_status = self.sync_portfolio_status(portfolio, force=True)
 
         if not portfolio_status.is_pending_rebalance():
             logging_extra = {
@@ -126,6 +128,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
                         extra=logging_extra)
 
         self.rebalance_portfolio_cash(portfolio, portfolio_status)
+        return portfolio_status
 
     def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio,
                                  portfolio_status: DriveWealthPortfolioStatus):

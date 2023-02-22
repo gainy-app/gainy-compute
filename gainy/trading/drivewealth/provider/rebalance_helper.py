@@ -101,7 +101,6 @@ class DriveWealthProviderRebalanceHelper:
         else:
             cash_value = portfolio_status.cash_value
             cash_actual_weight = portfolio_status.cash_actual_weight
-
             fund_actual_weight = portfolio_status.get_fund_actual_weight(
                 chosen_fund.ref_id)
             fund_value = portfolio_status.get_fund_value(chosen_fund.ref_id)
@@ -118,36 +117,38 @@ class DriveWealthProviderRebalanceHelper:
             "cash_value": cash_value,
             "fund_actual_weight": fund_actual_weight,
             "fund_value": fund_value,
+            "portfolio_pre": portfolio.to_dict(),
         }
-        logger.info('_handle_cash_amount_change step0', extra=logging_extra)
+        try:
+            if target_amount_delta_relative is not None:
+                if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
+                    raise Exception(
+                        'target_amount_delta_relative must be within [-1, 0).')
 
-        if target_amount_delta_relative is not None:
-            if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
-                raise Exception(
-                    'target_amount_delta_relative must be within [-1, 0).')
+                # negative target_amount_delta_relative - check fund_value is > 0
+                if fund_actual_weight < DW_WEIGHT_THRESHOLD:
+                    raise InsufficientFundsException()
+                weight_delta = target_amount_delta_relative * fund_actual_weight
+                amount_aware_order.target_amount_delta = target_amount_delta_relative * fund_value
+            elif target_amount_delta > 0:
+                if cash_value - target_amount_delta < -PRECISION:
+                    raise InsufficientFundsException()
+                weight_delta = target_amount_delta / cash_value * cash_actual_weight
+            else:
+                if fund_value + target_amount_delta < -PRECISION:
+                    raise InsufficientFundsException()
+                weight_delta = target_amount_delta / fund_value * fund_actual_weight
 
-            # negative target_amount_delta_relative - check fund_value is > 0
-            if fund_actual_weight < DW_WEIGHT_THRESHOLD:
-                raise InsufficientFundsException()
-            weight_delta = target_amount_delta_relative * fund_actual_weight
-            amount_aware_order.target_amount_delta = target_amount_delta_relative * fund_value
-        elif target_amount_delta > 0:
-            if cash_value - target_amount_delta < -PRECISION:
-                raise InsufficientFundsException()
-            weight_delta = target_amount_delta / cash_value * cash_actual_weight
-        else:
-            if fund_value + target_amount_delta < -PRECISION:
-                raise InsufficientFundsException()
-            weight_delta = target_amount_delta / fund_value * fund_actual_weight
+            logging_extra["weight_delta"] = weight_delta
 
-        logging_extra["weight_delta"] = weight_delta
-        logging_extra["portfolio"] = portfolio.to_dict()
-        logger.info('_handle_cash_amount_change step1', extra=logging_extra)
-
-        portfolio.move_cash_to_fund(chosen_fund, weight_delta)
-        self.repository.persist(portfolio)
-        logging_extra["portfolio"] = portfolio.to_dict()
-        logger.info('_handle_cash_amount_change step2', extra=logging_extra)
+            portfolio.move_cash_to_fund(chosen_fund, weight_delta)
+            self.repository.persist(portfolio)
+            logging_extra["portfolio_post"] = portfolio.to_dict()
+            logger.info('_handle_cash_amount_change', extra=logging_extra)
+        except Exception as e:
+            logging_extra["exc"] = e
+            logger.exception('_handle_cash_amount_change', extra=logging_extra)
+            raise e
 
     def _generate_new_fund_holdings(
             self, weights: Dict[str, Any],

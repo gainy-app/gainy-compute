@@ -67,11 +67,8 @@ class RebalancePortfoliosJob:
                 if not account or not account.is_open():
                     continue
 
-                portfolio_status = self.provider.sync_portfolio_status(
-                    portfolio)
+                portfolio_status = self.provider.actualize_portfolio(portfolio)
                 is_pending_rebalance = portfolio_status.is_pending_rebalance()
-
-                self.provider.actualize_portfolio(portfolio)
 
                 trading_collection_versions = self.apply_trading_collection_versions(
                     portfolio, is_pending_rebalance)

@@ -442,10 +442,10 @@ def test_actualize_portfolio(monkeypatch):
     monkeypatch.setattr(provider, "rebalance_portfolio_cash",
                         mock_record_calls(rebalance_portfolio_cash_calls))
 
-    def mock_sync_portfolio_status(*args):
-        if args[0] == portfolio:
-            return portfolio_status
-        raise Exception(f"unknown args {args}")
+    def mock_sync_portfolio_status(*args, **kwargs):
+        assert args[0] == portfolio
+        assert kwargs["force"]
+        return portfolio_status
 
     monkeypatch.setattr(provider, "sync_portfolio_status",
                         mock_sync_portfolio_status)
