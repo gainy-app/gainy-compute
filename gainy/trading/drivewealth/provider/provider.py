@@ -148,6 +148,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         new_equity_value = portfolio_status.equity_value
         if not new_equity_value:
+            # todo handle?
             return None
         '''
         new_transactions_amount_sum=200
