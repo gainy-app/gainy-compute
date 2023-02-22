@@ -541,9 +541,6 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
     monkeypatch.setattr(portfolio, "last_equity_value", last_equity_value)
     monkeypatch.setattr(portfolio, "last_transaction_id", last_transaction_id)
 
-    # portfolio_status = DriveWealthPortfolioStatus()
-    # portfolio_status.set_from_response(PORTFOLIO_STATUS)
-
     transaction = DriveWealthTransaction()
     monkeypatch.setattr(transaction, "id", new_transaction_id)
     monkeypatch.setattr(transaction, "account_amount_delta",
