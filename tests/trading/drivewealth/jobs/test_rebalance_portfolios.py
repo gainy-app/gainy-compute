@@ -70,18 +70,11 @@ def test_rebalance_portfolios(monkeypatch):
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
-    actualize_portfolio_calls = []
-    monkeypatch.setattr(provider, "actualize_portfolio",
-                        mock_record_calls(actualize_portfolio_calls))
-
-    sync_portfolio_status_calls = []
-
-    def mock_sync_portfolio_status(*args, **kwargs):
-        mock_record_calls(sync_portfolio_status_calls)(*args, **kwargs)
+    def mock_actualize_portfolio(_portfolio):
         return portfolio_status
 
-    monkeypatch.setattr(provider, "sync_portfolio_status",
-                        mock_sync_portfolio_status)
+    monkeypatch.setattr(provider, "actualize_portfolio",
+                        mock_actualize_portfolio)
 
     trading_repository = TradingRepository(None)
     monkeypatch.setattr(
@@ -120,10 +113,6 @@ def test_rebalance_portfolios(monkeypatch):
 
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
 
-    calls_args = [args for args, kwargs in actualize_portfolio_calls]
-    assert (portfolio1, ) in calls_args
-    assert (portfolio2, ) in calls_args
-
     calls_args = [
         args for args, kwargs in apply_trading_collection_versions_calls
     ]
@@ -139,10 +128,6 @@ def test_rebalance_portfolios(monkeypatch):
     assert (portfolio2, is_pending_rebalance) in calls_args
 
     calls_args = [args for args, kwargs in send_portfolio_to_api_calls]
-    assert (portfolio1, ) in calls_args
-    assert (portfolio2, ) in calls_args
-
-    calls_args = [args for args, kwargs in sync_portfolio_status_calls]
     assert (portfolio1, ) in calls_args
     assert (portfolio2, ) in calls_args
 
