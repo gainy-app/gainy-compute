@@ -71,7 +71,7 @@ class RebalancePortfoliosJob:
                     portfolio)
                 is_pending_rebalance = portfolio_status.is_pending_rebalance()
 
-                self.rebalance_portfolio_cash(portfolio)
+                self.provider.actualize_portfolio(portfolio)
 
                 trading_collection_versions = self.apply_trading_collection_versions(
                     portfolio, is_pending_rebalance)
@@ -107,7 +107,8 @@ class RebalancePortfoliosJob:
                         trading_orders=trading_orders)
 
                 self.repo.commit()
-            except psycopg2.errors.OperationalError as e:
+            except (psycopg2.errors.OperationalError,
+                    DriveWealthApiException) as e:
                 logger.exception(e)
                 self.repo.rollback()
             except Exception as e:
@@ -249,19 +250,6 @@ class RebalancePortfoliosJob:
             logger.exception(e)
 
         return is_pending_rebalance
-
-    def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio):
-        start_time = time.time()
-
-        try:
-            self.provider.rebalance_portfolio_cash(portfolio)
-            self.repo.persist(portfolio)
-            logger.info("Rebalanced portfolio %s in %fs",
-                        portfolio.ref_id,
-                        time.time() - start_time,
-                        extra={"profile_id": portfolio.profile_id})
-        except DriveWealthApiException as e:
-            logger.exception(e)
 
     def _iterate_accounts_with_pending_trading_collection_versions(
             self) -> Iterable[Tuple[int, int]]:

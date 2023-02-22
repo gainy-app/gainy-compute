@@ -69,6 +69,11 @@ def test_rebalance_portfolios(monkeypatch):
     monkeypatch.setattr(
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
+
+    actualize_portfolio_calls = []
+    monkeypatch.setattr(provider, "actualize_portfolio",
+                        mock_record_calls(actualize_portfolio_calls))
+
     sync_portfolio_status_calls = []
 
     def mock_sync_portfolio_status(*args, **kwargs):
@@ -100,12 +105,9 @@ def test_rebalance_portfolios(monkeypatch):
         job, "_iterate_accounts_with_pending_trading_collection_versions",
         lambda: [(profile_id1, trading_account_id_1)])
 
-    rebalance_portfolio_cash_calls = []
     apply_trading_collection_versions_calls = []
     apply_trading_orders_calls = []
     rebalance_existing_funds_calls = []
-    monkeypatch.setattr(job, "rebalance_portfolio_cash",
-                        mock_record_calls(rebalance_portfolio_cash_calls))
     monkeypatch.setattr(
         job, "apply_trading_collection_versions",
         mock_record_calls(apply_trading_collection_versions_calls))
@@ -118,7 +120,7 @@ def test_rebalance_portfolios(monkeypatch):
 
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
 
-    calls_args = [args for args, kwargs in rebalance_portfolio_cash_calls]
+    calls_args = [args for args, kwargs in actualize_portfolio_calls]
     assert (portfolio1, ) in calls_args
     assert (portfolio2, ) in calls_args
 
@@ -338,34 +340,3 @@ def test_rebalance_existing_funds(monkeypatch):
             is_pending_rebalance) in [
                 args for args, kwargs in reconfigure_collection_holdings_calls
             ]
-
-
-def test_rebalance_portfolio_cash(monkeypatch):
-    portfolio = DriveWealthPortfolio()
-
-    repository = DriveWealthRepository(None)
-
-    def mock_get_profile_portfolio(profile_id):
-        if profile_id == profile_id:
-            return portfolio
-        raise Exception(f"unknown profile_id {profile_id}")
-
-    monkeypatch.setattr(repository, "get_profile_portfolio",
-                        mock_get_profile_portfolio)
-
-    provider = DriveWealthProvider(repository, None, None)
-    rebalance_portfolio_cash_calls = []
-    monkeypatch.setattr(provider, "rebalance_portfolio_cash",
-                        mock_record_calls(rebalance_portfolio_cash_calls))
-
-    trading_repository = TradingRepository(None)
-    persisted_objects = {}
-    monkeypatch.setattr(trading_repository, "persist",
-                        mock_persist(persisted_objects))
-    RebalancePortfoliosJob(trading_repository, None, provider,
-                           None).rebalance_portfolio_cash(portfolio)
-
-    assert portfolio in [
-        args[0] for args, kwargs in rebalance_portfolio_cash_calls
-    ]
-    assert portfolio in persisted_objects[DriveWealthPortfolio]
