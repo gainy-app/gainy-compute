@@ -320,6 +320,7 @@ class RebalancePortfoliosJob:
         logging_extra["last_optimization_at"] = tcv.last_optimization_at
         logging_extra[
             "collection_last_optimization_at"] = collection_last_optimization_at
+        logging_extra["weights"] = weights
 
         symbols_differ = set(i["symbol"]
                              for i in weights) != set(fund.weights.keys())
