@@ -7,7 +7,8 @@ from gainy.data_access.operators import OperatorIn, OperatorNot
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, \
-    FUND1_TARGET_WEIGHT, FUND2_ID, CASH_ACTUAL_VALUE
+    FUND1_TARGET_WEIGHT, FUND2_ID, CASH_ACTUAL_VALUE, PORTFOLIO_STATUS_EQUITY_VALUE, CASH_TARGET_WEIGHT, \
+    FUND2_TARGET_WEIGHT
 from gainy.trading.drivewealth.provider.base import normalize_symbol
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
@@ -15,7 +16,8 @@ from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, Dri
 
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
     DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
-    DriveWealthPortfolioStatus, DriveWealthFund, PRECISION, DriveWealthPortfolioHolding, DriveWealthAccountStatus
+    DriveWealthPortfolioStatus, DriveWealthFund, PRECISION, DriveWealthPortfolioHolding, DriveWealthAccountStatus, \
+    DriveWealthTransaction
 from gainy.trading.repository import TradingRepository
 
 _ACCOUNT_ID = "bf98c335-57ad-4337-ae9f-ed1fcfb447af.1662377145557"
@@ -419,59 +421,150 @@ def test_execute_order_in_portfolio(monkeypatch):
     assert trading_order in persisted_objects[TradingOrder]
 
 
-def test_rebalance_portfolio_cash(monkeypatch):
-    equity_value = Decimal(10)
-    cash_target_value = Decimal(equity_value)
-    cash_target_weight = Decimal(0.89)
-
+def test_actualize_portfolio(monkeypatch):
     portfolio = DriveWealthPortfolio()
-    monkeypatch.setattr(portfolio, "cash_target_value", cash_target_value)
     set_target_weights_from_status_actual_weights_calls = []
     monkeypatch.setattr(
         portfolio, "set_target_weights_from_status_actual_weights",
         mock_record_calls(set_target_weights_from_status_actual_weights_calls))
-    rebalance_cash_calls = []
-    monkeypatch.setattr(portfolio, "rebalance_cash",
-                        mock_record_calls(rebalance_cash_calls))
-    monkeypatch.setattr(portfolio, "cash_target_weight", cash_target_weight)
 
     portfolio_status = DriveWealthPortfolioStatus()
-    monkeypatch.setattr(portfolio_status, "equity_value", equity_value)
     monkeypatch.setattr(portfolio_status, "is_pending_rebalance",
                         lambda: False)
 
     repository = DriveWealthRepository(None)
-    calculate_portfolio_cash_target_value_calls = []
-    monkeypatch.setattr(
-        repository, "calculate_portfolio_cash_target_value",
-        mock_record_calls(calculate_portfolio_cash_target_value_calls))
 
     provider = DriveWealthProvider(repository, None, None)
     sync_portfolio_calls = []
     monkeypatch.setattr(provider, "sync_portfolio",
                         mock_record_calls(sync_portfolio_calls))
+    rebalance_portfolio_cash_calls = []
+    monkeypatch.setattr(provider, "rebalance_portfolio_cash",
+                        mock_record_calls(rebalance_portfolio_cash_calls))
 
-    def mock_sync_portfolio_status(*args):
-        if args[0] == portfolio:
-            return portfolio_status
-        raise Exception(f"unknown args {args}")
+    def mock_sync_portfolio_status(*args, **kwargs):
+        assert args[0] == portfolio
+        assert kwargs["force"]
+        return portfolio_status
 
     monkeypatch.setattr(provider, "sync_portfolio_status",
                         mock_sync_portfolio_status)
 
-    provider.rebalance_portfolio_cash(portfolio)
+    provider.actualize_portfolio(portfolio)
 
     assert portfolio_status in [
         args[0]
         for args, kwargs in set_target_weights_from_status_actual_weights_calls
     ]
-    assert cash_target_value / equity_value - cash_target_weight in [
-        args[0] for args, kwargs in rebalance_cash_calls
-    ]
-    assert portfolio in [
-        args[0] for args, kwargs in calculate_portfolio_cash_target_value_calls
-    ]
     assert portfolio in [args[0] for args, kwargs in sync_portfolio_calls]
+    assert (portfolio, portfolio_status) in [
+        args for args, kwargs in rebalance_portfolio_cash_calls
+    ]
+
+
+def test_rebalance_portfolio_cash(monkeypatch):
+    account_id = "account_id"
+    last_transaction_id = 1
+    new_transaction_id = 2
+    new_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
+    transaction_account_amount_delta = PORTFOLIO_STATUS_EQUITY_VALUE / 10
+    last_equity_value = new_equity_value - transaction_account_amount_delta
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.set_from_response(PORTFOLIO)
+    monkeypatch.setattr(portfolio, "drivewealth_account_id", account_id)
+    monkeypatch.setattr(portfolio, "last_equity_value", last_equity_value)
+    monkeypatch.setattr(portfolio, "last_transaction_id", last_transaction_id)
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.set_from_response(PORTFOLIO_STATUS)
+
+    transaction = DriveWealthTransaction()
+    monkeypatch.setattr(transaction, "id", new_transaction_id)
+    monkeypatch.setattr(transaction, "account_amount_delta",
+                        transaction_account_amount_delta)
+
+    repository = DriveWealthRepository(None)
+
+    def mock_get_new_transactions(_account_id, _last_transaction_id):
+        assert _last_transaction_id == last_transaction_id
+        assert _account_id == account_id
+        return [transaction]
+
+    monkeypatch.setattr(repository, "get_new_transactions",
+                        mock_get_new_transactions)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    provider = DriveWealthProvider(repository, None, None)
+
+    assert portfolio.cash_target_weight == CASH_TARGET_WEIGHT
+    assert portfolio.get_fund_weight(FUND1_ID) == FUND1_TARGET_WEIGHT
+    assert portfolio.get_fund_weight(FUND2_ID) == FUND2_TARGET_WEIGHT
+
+    provider.rebalance_portfolio_cash(portfolio, portfolio_status)
+
+    assert abs(portfolio.cash_target_weight * new_equity_value -
+               (CASH_TARGET_WEIGHT * last_equity_value +
+                transaction_account_amount_delta)) < PRECISION
+    assert abs(
+        portfolio.get_fund_weight(FUND1_ID) * new_equity_value -
+        FUND1_TARGET_WEIGHT * last_equity_value) < PRECISION
+    assert abs(
+        portfolio.get_fund_weight(FUND2_ID) * new_equity_value -
+        FUND2_TARGET_WEIGHT * last_equity_value) < PRECISION
+
+    assert portfolio.last_transaction_id == new_transaction_id
+    assert portfolio.last_equity_value == new_equity_value
+
+    assert DriveWealthPortfolio in persisted_objects
+    assert portfolio in persisted_objects[DriveWealthPortfolio]
+
+
+def get_test_rebalance_portfolio_cash_transaction_exists():
+    return [True, False]
+
+
+@pytest.mark.parametrize(
+    "transaction_exists",
+    get_test_rebalance_portfolio_cash_transaction_exists())
+def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
+    account_id = "account_id"
+    last_transaction_id = 1
+    new_transaction_id = 2
+    transaction_account_amount_delta = Decimal(0)
+    last_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.set_from_response(PORTFOLIO)
+    monkeypatch.setattr(portfolio, "drivewealth_account_id", account_id)
+    monkeypatch.setattr(portfolio, "last_equity_value", last_equity_value)
+    monkeypatch.setattr(portfolio, "last_transaction_id", last_transaction_id)
+
+    transaction = DriveWealthTransaction()
+    monkeypatch.setattr(transaction, "id", new_transaction_id)
+    monkeypatch.setattr(transaction, "account_amount_delta",
+                        transaction_account_amount_delta)
+
+    repository = DriveWealthRepository(None)
+
+    monkeypatch.setattr(
+        repository, "get_new_transactions", lambda x, y: [transaction]
+        if transaction_exists else [])
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    provider = DriveWealthProvider(repository, None, None)
+    provider.rebalance_portfolio_cash(portfolio, None)
+
+    assert DriveWealthPortfolio in persisted_objects
+    assert portfolio in persisted_objects[DriveWealthPortfolio]
+    if transaction_exists:
+        assert portfolio.last_transaction_id == new_transaction_id
+    else:
+        assert portfolio.last_transaction_id == last_transaction_id
+
+    assert portfolio.last_equity_value == last_equity_value
 
 
 def test_sync_portfolio(monkeypatch):

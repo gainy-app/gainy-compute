@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from typing import Optional
 
 import datetime
@@ -6,7 +8,8 @@ from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, ONE, DriveWealthInstrumentStatus
+    DriveWealthUser, DriveWealthPortfolio, ONE, DriveWealthInstrumentStatus, DriveWealthPortfolioStatus, \
+    DriveWealthTransaction
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -106,41 +109,87 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         return account
 
-    def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio):
-        self.repository.calculate_portfolio_cash_target_value(portfolio)
+    def actualize_portfolio(
+            self,
+            portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
         self.sync_portfolio(portfolio)
-        portfolio_status = self.sync_portfolio_status(portfolio)
-        if portfolio_status.equity_value < ONE:
-            return
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "portfolio_status": portfolio_status.to_dict(),
-            "portfolio_pre": portfolio.to_dict(),
-        }
+        portfolio_status = self.sync_portfolio_status(portfolio, force=True)
 
         if not portfolio_status.is_pending_rebalance():
+            logging_extra = {
+                "profile_id": portfolio.profile_id,
+                "portfolio_status": portfolio_status.to_dict(),
+                "portfolio_pre": portfolio.to_dict(),
+            }
             portfolio.set_target_weights_from_status_actual_weights(
                 portfolio_status)
             logging_extra["portfolio_post"] = portfolio.to_dict()
             logger.info('set_target_weights_from_status_actual_weights',
                         extra=logging_extra)
 
-        cash_delta = portfolio.cash_target_value - portfolio_status.equity_value * portfolio.cash_target_weight
+        self.rebalance_portfolio_cash(portfolio, portfolio_status)
+        return portfolio_status
 
-        logging_extra["cash_delta"] = cash_delta
-        logger.info('calculate_portfolio_cash_target_value',
-                    extra=logging_extra)
-        if abs(cash_delta) < 1:
-            return
+    def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio,
+                                 portfolio_status: DriveWealthPortfolioStatus):
+        new_transactions_amount_sum = Decimal(0)
+        new_transactions = self.repository.get_new_transactions(
+            portfolio.drivewealth_account_id, portfolio.last_transaction_id)
+        for transaction in new_transactions:
+            transaction: DriveWealthTransaction
+            if portfolio.last_transaction_id:
+                portfolio.last_transaction_id = max(
+                    portfolio.last_transaction_id, transaction.id)
+            else:
+                portfolio.last_transaction_id = transaction.id
 
-        cash_weight_delta = cash_delta / portfolio_status.equity_value
+            new_transactions_amount_sum += transaction.account_amount_delta
 
-        portfolio.rebalance_cash(cash_weight_delta)
+        if not new_transactions_amount_sum:
+            self.repository.persist(portfolio)
+            return None
 
-        logging_extra["cash_weight_delta"] = cash_weight_delta
-        logging_extra["portfolio_post"] = portfolio.to_dict()
-        logger.info('rebalance_portfolio_cash', extra=logging_extra)
+        new_equity_value = portfolio_status.equity_value
+        if not new_equity_value:
+            # todo handle?
+            return None
+        '''
+        new_transactions_amount_sum=200
+        cash_weight 0.5     0.8333
+        fund_weight 0.5     0.1667
+        equity_value 100    300
+        
+        cash_weight_delta = (0.5 * 100 + 200) / 300 - 0.5 = 0.3333
+        '''
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "new_transactions_amount_sum": new_transactions_amount_sum,
+            "new_transactions": [i.to_dict() for i in new_transactions],
+            "portfolio_pre": portfolio.to_dict(),
+        }
+
+        if portfolio.last_equity_value:
+            last_equity_value = portfolio.last_equity_value
+        else:
+            last_equity_value = Decimal(0)
+
+        try:
+            cash_weight_delta = (
+                portfolio.cash_target_weight * last_equity_value +
+                new_transactions_amount_sum
+            ) / new_equity_value - portfolio.cash_target_weight
+            logging_extra["cash_weight_delta"] = cash_weight_delta
+            portfolio.rebalance_cash(cash_weight_delta)
+            portfolio.last_equity_value = new_equity_value
+            logging_extra["portfolio_post"] = portfolio.to_dict()
+
+            logger.info('rebalance_portfolio_cash', extra=logging_extra)
+            self.repository.persist(portfolio)
+        except Exception as e:
+            logging_extra["exc"] = e
+            logger.exception('rebalance_portfolio_cash', extra=logging_extra)
+            raise e
 
     def reconfigure_collection_holdings(
             self, portfolio: DriveWealthPortfolio,

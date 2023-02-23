@@ -219,24 +219,16 @@ class DriveWealthProviderBase:
         pending_amount_sum = sum(order.target_amount_delta for order in orders
                                  if order.target_amount_delta is not None)
 
-        try:
-            min_date = min(
-                order.pending_execution_since for order in orders
-                if order.target_amount_delta is not None
-                and order.pending_execution_since is not None).date()
-        except ValueError:
-            min_date = None
-
         if collection_id:
             executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
-                profile_id, min_date=min_date, collection_id=collection_id)
+                profile_id, collection_id=collection_id)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
-                profile_id, min_date=min_date, collection_id=collection_id)
+                profile_id, collection_id=collection_id)
         elif symbol:
             executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
-                profile_id, min_date=min_date, symbol=symbol)
+                profile_id, symbol=symbol)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
-                profile_id, min_date=min_date, symbol=symbol)
+                profile_id, symbol=symbol)
         else:
             raise Exception("You must specify either collection_id or symbol")
 

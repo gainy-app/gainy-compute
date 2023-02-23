@@ -1,14 +1,13 @@
-from _decimal import Decimal
-
 from psycopg2.extras import RealDictCursor
 
 from typing import List, Iterable, Optional
 
+from gainy.data_access.operators import OperatorGt
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
-    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthRedemptionStatus
-from gainy.trading.models import TradingMoneyFlowStatus, TradingOrderStatus
+    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthTransaction
+from gainy.trading.models import TradingOrderStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -72,58 +71,6 @@ class DriveWealthRepository(Repository):
         self.persist(entity)
 
         return entity
-
-    def calculate_portfolio_cash_target_value(self,
-                                              portfolio: DriveWealthPortfolio):
-        money_flow_sum = self._get_money_flow_sum(
-            portfolio.drivewealth_account_id)
-
-        query = """
-            select collection_id, symbol, sum(cash_flow) as cash_flow
-            from drivewealth_portfolio_historical_holdings
-            where profile_id = %(profile_id)s
-            group by collection_id, symbol
-        """
-        params = {
-            "profile_id": portfolio.profile_id,
-        }
-
-        cash_target_value = None
-        cash_flow_sum = Decimal(0)
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-            if not rows:
-                # no holdings - nothing to rebalance
-                return
-
-            for row in rows:
-                if row[1] == 'CUR:USD':
-                    cash_target_value = Decimal(row[2])
-                cash_flow_sum += Decimal(row[2])
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "cash_target_value": cash_target_value,
-            "money_flow_sum": money_flow_sum,
-            "data": rows,
-        }
-
-        if cash_target_value is None:
-            msg = 'calculate_portfolio_cash_target_value: cash_target_value is None'
-            logger.error(msg, extra=logging_extra)
-            raise Exception(msg)
-
-        if abs(money_flow_sum - cash_flow_sum) > 1:
-            msg = 'calculate_portfolio_cash_target_value: money_flow_sum != cash_flow_sum'
-            logger.error(msg, extra=logging_extra)
-            raise Exception(msg)
-
-        logger.info('calculate_portfolio_cash_target_value',
-                    extra=logging_extra)
-
-        portfolio.cash_target_value = cash_target_value
-        self.persist(portfolio)
 
     # todo add to tests?
     def get_instrument_by_symbol(
@@ -193,34 +140,14 @@ class DriveWealthRepository(Repository):
             row = cursor.fetchone()
         return row[0]
 
-    def _get_money_flow_sum(self, drivewealth_account_id: str) -> Decimal:
-        query = """
-            select sum(total_amount)
-            from (
-                     select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
-                     from app.drivewealth_redemptions
-                     where trading_account_ref_id = %(trading_account_ref_id)s
-                       and status in %(statuses)s
-            
-                     union all
-            
-                     select sum((data ->> 'amount')::numeric + coalesce(fees_total_amount, 0)) as total_amount
-                     from app.drivewealth_deposits
-                     where trading_account_ref_id = %(trading_account_ref_id)s
-                       and status in %(statuses)s
-                 ) t
-        """
+    def get_new_transactions(
+            self, account_id: str, last_transaction_id: Optional[int]
+    ) -> list[DriveWealthTransaction]:
 
         params = {
-            "trading_account_ref_id": drivewealth_account_id,
-            "statuses": (DriveWealthRedemptionStatus.Successful.name, ),
+            "account_id": account_id,
         }
+        if last_transaction_id:
+            params["id"] = OperatorGt(last_transaction_id)
 
-        money_flow_sum = Decimal(0)
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(query, params)
-            row = cursor.fetchone()
-            if row[0] is not None:
-                money_flow_sum = row[0]
-
-        return money_flow_sum
+        return self.find_all(DriveWealthTransaction, params)
