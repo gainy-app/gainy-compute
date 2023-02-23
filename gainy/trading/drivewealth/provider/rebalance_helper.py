@@ -145,9 +145,16 @@ class DriveWealthProviderRebalanceHelper:
             self.repository.persist(portfolio)
             logging_extra["portfolio_post"] = portfolio.to_dict()
             logger.info('_handle_cash_amount_change', extra=logging_extra)
+        except InsufficientFundsException as e:
+            logger.warning('_handle_cash_amount_change: %s',
+                           e,
+                           extra=logging_extra)
+            raise e
         except Exception as e:
             logging_extra["exc"] = e
-            logger.exception('_handle_cash_amount_change', extra=logging_extra)
+            logger.exception('_handle_cash_amount_change: %s',
+                             e,
+                             extra=logging_extra)
             raise e
 
     def _generate_new_fund_holdings(
