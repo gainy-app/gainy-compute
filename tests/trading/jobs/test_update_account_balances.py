@@ -2,7 +2,7 @@ import pytest
 
 from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls
 from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
-from gainy.trading.drivewealth.models import DriveWealthPortfolio
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount
 from gainy.trading.service import TradingService
 from gainy.trading.jobs.update_account_balances import UpdateAccountBalancesJob
 from gainy.trading.models import TradingAccount, FundingAccount
@@ -65,7 +65,14 @@ def get_realtime():
 
 @pytest.mark.parametrize("realtime", get_realtime())
 def test_update_portfolios(monkeypatch, realtime):
+    drivewealth_account_id = "drivewealth_account_id"
+
+    account = DriveWealthAccount()
+    monkeypatch.setattr(account, "is_open", lambda: True)
+
     portfolio = DriveWealthPortfolio()
+    monkeypatch.setattr(portfolio, "drivewealth_account_id",
+                        drivewealth_account_id)
 
     repository = DriveWealthRepository(None)
     if realtime:
@@ -77,6 +84,13 @@ def test_update_portfolios(monkeypatch, realtime):
             mock_find([
                 (DriveWealthPortfolio, None, [portfolio]),
             ]))
+    monkeypatch.setattr(
+        repository, "find_one",
+        mock_find([
+            (DriveWealthAccount, {
+                "ref_id": drivewealth_account_id
+            }, account),
+        ]))
 
     provider = DriveWealthProvider(None, None, None)
     sync_portfolio_calls = []
