@@ -175,37 +175,13 @@ with profiles as
                   left join category_matches using (profile_id, symbol)
                   left join interest_matches using (profile_id, symbol)
          where tickers.type in ('preferred stock', 'common stock', 'crypto', 'etf')
-     ),
-     combined1 as (
-         select profile_id,
-                symbol,
-                (case
-                     when match_score is null
-                         then least(min_match_score, 0)
-                     when match_score - 0.5 > 0
-                         then (match_score - 0.5) / max_match_score
-                     when match_score - 0.5 < 0
-                         then (match_score - 0.5) / -min_match_score
-                     else 0.0 --(match_score - 0.5)=0
-                     end + 1) / 2                           as match_score,
-                coalesce(match_comp_risk_normalized, 0)     as match_comp_risk_normalized,
-                coalesce(match_comp_category_normalized, 0) as match_comp_category_normalized,
-                coalesce(match_comp_interest_normalized, 0) as match_comp_interest_normalized,
-                category_matches,
-                interest_matches,
-                matches_portfolio
-         from combined0
-                  join (
-             select profile_id,
-                    max(match_score - 0.5) as max_match_score,
-                    min(match_score - 0.5) as min_match_score
-             from combined0
-             group by profile_id
-         ) t using (profile_id)
+           and tickers.ms_enabled
      )
 select profile_id,
        symbol,
-       coalesce(match_score * 99, 0)::int                                                          as match_score,
+       ((sigmoid(coalesce(match_comp_risk_normalized, 0) * 0.6, 3) +
+       sigmoid(coalesce(match_comp_interest_normalized, 0) * 0.3, 3) +
+       sigmoid(coalesce(match_comp_category_normalized, 0) * 0.1, 3)) * 100)::int                  as match_score,
        (match_comp_risk_normalized > 1/3.)::int + (match_comp_risk_normalized > 2/3.)::int         as fits_risk,
        match_comp_risk_normalized                                                                  as risk_similarity,
        (match_comp_category_normalized > 1/3.)::int + (match_comp_category_normalized > 2/3.)::int as fits_categories,
@@ -216,7 +192,7 @@ select profile_id,
        match_comp_category_normalized                                                              as category_similarity,
        match_comp_interest_normalized                                                              as interest_similarity,
        matches_portfolio
-from combined1
+from combined0
 on conflict (
     profile_id, symbol
     ) do update set match_score         = excluded.match_score,

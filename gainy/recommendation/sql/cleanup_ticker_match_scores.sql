@@ -16,3 +16,8 @@ from app.profile_ticker_match_score
     using last_version
 where profile_ticker_match_score.profile_id = last_version.profile_id
   and profile_ticker_match_score.updated_at < last_version.updated_at;
+
+delete
+from app.profile_ticker_match_score
+where profile_id not in (select profile_id from app.profile_scoring_settings)
+--   or symbol not in (select symbol from tickers where ms_enabled);
