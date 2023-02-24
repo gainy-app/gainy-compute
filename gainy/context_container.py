@@ -58,7 +58,7 @@ class ContextContainer(AbstractContextManager):
 
     @cached_property
     def plaid_service(self) -> PlaidService:
-        return PlaidService()
+        return PlaidService(self.db_conn)
 
     @cached_property
     def amplitude_service(self) -> AmplitudeService:

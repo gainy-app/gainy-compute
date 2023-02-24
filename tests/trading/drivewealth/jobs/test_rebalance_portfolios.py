@@ -60,6 +60,8 @@ def test_rebalance_portfolios(monkeypatch):
                         lambda: is_pending_rebalance)
 
     repository = DriveWealthRepository(None)
+    monkeypatch.setattr(repository, "portfolio_has_pending_orders",
+                        lambda p: True)
 
     provider = DriveWealthProvider(repository, None, None)
     send_portfolio_to_api_calls = []
@@ -101,6 +103,7 @@ def test_rebalance_portfolios(monkeypatch):
     apply_trading_collection_versions_calls = []
     apply_trading_orders_calls = []
     rebalance_existing_funds_calls = []
+    force_rebalance_calls = []
     monkeypatch.setattr(
         job, "apply_trading_collection_versions",
         mock_record_calls(apply_trading_collection_versions_calls))
@@ -108,6 +111,8 @@ def test_rebalance_portfolios(monkeypatch):
                         mock_record_calls(apply_trading_orders_calls))
     monkeypatch.setattr(job, "rebalance_existing_funds",
                         mock_record_calls(rebalance_existing_funds_calls))
+    monkeypatch.setattr(job, "force_rebalance",
+                        mock_record_calls(force_rebalance_calls))
 
     job.run()
 
@@ -127,7 +132,12 @@ def test_rebalance_portfolios(monkeypatch):
     assert (portfolio1, is_pending_rebalance) in calls_args
     assert (portfolio2, is_pending_rebalance) in calls_args
 
+    # no orders - no api calls
     calls_args = [args for args, kwargs in send_portfolio_to_api_calls]
+    assert (portfolio1, ) not in calls_args
+    assert (portfolio2, ) not in calls_args
+
+    calls_args = [args for args, kwargs in force_rebalance_calls]
     assert (portfolio1, ) in calls_args
     assert (portfolio2, ) in calls_args
 

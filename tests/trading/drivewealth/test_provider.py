@@ -777,13 +777,12 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
     monkeypatch.setattr(provider, "_fill_executed_amount",
                         mock_record_calls(fill_executed_amount_calls))
 
-    portfolio_status = provider.update_trading_collection_versions_pending_execution_from_portfolio_status(
+    provider.update_trading_collection_versions_pending_execution_from_portfolio_status(
         portfolio_status)
 
-    assert ((profile_id, [trading_collection_version],
-             last_portfolio_rebalance_at), {
-                 "collection_id": collection_id
-             }) in fill_executed_amount_calls
+    assert ((profile_id, [trading_collection_version], portfolio_status), {
+        "collection_id": collection_id
+    }) in fill_executed_amount_calls
 
 
 def test_update_trading_orders_pending_execution_from_portfolio_status(
@@ -826,15 +825,17 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
     monkeypatch.setattr(provider, "_fill_executed_amount",
                         mock_record_calls(fill_executed_amount_calls))
 
-    portfolio_status = provider.update_trading_orders_pending_execution_from_portfolio_status(
+    provider.update_trading_orders_pending_execution_from_portfolio_status(
         portfolio_status)
 
-    assert ((profile_id, [trading_order], last_portfolio_rebalance_at), {
+    assert ((profile_id, [trading_order], portfolio_status), {
         "symbol": symbol
     }) in fill_executed_amount_calls
 
 
 def get_fill_executed_amount_data():
+    pending_execution_since = datetime.datetime.now() - datetime.timedelta(
+        minutes=1)
 
     def assert_persisted(orders, persisted_objects):
         assert TradingOrder in persisted_objects
@@ -845,6 +846,7 @@ def get_fill_executed_amount_data():
     def test_set1():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(100)
+        trading_order1.pending_execution_since = pending_execution_since
         orders = [trading_order1]
 
         def assert_func(persisted_objects):
@@ -858,8 +860,10 @@ def get_fill_executed_amount_data():
     def test_set2():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(50)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(100)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -874,8 +878,10 @@ def get_fill_executed_amount_data():
     def test_set3():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(50)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(100)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -891,8 +897,10 @@ def get_fill_executed_amount_data():
     def test_set4():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(100)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(-50)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -908,8 +916,10 @@ def get_fill_executed_amount_data():
     def test_set5():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(100)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(-50)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -925,8 +935,10 @@ def get_fill_executed_amount_data():
     def test_set6():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(-50)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(100)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -942,8 +954,10 @@ def get_fill_executed_amount_data():
     def test_set7():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(-50)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(100)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -959,8 +973,10 @@ def get_fill_executed_amount_data():
     def test_set8():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(-50)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(-100)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -975,8 +991,10 @@ def get_fill_executed_amount_data():
     def test_set9():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(-50)
+        trading_order1.pending_execution_since = pending_execution_since
         trading_order2 = TradingOrder()
         trading_order2.target_amount_delta = Decimal(-100)
+        trading_order2.pending_execution_since = pending_execution_since
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
@@ -992,6 +1010,7 @@ def get_fill_executed_amount_data():
     def test_set10():
         trading_order1 = TradingOrder()
         trading_order1.target_amount_delta = Decimal(-100)
+        trading_order1.pending_execution_since = pending_execution_since
         orders = [trading_order1]
 
         def assert_func(persisted_objects):
@@ -1037,9 +1056,13 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
 
     provider = DriveWealthProvider(None, None, repository)
 
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at
+    monkeypatch.setattr(portfolio_status, "is_pending_rebalance", lambda: True)
+
     provider._fill_executed_amount(profile_id,
                                    orders,
-                                   last_portfolio_rebalance_at,
+                                   portfolio_status,
                                    collection_id=collection_id)
 
     assert_func(persisted_objects)
