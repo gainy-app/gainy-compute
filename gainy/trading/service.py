@@ -55,8 +55,7 @@ class TradingService:
             }
 
             plaid_accounts = self.plaid_service.get_item_accounts(
-                access_token.access_token,
-                list(funding_accounts_by_account_id.keys()))
+                access_token, list(funding_accounts_by_account_id.keys()))
             for plaid_account in plaid_accounts:
                 if plaid_account.account_id not in funding_accounts_by_account_id:
                     continue
