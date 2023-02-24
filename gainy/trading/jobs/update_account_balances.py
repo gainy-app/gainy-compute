@@ -7,7 +7,7 @@ import time
 from gainy.context_container import ContextContainer
 from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
-from gainy.trading.drivewealth.models import DriveWealthPortfolio
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount
 from gainy.trading.models import TradingAccount, FundingAccount
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
@@ -71,6 +71,12 @@ class UpdateAccountBalancesJob:
         for portfolio in portfolios:
             if portfolio.is_artificial:
                 continue
+            account: DriveWealthAccount = self.repo.find_one(
+                DriveWealthAccount,
+                {"ref_id": portfolio.drivewealth_account_id})
+            if not account or not account.is_open():
+                continue
+
             start_time = time.time()
 
             try:

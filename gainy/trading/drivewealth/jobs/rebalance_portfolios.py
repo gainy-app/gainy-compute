@@ -72,32 +72,23 @@ class RebalancePortfoliosJob:
 
                 trading_collection_versions = self.apply_trading_collection_versions(
                     portfolio, is_pending_rebalance)
-                is_pending_rebalance = is_pending_rebalance or len(
-                    trading_collection_versions) > 0
+                portfolio_changed = bool(trading_collection_versions)
 
+                print(is_pending_rebalance or portfolio_changed)
                 trading_orders = self.apply_trading_orders(
-                    portfolio, is_pending_rebalance)
-                is_pending_rebalance = is_pending_rebalance or len(
-                    trading_orders) > 0
+                    portfolio, is_pending_rebalance or portfolio_changed)
+                portfolio_changed = portfolio_changed or trading_orders
 
-                is_pending_rebalance = self.rebalance_existing_funds(
-                    portfolio, is_pending_rebalance)
+                portfolio_changed = portfolio_changed or self.rebalance_existing_funds(
+                    portfolio, is_pending_rebalance or portfolio_changed)
 
-                portfolio.normalize_weights()
-                self.provider.send_portfolio_to_api(portfolio)
+                if portfolio_changed:
+                    portfolio.normalize_weights()
+                    self.provider.send_portfolio_to_api(portfolio)
 
-                is_portfolio_pending_rebalance = self.drivewealth_repository.is_portfolio_pending_rebalance(
+                portfolio_has_pending_orders = self.drivewealth_repository.portfolio_has_pending_orders(
                     portfolio)
-                logger.info("is_portfolio_pending_rebalance",
-                            extra={
-                                "profile_id":
-                                portfolio.profile_id,
-                                "portfolio_ref_id":
-                                portfolio.ref_id,
-                                "is_portfolio_pending_rebalance":
-                                is_portfolio_pending_rebalance,
-                            })
-                if is_portfolio_pending_rebalance:
+                if portfolio_changed or portfolio_has_pending_orders:
                     self.force_rebalance(
                         portfolio,
                         trading_collection_versions=trading_collection_versions,
@@ -215,6 +206,7 @@ class RebalancePortfoliosJob:
         :return:
         """
         profile_id = portfolio.profile_id
+        portfolio_changed = False
         try:
             for fund in self.provider.iterate_profile_funds(profile_id):
                 fund_weight = portfolio.get_fund_weight(fund.ref_id)
@@ -224,15 +216,15 @@ class RebalancePortfoliosJob:
                 if fund.trading_collection_version_id:
                     result = self.rebalance_existing_collection_fund(
                         portfolio, fund, is_pending_rebalance)
-                    is_pending_rebalance = is_pending_rebalance or result
+                    portfolio_changed = portfolio_changed or result
                 if fund.trading_order_id:
                     result = self.rebalance_existing_ticker_fund(
                         portfolio, fund, is_pending_rebalance)
-                    is_pending_rebalance = is_pending_rebalance or result
+                    portfolio_changed = portfolio_changed or result
         except DriveWealthApiException as e:
             logger.exception(e)
 
-        return is_pending_rebalance
+        return portfolio_changed
 
     def _iterate_accounts_with_pending_trading_collection_versions(
             self) -> Iterable[Tuple[int, int]]:

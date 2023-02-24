@@ -55,7 +55,8 @@ class TradingRepository(Repository):
             params["pending_execution_since"] = OperatorLte(
                 pending_execution_to)
 
-        yield from self.iterate_all(TradingCollectionVersion, params)
+        yield from self.iterate_all(TradingCollectionVersion, params,
+                                    [("target_amount_delta", "asc")])
 
     def iterate_trading_orders(
         self,
@@ -76,7 +77,8 @@ class TradingRepository(Repository):
             params["pending_execution_since"] = OperatorLte(
                 pending_execution_to)
 
-        yield from self.iterate_all(TradingOrder, params)
+        yield from self.iterate_all(TradingOrder, params,
+                                    [("target_amount_delta", "asc")])
 
     def get_buying_power(self, trading_account_id: int) -> Decimal:
         with self.db_conn.cursor() as cursor:

@@ -113,8 +113,8 @@ class DriveWealthRepository(Repository):
                 entity.set_from_dict(row)
                 yield entity
 
-    def is_portfolio_pending_rebalance(
-            self, portfolio: DriveWealthPortfolio) -> bool:
+    def portfolio_has_pending_orders(self,
+                                     portfolio: DriveWealthPortfolio) -> bool:
         query = """
             select exists(
                            select trading_collection_versions.id
