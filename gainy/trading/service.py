@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Iterable, Dict, List, Any
 
 from gainy.exceptions import EntityNotFoundException
+from gainy.plaid.exceptions import AccessTokenLoginRequiredException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
 from gainy.trading.drivewealth.models import PRECISION
@@ -46,16 +47,23 @@ class TradingService:
                 funding_account)
 
         for plaid_access_token_id, funding_accounts in by_at_id.items():
-            access_token = self.trading_repository.find_one(
+            access_token: PlaidAccessToken = self.trading_repository.find_one(
                 PlaidAccessToken, {"id": plaid_access_token_id})
+            if access_token.needs_reauth_since:
+                continue
+
             funding_accounts_by_account_id: Dict[int, FundingAccount] = {
                 funding_account.plaid_account_id: funding_account
                 for funding_account in funding_accounts
                 if funding_account.plaid_account_id
             }
 
-            plaid_accounts = self.plaid_service.get_item_accounts(
-                access_token, list(funding_accounts_by_account_id.keys()))
+            try:
+                plaid_accounts = self.plaid_service.get_item_accounts(
+                    access_token, list(funding_accounts_by_account_id.keys()))
+            except AccessTokenLoginRequiredException:
+                continue
+
             for plaid_account in plaid_accounts:
                 if plaid_account.account_id not in funding_accounts_by_account_id:
                     continue
