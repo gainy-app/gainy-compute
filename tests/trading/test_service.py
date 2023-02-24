@@ -39,7 +39,7 @@ def test_update_funding_accounts_balance(monkeypatch):
     plaid_service = PlaidService(None)
 
     def mock_get_item_accounts(_access_token, plaid_account_ids):
-        assert _access_token == access_token
+        assert _access_token == plaid_access_token
         assert plaid_account_ids == [plaid_account_id]
         return [plaid_account]
 
