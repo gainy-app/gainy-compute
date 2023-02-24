@@ -19,6 +19,7 @@ create table tickers
     exchange           varchar,
     exchange_canonical varchar,
     country_name       text,
+    ms_enabled         bool default true,
     updated_at         timestamp
 );
 insert into tickers (symbol, type, name, description, phone, logo_url, web_url, ipo_date, sector, industry, gic_sector, gic_group, gic_industry, gic_sub_industry, exchange, exchange_canonical, country_name, updated_at)
