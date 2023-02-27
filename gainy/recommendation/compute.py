@@ -25,9 +25,9 @@ class ComputeRecommendationsAndPersist(AbstractPessimisticLockingFunction):
     def _do(self, version):
         self.repo.generate_match_scores([self.profile_id])
 
-        top_20_tickers = self.repo.read_top_match_score_tickers(
-            self.profile_id, 20)
-        self.repo.update_personalized_collection(self.profile_id,
-                                                 TOP_20_FOR_YOU_COLLECTION_ID,
-                                                 top_20_tickers)
+        # top_20_tickers = self.repo.read_top_match_score_tickers(
+        #     self.profile_id, 20)
+        # self.repo.update_personalized_collection(self.profile_id,
+        #                                          TOP_20_FOR_YOU_COLLECTION_ID,
+        #                                          top_20_tickers)
         self.repo.commit()
