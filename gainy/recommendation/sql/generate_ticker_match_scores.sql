@@ -1,12 +1,19 @@
 insert into app.profile_ticker_match_score (profile_id, symbol, match_score, fits_risk, risk_similarity,
                                             fits_categories, fits_interests, category_matches, interest_matches,
                                             updated_at, category_similarity, interest_similarity, matches_portfolio)
-with profiles as
+with profiles as materialized
          (
              select id as profile_id, email
              from app.profiles
              {where_clause}
          ),
+     tickers as materialized
+         (
+             select symbol
+             from tickers
+             where tickers.type in ('preferred stock', 'common stock', 'crypto', 'etf')
+               and tickers.ms_enabled
+     ),
      p_rsk as
          (
              select profile_id, risk_score, (risk_score::double precision - 1) / 2 as value
@@ -29,16 +36,19 @@ with profiles as
          (
              select category_id, symbol, sim_dif
              from ticker_categories_continuous
+                      join tickers using (symbol)
          ),
      t_int_sim_dif as
          (
              select interest_id, symbol, sim_dif
              from ticker_interests
+                      join tickers using (symbol)
          ),
      t_risk_score as
          (
              select symbol, risk_score
              from ticker_risk_scores
+                      join tickers using (symbol)
          ),
      const as
          (
@@ -165,8 +175,6 @@ with profiles as
                   left join portfolio_interest_similarity using (profile_id, symbol)
                   left join category_matches using (profile_id, symbol)
                   left join interest_matches using (profile_id, symbol)
-         where tickers.type in ('preferred stock', 'common stock', 'crypto', 'etf')
-           and tickers.ms_enabled
      )
 select profile_id,
        symbol,
