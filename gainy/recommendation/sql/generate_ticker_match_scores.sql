@@ -5,6 +5,7 @@ with profiles as materialized
          (
              select id as profile_id, email
              from app.profiles
+                      join app.profile_scoring_settings on profiles.id = profile_scoring_settings.profile_id
              {where_clause}
          ),
      tickers as materialized

@@ -62,11 +62,14 @@ class RecommendationRepository(Repository):
 
         return list(zip(collection_ids, collection_uniq_ids))
 
-    def read_batch_profile_ids(self, batch_size: int) -> Iterable[List[int]]:
+    def read_ms_batch_profile_ids(self,
+                                  batch_size: int) -> Iterable[List[int]]:
         with self.db_conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM app.profiles where email not ilike '%test%@gainy.app'"
-            )
+            cursor.execute("""
+                SELECT id 
+                FROM app.profiles 
+                         join app.profile_scoring_settings on profiles.id = profile_scoring_settings.profile_id
+                where email not ilike '%test%@gainy.app'""")
 
             while True:
                 batch = cursor.fetchmany(batch_size)
@@ -204,8 +207,8 @@ class RecommendationRepository(Repository):
         ]
 
         for query_filename in query_filenames:
-            query_filename = os.path.join(script_dir, "sql", query_filename)
-            with open(query_filename) as f:
+            query_path = os.path.join(script_dir, "sql", query_filename)
+            with open(query_path) as f:
                 queries.append((query_filename, f.read()))
 
         where_clause = []
