@@ -426,8 +426,7 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
 
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
-    monkeypatch.setattr(drivewealth_repository,
-                        "is_portfolio_pending_rebalance",
+    monkeypatch.setattr(drivewealth_repository, "portfolio_has_pending_orders",
                         lambda portfolio: False)
 
     provider = DriveWealthProvider(drivewealth_repository, None, None)

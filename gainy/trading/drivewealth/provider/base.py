@@ -103,11 +103,10 @@ class DriveWealthProviderBase:
 
         for collection_id, trading_collection_versions in by_collection.items(
         ):
-            self._fill_executed_amount(
-                profile_id,
-                trading_collection_versions,
-                portfolio_status.last_portfolio_rebalance_at,
-                collection_id=collection_id)
+            self._fill_executed_amount(profile_id,
+                                       trading_collection_versions,
+                                       portfolio_status,
+                                       collection_id=collection_id)
 
     def update_trading_orders_pending_execution_from_portfolio_status(
             self, portfolio_status: DriveWealthPortfolioStatus):
@@ -136,11 +135,10 @@ class DriveWealthProviderBase:
             by_symbol[symbol].append(trading_order)
 
         for symbol, trading_orders in by_symbol.items():
-            self._fill_executed_amount(
-                profile_id,
-                trading_orders,
-                portfolio_status.last_portfolio_rebalance_at,
-                symbol=symbol)
+            self._fill_executed_amount(profile_id,
+                                       trading_orders,
+                                       portfolio_status,
+                                       symbol=symbol)
 
     def iterate_profile_funds(self,
                               profile_id: int) -> Iterable[DriveWealthFund]:
@@ -213,7 +211,7 @@ class DriveWealthProviderBase:
     def _fill_executed_amount(self,
                               profile_id,
                               orders: List[AmountAwareTradingOrder],
-                              last_portfolio_rebalance_at: datetime.datetime,
+                              portfolio_status: DriveWealthPortfolioStatus,
                               collection_id: int = None,
                               symbol: str = None):
         pending_amount_sum = sum(order.target_amount_delta for order in orders
@@ -232,6 +230,8 @@ class DriveWealthProviderBase:
         else:
             raise Exception("You must specify either collection_id or symbol")
 
+        last_portfolio_rebalance_at = portfolio_status.last_portfolio_rebalance_at
+
         # executed_amount_sum + pending_amount_sum = cash_flow_sum
         diff = executed_amount_sum + pending_amount_sum - cash_flow_sum
         logger_extra = {
@@ -239,6 +239,8 @@ class DriveWealthProviderBase:
             "executed_amount_sum": executed_amount_sum,
             "pending_amount_sum": pending_amount_sum,
             "cash_flow_sum": cash_flow_sum,
+            "last_portfolio_rebalance_at": last_portfolio_rebalance_at,
+            "is_pending_rebalance": portfolio_status.is_pending_rebalance(),
         }
         for order in reversed(orders):
             logger_extra["order_class"] = order.__class__.__name__
@@ -268,7 +270,12 @@ class DriveWealthProviderBase:
             order.executed_amount = order.target_amount_delta - error
             logger_extra["executed_amount"] = order.executed_amount
 
-            if abs(error) < EXECUTED_AMOUNT_PRECISION:
+            is_executed = abs(error) < EXECUTED_AMOUNT_PRECISION
+            is_executed = is_executed or (
+                last_portfolio_rebalance_at > order.pending_execution_since
+                and not portfolio_status.is_pending_rebalance())
+
+            if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
                 order.executed_at = last_portfolio_rebalance_at
             logger.info('_fill_executed_amount', extra=logger_extra)

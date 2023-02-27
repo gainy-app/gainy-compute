@@ -23,7 +23,7 @@ class PlaidClient:
         return get_plaid_client('development')
 
     def get_item_accounts(self,
-                          access_token,
+                          access_token: str,
                           account_ids: List = None) -> List[PlaidAccount]:
         # todo cache
         if account_ids:
