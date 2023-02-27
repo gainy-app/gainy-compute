@@ -314,7 +314,7 @@ def get_test_handle_cash_amount_change_amounts_ok_pending_rebalance():
     yield 0
     yield from [
         -100, -CASH_ACTUAL_VALUE, -FUND1_TARGET_VALUE + 100,
-        -FUND1_TARGET_VALUE
+        -FUND1_TARGET_VALUE, -FUND1_TARGET_VALUE - 1
     ]
 
 
@@ -357,6 +357,7 @@ def test_handle_cash_amount_change_ok_pending_rebalance(amount, monkeypatch):
                                      is_pending_rebalance)
 
     if amount:
+        amount = max(amount, -FUND1_TARGET_VALUE)
         assert abs(portfolio.cash_target_weight -
                    (CASH_TARGET_VALUE - amount) /
                    PORTFOLIO_STATUS['equity']) < 1e-3
@@ -415,7 +416,7 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
 
 
 def get_test_handle_cash_amount_change_amounts_ko():
-    return [CASH_ACTUAL_VALUE + 1, -FUND1_ACTUAL_VALUE - 1]
+    return [CASH_ACTUAL_VALUE + 1]
 
 
 @pytest.mark.parametrize("amount",
