@@ -151,21 +151,12 @@ with profiles as
      combined0 as (
          select profile_id,
                 symbol,
-                (match_comp_risk + match_comp_category +
-                 greatest(interest_similarity.match_comp_interest, portfolio_interest_similarity.match_comp_interest)) 
-                 / (case
-                      when tickers."type" ilike 'crypto'
-                      then 2 -- for cryptos only 2 components exists: interests and risk
-                      else 3 -- for all others (now it's common stocks) all 3 components exists: categories, interests, risk
-                    end)
-                / 2 + 0.5                                                     as match_score,
-                match_comp_risk                                               as match_comp_risk_normalized,
-                match_comp_category / 2 + 0.5                                 as match_comp_category_normalized,
-                interest_similarity.match_comp_interest /
-                2 + 0.5                                                       as match_comp_interest_normalized,
-                coalesce(category_matches::text, '[]')                        as category_matches,
-                coalesce(interest_matches::text, '[]')                        as interest_matches,
-                portfolio_interest_similarity.match_comp_interest is not null as matches_portfolio
+                coalesce(match_comp_risk, 0)                                   as match_comp_risk_normalized,
+                coalesce(match_comp_category / 2 + 0.5, 0)                     as match_comp_category_normalized,
+                coalesce(interest_similarity.match_comp_interest / 2 + 0.5, 0) as match_comp_interest_normalized,
+                coalesce(category_matches::text, '[]')                         as category_matches,
+                coalesce(interest_matches::text, '[]')                         as interest_matches,
+                portfolio_interest_similarity.match_comp_interest is not null  as matches_portfolio
          from profiles
                   join tickers on true
                   left join risk_similarity using (profile_id, symbol)
@@ -179,9 +170,9 @@ with profiles as
      )
 select profile_id,
        symbol,
-       ((sigmoid(coalesce(match_comp_risk_normalized, 0) * 0.6, 3) +
-       sigmoid(coalesce(match_comp_interest_normalized, 0) * 0.3, 3) +
-       sigmoid(coalesce(match_comp_category_normalized, 0) * 0.1, 3)) * 100)::int                  as match_score,
+       ((sigmoid(match_comp_risk_normalized * 0.6, 3) +
+       sigmoid(match_comp_interest_normalized * 0.3, 3) +
+       sigmoid(match_comp_category_normalized * 0.1, 3)) * 100)::int                               as match_score,
        (match_comp_risk_normalized > 1/3.)::int + (match_comp_risk_normalized > 2/3.)::int         as fits_risk,
        match_comp_risk_normalized                                                                  as risk_similarity,
        (match_comp_category_normalized > 1/3.)::int + (match_comp_category_normalized > 2/3.)::int as fits_categories,
