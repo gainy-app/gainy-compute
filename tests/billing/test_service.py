@@ -1,15 +1,16 @@
+from gainy.analytics.service import AnalyticsService
 from gainy.billing.models import InvoiceStatus, Invoice, PaymentMethod, PaymentTransaction, TransactionStatus
 from gainy.billing.repository import BillingRepository
 from gainy.billing.service import BillingService
 from gainy.billing.stripe.provider import StripePaymentProvider
 from gainy.tests.common import TestContextContainer
 
-from gainy.tests.mocks.repository_mocks import mock_persist, mock_noop
+from gainy.tests.mocks.repository_mocks import mock_persist, mock_noop, mock_record_calls
 
 
 def test_create_invoices(monkeypatch):
     repo = BillingRepository(None)
-    service = BillingService(repo, None)
+    service = BillingService(repo, None, None)
 
     create_invoices_called = False
 
@@ -27,7 +28,7 @@ def test_create_invoices(monkeypatch):
 def test_charge_invoices(monkeypatch):
     with TestContextContainer() as context_container:
         repo = BillingRepository(context_container.db_conn)
-        service = BillingService(repo, None)
+        service = BillingService(repo, None, None)
 
         invoice = Invoice()
 
@@ -51,6 +52,7 @@ def test_charge_invoices(monkeypatch):
 
 def test_charge(monkeypatch):
     profile_id = 1
+    amount = 2
 
     transaction = PaymentTransaction()
     monkeypatch.setattr(transaction, "status", TransactionStatus.SUCCESS)
@@ -58,6 +60,7 @@ def test_charge(monkeypatch):
     invoice = Invoice()
     monkeypatch.setattr(invoice, "can_charge", lambda: True)
     monkeypatch.setattr(invoice, "profile_id", profile_id)
+    monkeypatch.setattr(invoice, "amount", amount)
 
     stripe_payment_provider = StripePaymentProvider(None, None)
 
@@ -85,8 +88,13 @@ def test_charge(monkeypatch):
     monkeypatch.setattr(repo, "persist", mock_persist(persisted_objects))
     monkeypatch.setattr(repo, "commit", mock_noop)
 
-    service = BillingService(repo, stripe_payment_provider)
+    analytics_service = AnalyticsService(None, None)
+    on_commission_withdrawn_calls = []
+    monkeypatch.setattr(analytics_service, "on_commission_withdrawn",
+                        mock_record_calls(on_commission_withdrawn_calls))
+    service = BillingService(repo, analytics_service, stripe_payment_provider)
     service.charge(invoice)
 
     assert invoice.status == InvoiceStatus.PAID
     assert invoice in persisted_objects[Invoice]
+    assert ((profile_id, amount), {}) in on_commission_withdrawn_calls

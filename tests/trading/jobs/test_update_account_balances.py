@@ -92,7 +92,7 @@ def test_update_portfolios(monkeypatch, realtime):
             }, account),
         ]))
 
-    provider = DriveWealthProvider(None, None, None)
+    provider = DriveWealthProvider(None, None, None, None)
     sync_portfolio_calls = []
     monkeypatch.setattr(provider, "sync_portfolio",
                         mock_record_calls(sync_portfolio_calls))

@@ -1,5 +1,6 @@
 from typing import List
 
+from gainy.analytics.service import AnalyticsService
 from gainy.billing.exceptions import PaymentProviderNotSupportedException, InvoiceSealedException
 from gainy.billing.interfaces import BillingServiceInterface
 from gainy.billing.locking_functions import ChargeInvoice
@@ -17,8 +18,10 @@ class BillingService(BillingServiceInterface):
     _providers: List[AbstractPaymentProvider]
 
     def __init__(self, repo: BillingRepository,
+                 analytics_service: AnalyticsService,
                  stripe_payment_provider: StripePaymentProvider):
         self.repo = repo
+        self.analytics_service = analytics_service
         self._providers = [stripe_payment_provider]
 
     def create_invoices(self):
@@ -45,6 +48,8 @@ class BillingService(BillingServiceInterface):
             self.repo.persist(invoice)
 
             self.repo.commit()
+            self.analytics_service.on_commission_withdrawn(
+                invoice.profile_id, float(invoice.amount))
             return transaction
         except Exception as e:
             logger.exception(e)
