@@ -4,7 +4,9 @@ from gainy.analytics.constants import EVENT_DW_BROKERAGE_ACCOUNT_OPENED, EVENT_D
     EVENT_DW_DEPOSIT_SUCCSESS, EVENT_DW_WITHDRAW_SUCCESS, EVENT_PURCHASE_COMLETED, EVENT_SELL_COMPLETED, \
     EVENT_COMMISSION_WITHDRAWN
 from gainy.analytics.interfaces import AnalyticsSinkInterface, AttributionSourceInterface
-from gainy.trading.models import TradingOrder, TradingCollectionVersion
+from gainy.data_access.operators import OperatorLt
+from gainy.data_access.repository import Repository
+from gainy.trading.models import TradingOrder, TradingCollectionVersion, TradingMoneyFlow, TradingMoneyFlowStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -38,9 +40,10 @@ def _get_order_properties(order) -> dict:
 class AnalyticsService:
 
     def __init__(self, attribution_sources: list[AttributionSourceInterface],
-                 sinks: list[AnalyticsSinkInterface]):
+                 sinks: list[AnalyticsSinkInterface], repository: Repository):
         self.attribution_sources = attribution_sources
         self.sinks = sinks
+        self.repository = repository
 
     def sync_profile_attribution(self, profile_id):
         attributes = {}
@@ -62,10 +65,21 @@ class AnalyticsService:
         for sink in self.sinks:
             sink.send_event(profile_id, event_name, properties)
 
-    def on_dw_deposit_success(self, profile_id: int, amount: float,
-                              is_first_deposit: bool):
+    def on_dw_deposit_success(self, money_flow: TradingMoneyFlow):
+        profile_id = money_flow.profile_id
+        prev_money_flow = self.repository.find_one(
+            TradingMoneyFlow, {
+                "profile_id": profile_id,
+                "status": TradingMoneyFlowStatus.SUCCESS,
+                "id": OperatorLt(money_flow.id)
+            })
+        is_first_deposit = not prev_money_flow
+
         event_name = EVENT_DW_DEPOSIT_SUCCSESS
-        properties = {"amount": amount, "isFirstDeposit": is_first_deposit}
+        properties = {
+            "amount": money_flow.amount,
+            "isFirstDeposit": is_first_deposit
+        }
         for sink in self.sinks:
             sink.send_event(profile_id, event_name, properties)
 

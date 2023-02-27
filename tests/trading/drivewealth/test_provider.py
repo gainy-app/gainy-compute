@@ -772,7 +772,7 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
         assert args[0] == portfolio_status
         return trading_account
 
-    analytics_service = AnalyticsService(None, None)
+    analytics_service = AnalyticsService(None, None, None)
     on_order_executed_calls = []
     monkeypatch.setattr(analytics_service, "on_order_executed",
                         mock_record_calls(on_order_executed_calls))
@@ -827,7 +827,7 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
         assert args[0] == portfolio_status
         return trading_account
 
-    analytics_service = AnalyticsService(None, None)
+    analytics_service = AnalyticsService(None, None, None)
     on_order_executed_calls = []
     monkeypatch.setattr(analytics_service, "on_order_executed",
                         mock_record_calls(on_order_executed_calls))

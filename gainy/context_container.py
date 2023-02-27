@@ -68,7 +68,8 @@ class ContextContainer(AbstractContextManager):
     def analytics_service(self) -> AnalyticsService:
         db_attribution_source = DBAttributionSource(self.get_repository())
         return AnalyticsService([db_attribution_source],
-                                [self.amplitude_service])
+                                [self.amplitude_service],
+                                self.get_repository())
 
     # Stripe
     @cached_property

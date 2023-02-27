@@ -88,7 +88,7 @@ def test_charge(monkeypatch):
     monkeypatch.setattr(repo, "persist", mock_persist(persisted_objects))
     monkeypatch.setattr(repo, "commit", mock_noop)
 
-    analytics_service = AnalyticsService(None, None)
+    analytics_service = AnalyticsService(None, None, None)
     on_commission_withdrawn_calls = []
     monkeypatch.setattr(analytics_service, "on_commission_withdrawn",
                         mock_record_calls(on_commission_withdrawn_calls))
