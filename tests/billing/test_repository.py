@@ -1,10 +1,12 @@
+from _decimal import Decimal
+
 import datetime
 from typing import Any, Dict
 
 import dateutil.relativedelta
 
 from gainy.billing.models import InvoiceStatus, PaymentMethodProvider
-from gainy.billing.repository import MIN_FEE, MONTHLY_EQUITY_VALUE_FEE_MULTIPLIER
+from gainy.billing.repository import BILLING_MIN_YEARLY_FEE, BILLING_EQUITY_VALUE_FEE_MULTIPLIER
 from gainy.tests.common import TestContextContainer
 from psycopg2.extras import RealDictCursor
 
@@ -19,7 +21,13 @@ def test_create_invoices():
                                                        microsecond=0)
     period_start = start_of_month - dateutil.relativedelta.relativedelta(
         months=1)
-    period_end = start_of_month - datetime.timedelta(seconds=1)
+    period_end = start_of_month
+    days_in_month = (period_end - period_start).days
+
+    year_start = datetime.date(period_start.year, 1, 1)
+    year_end = year_start + dateutil.relativedelta.relativedelta(years=1)
+    days_in_year = (year_end - year_start).days
+    print(days_in_month, days_in_year)
 
     with TestContextContainer() as context_container:
         with context_container.db_conn.cursor() as cursor:
@@ -50,8 +58,10 @@ def test_create_invoices():
         assert invoice["period_id"] == "mo_" + period_start.strftime(
             "%Y-%m-%d")
         assert invoice["status"] == InvoiceStatus.PENDING
-        assert invoice["amount"] == max(
-            equity_value * MONTHLY_EQUITY_VALUE_FEE_MULTIPLIER, MIN_FEE)
+        assert abs(invoice["amount"] -
+                   max(equity_value * BILLING_EQUITY_VALUE_FEE_MULTIPLIER,
+                       BILLING_MIN_YEARLY_FEE) * days_in_month /
+                   days_in_year) < Decimal(1e-3)
         assert invoice["due_date"] > period_end.date()
         assert invoice["period_start"] == period_start
         assert invoice["period_end"] == period_end

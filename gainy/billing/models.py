@@ -16,12 +16,14 @@ class InvoiceStatus(str, Enum):
 
 class PaymentMethodProvider(str, Enum):
     STRIPE = 'STRIPE'
+    DRIVEWEALTH = 'DRIVEWEALTH'
 
 
 class TransactionStatus(str, Enum):
     PENDING = 'PENDING'
     REQUIRES_AUTHENTICATION = 'REQUIRES_AUTHENTICATION'
     SUCCESS = 'SUCCESS'
+    FAILED = 'FAILED'
 
 
 class PaymentTransaction(BaseModel):
@@ -113,6 +115,9 @@ class Invoice(BaseModel, ResourceVersion):
     def on_new_transaction(self, transaction: PaymentTransaction):
         if not self.can_charge():
             raise InvoiceSealedException()
+
+        if transaction.status == TransactionStatus.PENDING:
+            return
 
         if transaction.status == TransactionStatus.SUCCESS:
             self.status = InvoiceStatus.PAID

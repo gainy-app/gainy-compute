@@ -6,6 +6,7 @@ from functools import cached_property, cache
 from gainy.analytics.amplitude import AmplitudeService
 from gainy.analytics.attribution_sources.db import DBAttributionSource
 from gainy.analytics.service import AnalyticsService
+from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
 from gainy.billing.repository import BillingRepository
 from gainy.billing.service import BillingService
 from gainy.billing.stripe.api import StripeApi
@@ -84,6 +85,11 @@ class ContextContainer(AbstractContextManager):
     def stripe_payment_provider(self) -> StripePaymentProvider:
         return StripePaymentProvider(self.stripe_repository, self.stripe_api)
 
+    @cached_property
+    def drivewealth_payment_provider(self) -> DriveWealthPaymentProvider:
+        return DriveWealthPaymentProvider(self.drivewealth_repository,
+                                          self.drivewealth_api)
+
     # Billing
     @cached_property
     def billing_repository(self) -> BillingRepository:
@@ -91,8 +97,9 @@ class ContextContainer(AbstractContextManager):
 
     @cached_property
     def billing_service(self) -> BillingService:
-        return BillingService(self.billing_repository, self.analytics_service,
-                              self.stripe_payment_provider)
+        return BillingService(
+            self.billing_repository, self.analytics_service,
+            [self.stripe_payment_provider, self.drivewealth_payment_provider])
 
     # DriveWealth
     @cached_property

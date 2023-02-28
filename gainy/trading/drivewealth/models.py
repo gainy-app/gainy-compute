@@ -9,9 +9,10 @@ from typing import Any, Dict, List, Optional
 
 import pytz
 
+from gainy.billing.models import PaymentTransaction, TransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
-from gainy.trading.models import TradingAccount
+from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -114,6 +115,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
     trading_account_id = None
+    payment_method_id = None
     status = None
     ref_no = None
     nickname = None
@@ -772,3 +774,155 @@ class DriveWealthTransaction(BaseDriveWealthModel):
     @classproperty
     def table_name(self) -> str:
         return "drivewealth_transactions"
+
+
+class DriveWealthBankAccount(BaseDriveWealthModel):
+    ref_id = None
+    drivewealth_user_id = None
+    funding_account_id = None
+    plaid_access_token_id = None
+    plaid_account_id = None
+    status = None
+    bank_account_nickname = None
+    bank_account_number = None
+    bank_routing_number = None
+    holder_name = None
+    bank_account_type = None
+    data = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+        self.ref_id = data['id']
+        self.status = data["status"]
+
+        details = data["bankAccountDetails"]
+        self.bank_account_nickname = details['bankAccountNickname']
+        self.bank_account_number = details['bankAccountNumber']
+        self.bank_routing_number = details['bankRoutingNumber']
+        self.bank_account_type = details.get('bankAccountType')
+        self.data = data
+
+        if "userDetails" in data:
+            self.drivewealth_user_id = data["userDetails"]['userID']
+            self.holder_name = " ".join([
+                data["userDetails"]['firstName'],
+                data["userDetails"]['lastName']
+            ])
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_bank_accounts"
+
+
+class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
+    ref_id = None
+    trading_account_ref_id = None
+    bank_account_ref_id = None
+    money_flow_id = None
+    data = None
+    status = None
+    fees_total_amount: Decimal = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        self.ref_id = data.get("id") or data.get("paymentID")
+        if "accountDetails" in data:
+            self.trading_account_ref_id = data["accountDetails"]["accountID"]
+        elif "accountID" in data:
+            self.trading_account_ref_id = data["accountID"]
+
+        if "statusMessage" in data:
+            self.status = data["statusMessage"]
+        else:
+            self.status = data["status"]["message"]
+
+        self.data = data
+
+    def is_pending(self) -> bool:
+        return self.status in [
+            'Started', DriveWealthRedemptionStatus.RIA_Pending.name, 'Pending',
+            'Other', 'On Hold'
+        ]
+
+    def is_approved(self) -> bool:
+        return self.status in [
+            'Approved', DriveWealthRedemptionStatus.RIA_Approved.name
+        ]
+
+    def get_money_flow_status(self) -> TradingMoneyFlowStatus:
+        """
+        Started	0	"STARTED"
+        Pending	1	"PENDING"	Every new deposit for a self-directed account is set to "Pending". From here, the deposit can be marked as "Rejected", "On Hold" or "Approved".
+        Successful	2	"SUCCESSFUL"	After a deposit is marked "Approved", the next step is "Successful".
+        Failed	3	"FAILED"	If a deposit is marked as "Rejected", the deposit will immediately be set to "Failed".
+        Other	4	"OTHER"
+        RIA Pending	11	"RIA_Pending"
+        RIA Approved	12	"RIA_Approved"
+        RIA Rejected	13	"RIA_Rejected"
+        Approved	14	"APPROVED"	Once marked as "Approved", the deposit will be processed.
+        Rejected	15	"REJECTED"	Updating a deposit to "Rejected" will immediately set it 's status to "Failed"
+        On Hold	16	"ON_HOLD"	The "On Hold" status is reserved for deposits that aren't ready to be processed.
+        Returned	5	"RETURNED"	A deposit is marked as returned if DW receives notification from our bank that the deposit had failed.
+        Unknown	-1	–	Reserved for errors.
+        """
+
+        if self.is_pending():
+            return TradingMoneyFlowStatus.PENDING
+        if self.is_approved():
+            return TradingMoneyFlowStatus.APPROVED
+        if self.status == DriveWealthRedemptionStatus.Successful.name:
+            return TradingMoneyFlowStatus.SUCCESS
+        return TradingMoneyFlowStatus.FAILED
+
+
+class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_deposits"
+
+
+class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
+    payment_transaction_id = None
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+
+        if "fees" in data:
+            fees_total_amount = Decimal(0)
+            for fee in data["fees"]:
+                fees_total_amount += Decimal(fee["amount"])
+            self.fees_total_amount = fees_total_amount
+
+        super().set_from_response(data)
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_redemptions"
+
+    def update_payment_transaction(self,
+                                   payment_transaction: PaymentTransaction):
+        status = self.get_money_flow_status()
+        if status == [
+                TradingMoneyFlowStatus.PENDING, TradingMoneyFlowStatus.APPROVED
+        ]:
+            payment_transaction.status = TransactionStatus.PENDING
+        elif status == TradingMoneyFlowStatus.SUCCESS:
+            payment_transaction.status = TransactionStatus.SUCCESS
+        else:
+            payment_transaction.status = TransactionStatus.FAILED

@@ -92,7 +92,8 @@ def test_charge(monkeypatch):
     on_commission_withdrawn_calls = []
     monkeypatch.setattr(analytics_service, "on_commission_withdrawn",
                         mock_record_calls(on_commission_withdrawn_calls))
-    service = BillingService(repo, analytics_service, stripe_payment_provider)
+    service = BillingService(repo, analytics_service,
+                             [stripe_payment_provider])
     service.charge(invoice)
 
     assert invoice.status == InvoiceStatus.PAID

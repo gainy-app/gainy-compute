@@ -1,5 +1,3 @@
-from typing import List
-
 from gainy.analytics.service import AnalyticsService
 from gainy.billing.exceptions import PaymentProviderNotSupportedException, InvoiceSealedException
 from gainy.billing.interfaces import BillingServiceInterface
@@ -7,7 +5,6 @@ from gainy.billing.locking_functions import ChargeInvoice
 from gainy.billing.models import Invoice, PaymentMethod
 from gainy.billing.provider import AbstractPaymentProvider
 from gainy.billing.repository import BillingRepository
-from gainy.billing.stripe.provider import StripePaymentProvider
 from gainy.data_access.db_lock import LockAcquisitionTimeout
 from gainy.utils import get_logger
 
@@ -15,14 +12,13 @@ logger = get_logger(__name__)
 
 
 class BillingService(BillingServiceInterface):
-    _providers: List[AbstractPaymentProvider]
 
     def __init__(self, repo: BillingRepository,
                  analytics_service: AnalyticsService,
-                 stripe_payment_provider: StripePaymentProvider):
+                 providers: list[AbstractPaymentProvider]):
         self.repo = repo
         self.analytics_service = analytics_service
-        self._providers = [stripe_payment_provider]
+        self._providers = providers
 
     def create_invoices(self):
         self.repo.create_invoices()
