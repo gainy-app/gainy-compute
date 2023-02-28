@@ -3,6 +3,7 @@ import pytest
 
 from decimal import Decimal
 
+from gainy.analytics.service import AnalyticsService
 from gainy.data_access.operators import OperatorIn, OperatorNot
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
@@ -63,7 +64,7 @@ def test_sync_profile_trading_accounts(monkeypatch):
             cash_available_for_trade=cash_available_for_trade_list,
             cash_available_for_withdrawal=cash_available_for_withdrawal_list))
 
-    service = DriveWealthProvider(drivewealth_repository, api, None)
+    service = DriveWealthProvider(drivewealth_repository, api, None, None)
 
     def mock_sync_trading_account(account_ref_id):
         assert account_ref_id == account_id
@@ -155,7 +156,7 @@ def test_sync_trading_account(monkeypatch):
         api, "get_account_positions",
         mock_get_account_positions(account_ref_id, equity_value=equity_value))
 
-    service = DriveWealthProvider(drivewealth_repository, api, None)
+    service = DriveWealthProvider(drivewealth_repository, api, None, None)
     service.sync_trading_account(account_ref_id=account_ref_id,
                                  trading_account_id=trading_account_id,
                                  fetch_info=True)
@@ -214,7 +215,7 @@ def test_sync_instrument(monkeypatch):
     monkeypatch.setattr(drivewealth_repository, "persist",
                         mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(drivewealth_repository, api, None)
+    provider = DriveWealthProvider(drivewealth_repository, api, None, None)
 
     instrument = provider.sync_instrument(ref_id=instrument_ref_id,
                                           symbol=instrument_symbol)
@@ -286,7 +287,7 @@ def test_ensure_portfolio(monkeypatch):
 
     monkeypatch.setattr(api, "update_account", mock_update_account)
 
-    provider = DriveWealthProvider(drivewealth_repository, api, None)
+    provider = DriveWealthProvider(drivewealth_repository, api, None, None)
     portfolio = provider.ensure_portfolio(profile_id, trading_account_id)
 
     assert portfolio.ref_id == PORTFOLIO_REF_ID
@@ -311,7 +312,7 @@ def test_send_portfolio_to_api(monkeypatch):
     monkeypatch.setattr(api, "update_portfolio",
                         mock_record_calls(update_portfolio_calls))
 
-    provider = DriveWealthProvider(drivewealth_repository, api, None)
+    provider = DriveWealthProvider(drivewealth_repository, api, None, None)
     provider.send_portfolio_to_api(portfolio)
 
     assert len(set_pending_rebalance_calls) == 1
@@ -360,7 +361,7 @@ def test_reconfigure_collection_holdings(monkeypatch):
                         "handle_cash_amount_change",
                         mock_record_calls(handle_cash_amount_change_calls))
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
     provider.reconfigure_collection_holdings(portfolio, collection_version,
                                              is_pending_rebalance)
     assert (collection_version, portfolio, fund, is_pending_rebalance) in [
@@ -411,7 +412,7 @@ def test_execute_order_in_portfolio(monkeypatch):
                         "handle_cash_amount_change",
                         mock_record_calls(handle_cash_amount_change_calls))
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
     provider.execute_order_in_portfolio(portfolio, trading_order,
                                         is_pending_rebalance)
     assert (trading_order, portfolio, fund, is_pending_rebalance) in [
@@ -434,7 +435,7 @@ def test_actualize_portfolio(monkeypatch):
 
     repository = DriveWealthRepository(None)
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
     sync_portfolio_calls = []
     monkeypatch.setattr(provider, "sync_portfolio",
                         mock_record_calls(sync_portfolio_calls))
@@ -496,7 +497,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
 
     assert portfolio.cash_target_weight == CASH_TARGET_WEIGHT
     assert portfolio.get_fund_weight(FUND1_ID) == FUND1_TARGET_WEIGHT
@@ -554,7 +555,7 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
     provider.rebalance_portfolio_cash(portfolio, None)
 
     assert DriveWealthPortfolio in persisted_objects
@@ -588,7 +589,7 @@ def test_sync_portfolio(monkeypatch):
 
     monkeypatch.setattr(api, "get_portfolio", mock_get_portfolio)
 
-    provider = DriveWealthProvider(repository, api, None)
+    provider = DriveWealthProvider(repository, api, None, None)
     provider.sync_portfolio(portfolio)
     assert data in [args[0] for args, kwargs in set_from_response_calls]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
@@ -606,7 +607,7 @@ def test_sync_portfolio_status(monkeypatch):
     repository = DriveWealthRepository(None)
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
 
     def mock_get_portfolio_status(*args, **kwargs):
         if args[0] == portfolio:
@@ -641,7 +642,7 @@ def test_get_portfolio_status(monkeypatch):
 
     monkeypatch.setattr(api, "get_portfolio_status", mock_get_portfolio_status)
 
-    provider = DriveWealthProvider(repository, api, None)
+    provider = DriveWealthProvider(repository, api, None, None)
     create_portfolio_holdings_from_status_calls = []
     monkeypatch.setattr(
         provider, "_create_portfolio_holdings_from_status",
@@ -694,7 +695,7 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
     monkeypatch.setattr(repository, "delete_by",
                         mock_record_calls(delete_by_calls))
 
-    provider = DriveWealthProvider(repository, None, None)
+    provider = DriveWealthProvider(repository, None, None, None)
     provider._create_portfolio_holdings_from_status(portfolio_status)
 
     assert DriveWealthPortfolioHolding in persisted_objects
@@ -746,6 +747,7 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
 
     trading_collection_version = TradingCollectionVersion()
     trading_collection_version.collection_id = collection_id
+    trading_collection_version.status = TradingOrderStatus.EXECUTED_FULLY
 
     trading_account = TradingAccount()
     trading_account.profile_id = profile_id
@@ -770,7 +772,12 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
         assert args[0] == portfolio_status
         return trading_account
 
-    provider = DriveWealthProvider(None, None, repository)
+    analytics_service = AnalyticsService(None, None, None)
+    on_order_executed_calls = []
+    monkeypatch.setattr(analytics_service, "on_order_executed",
+                        mock_record_calls(on_order_executed_calls))
+
+    provider = DriveWealthProvider(None, None, repository, analytics_service)
     monkeypatch.setattr(provider, "_get_trading_account_by_portfolio_status",
                         mock_get_trading_account_by_portfolio_status)
     fill_executed_amount_calls = []
@@ -783,6 +790,7 @@ def test_update_trading_collection_versions_pending_execution_from_portfolio_sta
     assert ((profile_id, [trading_collection_version], portfolio_status), {
         "collection_id": collection_id
     }) in fill_executed_amount_calls
+    assert ((trading_collection_version, ), {}) in on_order_executed_calls
 
 
 def test_update_trading_orders_pending_execution_from_portfolio_status(
@@ -794,6 +802,7 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
 
     trading_order = TradingOrder()
     trading_order.symbol = symbol
+    trading_order.status = TradingOrderStatus.EXECUTED_FULLY
 
     trading_account = TradingAccount()
     trading_account.profile_id = profile_id
@@ -818,7 +827,12 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
         assert args[0] == portfolio_status
         return trading_account
 
-    provider = DriveWealthProvider(None, None, repository)
+    analytics_service = AnalyticsService(None, None, None)
+    on_order_executed_calls = []
+    monkeypatch.setattr(analytics_service, "on_order_executed",
+                        mock_record_calls(on_order_executed_calls))
+
+    provider = DriveWealthProvider(None, None, repository, analytics_service)
     monkeypatch.setattr(provider, "_get_trading_account_by_portfolio_status",
                         mock_get_trading_account_by_portfolio_status)
     fill_executed_amount_calls = []
@@ -831,6 +845,7 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
     assert ((profile_id, [trading_order], portfolio_status), {
         "symbol": symbol
     }) in fill_executed_amount_calls
+    assert ((trading_order, ), {}) in on_order_executed_calls
 
 
 def get_fill_executed_amount_data():
@@ -1054,7 +1069,7 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(None, None, repository)
+    provider = DriveWealthProvider(None, None, repository, None)
 
     portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at

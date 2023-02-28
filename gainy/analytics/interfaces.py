@@ -14,3 +14,7 @@ class AnalyticsSinkInterface(ABC):
     def update_profile_attribution(self, profile_id: int,
                                    attributes: dict) -> dict:
         pass
+
+    @abstractmethod
+    def send_event(self, profile_id: int, event_name: str, properties: dict):
+        pass

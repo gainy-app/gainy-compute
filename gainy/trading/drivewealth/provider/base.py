@@ -4,6 +4,7 @@ from decimal import Decimal
 import datetime
 from typing import List, Iterable, Dict
 
+from gainy.analytics.service import AnalyticsService
 from gainy.data_access.operators import OperatorGt, OperatorNot, OperatorIn
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
@@ -33,10 +34,12 @@ class DriveWealthProviderBase:
     trading_repository: TradingRepository = None
 
     def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi,
-                 trading_repository: TradingRepository):
+                 trading_repository: TradingRepository,
+                 analytics_service: AnalyticsService):
         self.repository = repository
         self.trading_repository = trading_repository
         self.api = api
+        self.analytics_service = analytics_service
 
     def sync_portfolios(self, profile_id: int, force: bool = False):
         repository = self.repository
@@ -107,6 +110,10 @@ class DriveWealthProviderBase:
                                        trading_collection_versions,
                                        portfolio_status,
                                        collection_id=collection_id)
+            for tcv in trading_collection_versions:
+                if tcv.status != TradingOrderStatus.EXECUTED_FULLY:
+                    continue
+                self.analytics_service.on_order_executed(tcv)
 
     def update_trading_orders_pending_execution_from_portfolio_status(
             self, portfolio_status: DriveWealthPortfolioStatus):
@@ -139,6 +146,10 @@ class DriveWealthProviderBase:
                                        trading_orders,
                                        portfolio_status,
                                        symbol=symbol)
+            for order in trading_orders:
+                if order.status != TradingOrderStatus.EXECUTED_FULLY:
+                    continue
+                self.analytics_service.on_order_executed(order)
 
     def iterate_profile_funds(self,
                               profile_id: int) -> Iterable[DriveWealthFund]:

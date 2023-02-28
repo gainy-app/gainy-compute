@@ -2,7 +2,7 @@ import datetime
 
 import os
 
-from amplitude import Amplitude, Identify, EventOptions
+from amplitude import Amplitude, Identify, EventOptions, BaseEvent
 
 from gainy.analytics.interfaces import AnalyticsSinkInterface
 from gainy.utils import DATETIME_ISO8601_FORMAT_TZ
@@ -28,3 +28,9 @@ class AmplitudeService(AnalyticsSinkInterface):
 
         self.client.identify(identify_obj,
                              EventOptions(user_id=_get_user_id(profile_id)))
+
+    def send_event(self, profile_id: int, event_name: str, properties: dict):
+        event = BaseEvent(event_type=event_name,
+                          user_id=_get_user_id(profile_id),
+                          event_properties=properties)
+        self.client.track(event)
