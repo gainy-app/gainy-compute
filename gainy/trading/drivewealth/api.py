@@ -56,6 +56,7 @@ class DriveWealthApi:
         response = self._make_request("POST", "/funding/redemptions", params)
         entity = DriveWealthRedemption()
         entity.set_from_response(response)
+        return entity
 
     # Accounts
 
