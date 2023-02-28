@@ -211,3 +211,45 @@ class TradingOrder(BaseModel, AmountAwareTradingOrder):
 
     def is_executed(self) -> bool:
         return self.status == TradingOrderStatus.EXECUTED_FULLY
+
+
+class TradingMoneyFlow(BaseModel):
+    id = None
+    profile_id = None
+    status: TradingMoneyFlowStatus = None
+    amount = None
+    trading_account_id = None
+    funding_account_id = None
+    fees_total_amount: Decimal = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["id", "created_at", "updated_at"]
+
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
+
+        if not row:
+            return self
+
+        self.status = TradingMoneyFlowStatus[
+            row["status"]] if row["status"] else None
+        return self
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "trading_money_flow"
+
+    def to_dict(self) -> dict:
+        return {
+            **super().to_dict(),
+            "status":
+            self.status.name if self.status else None,
+        }

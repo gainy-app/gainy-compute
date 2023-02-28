@@ -68,7 +68,8 @@ class ContextContainer(AbstractContextManager):
     def analytics_service(self) -> AnalyticsService:
         db_attribution_source = DBAttributionSource(self.get_repository())
         return AnalyticsService([db_attribution_source],
-                                [self.amplitude_service])
+                                [self.amplitude_service],
+                                self.get_repository())
 
     # Stripe
     @cached_property
@@ -90,7 +91,7 @@ class ContextContainer(AbstractContextManager):
 
     @cached_property
     def billing_service(self) -> BillingService:
-        return BillingService(self.billing_repository,
+        return BillingService(self.billing_repository, self.analytics_service,
                               self.stripe_payment_provider)
 
     # DriveWealth
@@ -106,7 +107,8 @@ class ContextContainer(AbstractContextManager):
     def drivewealth_provider(self):
         return DriveWealthProvider(self.drivewealth_repository,
                                    self.drivewealth_api,
-                                   self.trading_repository)
+                                   self.trading_repository,
+                                   self.analytics_service)
 
     # trading
     @cached_property
