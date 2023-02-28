@@ -2,7 +2,7 @@ from gainy.analytics.service import AnalyticsService
 from gainy.billing.exceptions import PaymentProviderNotSupportedException, InvoiceSealedException
 from gainy.billing.interfaces import BillingServiceInterface
 from gainy.billing.locking_functions import ChargeInvoice
-from gainy.billing.models import Invoice, PaymentMethod
+from gainy.billing.models import Invoice, PaymentMethod, InvoiceStatus
 from gainy.billing.provider import AbstractPaymentProvider
 from gainy.billing.repository import BillingRepository
 from gainy.data_access.db_lock import LockAcquisitionTimeout
@@ -44,8 +44,9 @@ class BillingService(BillingServiceInterface):
             self.repo.persist(invoice)
 
             self.repo.commit()
-            self.analytics_service.on_commission_withdrawn(
-                invoice.profile_id, float(invoice.amount))
+            if invoice.status == InvoiceStatus.PAID:
+                self.analytics_service.on_commission_withdrawn(
+                    invoice.profile_id, float(invoice.amount))
             return transaction
         except Exception as e:
             logger.exception(e)
