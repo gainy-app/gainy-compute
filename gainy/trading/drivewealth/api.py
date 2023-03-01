@@ -76,7 +76,7 @@ class DriveWealthApi:
                 }],
                 "triggers": [{
                     "child": None,
-                    "maxAllowed": 0.001,
+                    "maxAllowed": 0.1,
                     "lowerBound": None,
                     "upperBound": None,
                     "type": "TOTAL_DRIFT"
@@ -99,7 +99,7 @@ class DriveWealthApi:
             "PATCH", f"/managed/portfolios/{portfolio.ref_id}", {
                 'holdings': holdings,
                 "triggers": [{
-                    "maxAllowed": 0.001,
+                    "maxAllowed": 0.1,
                     "type": "TOTAL_DRIFT"
                 }],
             })
@@ -131,7 +131,7 @@ class DriveWealthApi:
                 fund.holdings,
                 'triggers': [{
                     "child": None,
-                    "maxAllowed": 0.001,
+                    "maxAllowed": 0.1,
                     "lowerBound": None,
                     "upperBound": None,
                     "type": "TOTAL_DRIFT"
@@ -146,7 +146,7 @@ class DriveWealthApi:
                 fund.holdings,
                 'triggers': [{
                     "child": None,
-                    "maxAllowed": 0.001,
+                    "maxAllowed": 0.1,
                     "lowerBound": None,
                     "upperBound": None,
                     "type": "TOTAL_DRIFT"
