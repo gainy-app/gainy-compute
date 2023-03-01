@@ -87,7 +87,8 @@ class ContextContainer(AbstractContextManager):
 
     @cached_property
     def drivewealth_payment_provider(self) -> DriveWealthPaymentProvider:
-        return DriveWealthPaymentProvider(self.drivewealth_repository,
+        return DriveWealthPaymentProvider(self.drivewealth_provider,
+                                          self.drivewealth_repository,
                                           self.drivewealth_api)
 
     # Billing

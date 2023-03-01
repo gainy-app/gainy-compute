@@ -1,8 +1,10 @@
+from _decimal import Decimal
+
 from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
 from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, TransactionStatus
 
-from gainy.tests.mocks.repository_mocks import mock_persist as base_mock_persist, mock_find
-from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository
+from gainy.tests.mocks.repository_mocks import mock_persist as base_mock_persist, mock_find, mock_record_calls
+from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.config import DRIVEWEALTH_HOUSE_ACCOUNT_NO
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthRedemption
 
@@ -13,20 +15,25 @@ def test_charge(monkeypatch):
     profile_id = 3
     amount = 4
     transaction_id = 5
-    transaction_status = TransactionStatus.SUCCESS
     description = "description"
 
     invoice = Invoice()
     invoice.id = invoice_id
     invoice.profile_id = profile_id
-    invoice.amount = amount
+    invoice.amount = Decimal(amount)
     invoice.description = description
 
     dw_account = DriveWealthAccount()
+    dw_account.cash_balance = amount
     payment_method = PaymentMethod()
     monkeypatch.setattr(payment_method, "id", payment_method_id)
 
     redemption = DriveWealthRedemption()
+
+    provider = DriveWealthProvider(None, None, None, None)
+    sync_account_calls = []
+    monkeypatch.setattr(provider, "sync_account",
+                        mock_record_calls(sync_account_calls))
 
     repo = DriveWealthRepository(None)
     persisted_objects = {}
@@ -58,8 +65,10 @@ def test_charge(monkeypatch):
 
     monkeypatch.setattr(api, "create_redemption", mock_create_redemption)
 
-    provider = DriveWealthPaymentProvider(repo, api)
-    transaction = provider.charge(invoice, payment_method)
+    payment_provider = DriveWealthPaymentProvider(provider, repo, api)
+    transaction = payment_provider.charge(invoice, payment_method)
+
+    assert ((dw_account, ), {}) in sync_account_calls
 
     assert transaction in persisted_objects[PaymentTransaction]
     assert transaction.payment_method_id == payment_method_id

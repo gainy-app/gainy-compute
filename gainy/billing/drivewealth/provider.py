@@ -1,8 +1,11 @@
+from _decimal import Decimal
+
 from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, PaymentMethodProvider
 from gainy.billing.provider import AbstractPaymentProvider
-from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository
+from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.config import DRIVEWEALTH_HOUSE_ACCOUNT_NO
 from gainy.trading.drivewealth.models import DriveWealthAccount
+from gainy.trading.exceptions import InsufficientFundsException
 
 
 class DriveWealthPaymentProvider(AbstractPaymentProvider):
@@ -11,7 +14,9 @@ class DriveWealthPaymentProvider(AbstractPaymentProvider):
     def provider_id(self):
         return PaymentMethodProvider.DRIVEWEALTH
 
-    def __init__(self, repo: DriveWealthRepository, api: DriveWealthApi):
+    def __init__(self, provider: DriveWealthProvider,
+                 repo: DriveWealthRepository, api: DriveWealthApi):
+        self.provider = provider
         self.repo = repo
         self.api = api
 
@@ -20,10 +25,14 @@ class DriveWealthPaymentProvider(AbstractPaymentProvider):
 
     def charge(self, invoice: Invoice,
                payment_method: PaymentMethod) -> PaymentTransaction:
-        account = self.repo.find_one(DriveWealthAccount,
-                                     {"payment_method_id": payment_method.id})
+        account: DriveWealthAccount = self.repo.find_one(
+            DriveWealthAccount, {"payment_method_id": payment_method.id})
         if not account:
             raise Exception('DriveWealthAccount not found')
+
+        self.provider.sync_account(account)
+        if Decimal(account.cash_balance) < invoice.amount:
+            raise InsufficientFundsException()
 
         transaction = self._create_transaction(invoice, payment_method)
         self.repo.persist(transaction)

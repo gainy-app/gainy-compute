@@ -6,6 +6,7 @@ from gainy.billing.models import Invoice, PaymentMethod, InvoiceStatus
 from gainy.billing.provider import AbstractPaymentProvider
 from gainy.billing.repository import BillingRepository
 from gainy.data_access.db_lock import LockAcquisitionTimeout
+from gainy.trading.exceptions import InsufficientFundsException
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -48,6 +49,9 @@ class BillingService(BillingServiceInterface):
                 self.analytics_service.on_commission_withdrawn(
                     invoice.profile_id, float(invoice.amount))
             return transaction
+        except InsufficientFundsException as e:
+            logger.warning(e)
+            self.repo.rollback()
         except Exception as e:
             logger.exception(e)
             self.repo.rollback()

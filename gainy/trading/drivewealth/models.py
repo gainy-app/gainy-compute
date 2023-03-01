@@ -121,7 +121,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
     nickname = None
     cash_available_for_trade = None
     cash_available_for_withdrawal = None
-    cash_balance = None
+    cash_balance: float = None
     data = None
     is_artificial = False
     created_at: datetime.datetime = None
