@@ -11,7 +11,7 @@ import pytz
 
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
-from gainy.trading.models import TradingAccount
+from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -27,6 +27,7 @@ DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
 class DriveWealthRedemptionStatus(str, enum.Enum):
     RIA_Pending = 'RIA_Pending'
     RIA_Approved = 'RIA_Approved'
+    Approved = 'Approved'
     Successful = 'Successful'
 
 
@@ -512,6 +513,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     last_order_executed_at: Optional[datetime.datetime] = None
     last_sync_at: Optional[datetime.datetime] = None
     last_transaction_id: int = None
+    pending_redemptions_amount_sum: Decimal = None
     last_equity_value: Decimal = None
     created_at = None
     updated_at = None
@@ -772,3 +774,108 @@ class DriveWealthTransaction(BaseDriveWealthModel):
     @classproperty
     def table_name(self) -> str:
         return "drivewealth_transactions"
+
+
+class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
+    ref_id = None
+    trading_account_ref_id = None
+    bank_account_ref_id = None
+    money_flow_id = None
+    data = None
+    status = None
+    fees_total_amount: Decimal = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        self.ref_id = data.get("id") or data.get("paymentID")
+        if "accountDetails" in data:
+            self.trading_account_ref_id = data["accountDetails"]["accountID"]
+        elif "accountID" in data:
+            self.trading_account_ref_id = data["accountID"]
+
+        if "statusMessage" in data:
+            self.status = data["statusMessage"]
+        else:
+            self.status = data["status"]["message"]
+
+        self.data = data
+
+    def is_pending(self) -> bool:
+        return self.status in [
+            'Started', DriveWealthRedemptionStatus.RIA_Pending.name, 'Pending',
+            'Other', 'On Hold'
+        ]
+
+    def is_approved(self) -> bool:
+        return self.status in [
+            DriveWealthRedemptionStatus.Approved.name,
+            DriveWealthRedemptionStatus.RIA_Approved.name
+        ]
+
+    def get_money_flow_status(self) -> TradingMoneyFlowStatus:
+        """
+        Started	0	"STARTED"
+        Pending	1	"PENDING"	Every new deposit for a self-directed account is set to "Pending". From here, the deposit can be marked as "Rejected", "On Hold" or "Approved".
+        Successful	2	"SUCCESSFUL"	After a deposit is marked "Approved", the next step is "Successful".
+        Failed	3	"FAILED"	If a deposit is marked as "Rejected", the deposit will immediately be set to "Failed".
+        Other	4	"OTHER"
+        RIA Pending	11	"RIA_Pending"
+        RIA Approved	12	"RIA_Approved"
+        RIA Rejected	13	"RIA_Rejected"
+        Approved	14	"APPROVED"	Once marked as "Approved", the deposit will be processed.
+        Rejected	15	"REJECTED"	Updating a deposit to "Rejected" will immediately set it 's status to "Failed"
+        On Hold	16	"ON_HOLD"	The "On Hold" status is reserved for deposits that aren't ready to be processed.
+        Returned	5	"RETURNED"	A deposit is marked as returned if DW receives notification from our bank that the deposit had failed.
+        Unknown	-1	–	Reserved for errors.
+        """
+
+        if self.is_pending():
+            return TradingMoneyFlowStatus.PENDING
+        if self.is_approved():
+            return TradingMoneyFlowStatus.APPROVED
+        if self.status == DriveWealthRedemptionStatus.Successful.name:
+            return TradingMoneyFlowStatus.SUCCESS
+        return TradingMoneyFlowStatus.FAILED
+
+
+class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_deposits"
+
+
+class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
+    id: int = None
+
+    db_excluded_fields = ["id", "created_at", "updated_at"]
+    non_persistent_fields = ["id", "created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+
+        if "fees" in data:
+            fees_total_amount = Decimal(0)
+            for fee in data["fees"]:
+                fees_total_amount += Decimal(fee["amount"])
+            self.fees_total_amount = fees_total_amount
+
+        super().set_from_response(data)
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_redemptions"
+
+    @property
+    def amount(self) -> Optional[Decimal]:
+        if self.data and self.data.get("amount"):
+            return Decimal(self.data["amount"])
+
+        return None
