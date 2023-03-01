@@ -28,6 +28,7 @@ DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
 class DriveWealthRedemptionStatus(str, enum.Enum):
     RIA_Pending = 'RIA_Pending'
     RIA_Approved = 'RIA_Approved'
+    Approved = 'Approved'
     Successful = 'Successful'
 
 
@@ -514,6 +515,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     last_order_executed_at: Optional[datetime.datetime] = None
     last_sync_at: Optional[datetime.datetime] = None
     last_transaction_id: int = None
+    pending_redemptions_amount_sum: Decimal = None
     last_equity_value: Decimal = None
     created_at = None
     updated_at = None
@@ -860,7 +862,8 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
 
     def is_approved(self) -> bool:
         return self.status in [
-            'Approved', DriveWealthRedemptionStatus.RIA_Approved.name
+            DriveWealthRedemptionStatus.Approved.name,
+            DriveWealthRedemptionStatus.RIA_Approved.name
         ]
 
     def get_money_flow_status(self) -> TradingMoneyFlowStatus:
@@ -897,7 +900,11 @@ class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
 
 
 class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
+    id: int = None
     payment_transaction_id = None
+
+    db_excluded_fields = ["id", "created_at", "updated_at"]
+    non_persistent_fields = ["id", "created_at", "updated_at"]
 
     def set_from_response(self, data=None):
         if not data:
@@ -926,3 +933,10 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
             payment_transaction.status = TransactionStatus.SUCCESS
         else:
             payment_transaction.status = TransactionStatus.FAILED
+
+    @property
+    def amount(self) -> Optional[Decimal]:
+        if self.data and self.data.get("amount"):
+            return Decimal(self.data["amount"])
+
+        return None

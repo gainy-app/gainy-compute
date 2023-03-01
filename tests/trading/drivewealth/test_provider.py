@@ -18,7 +18,7 @@ from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, Dri
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountMoney, \
     DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, \
     DriveWealthPortfolioStatus, DriveWealthFund, PRECISION, DriveWealthPortfolioHolding, DriveWealthAccountStatus, \
-    DriveWealthTransaction
+    DriveWealthTransaction, DriveWealthRedemption
 from gainy.trading.repository import TradingRepository
 
 _ACCOUNT_ID = "bf98c335-57ad-4337-ae9f-ed1fcfb447af.1662377145557"
@@ -469,16 +469,23 @@ def test_rebalance_portfolio_cash(monkeypatch):
     new_transaction_id = 2
     new_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
     transaction_account_amount_delta = PORTFOLIO_STATUS_EQUITY_VALUE / 10
-    last_equity_value = new_equity_value - transaction_account_amount_delta
+    redemption_amount = Decimal(-10)
+    last_equity_value = new_equity_value - transaction_account_amount_delta - redemption_amount
 
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(PORTFOLIO)
     monkeypatch.setattr(portfolio, "drivewealth_account_id", account_id)
     monkeypatch.setattr(portfolio, "last_equity_value", last_equity_value)
     monkeypatch.setattr(portfolio, "last_transaction_id", last_transaction_id)
+    monkeypatch.setattr(portfolio, "pending_redemptions_amount_sum",
+                        Decimal(0))
 
     portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.set_from_response(PORTFOLIO_STATUS)
+
+    redemption = DriveWealthRedemption()
+    monkeypatch.setattr(DriveWealthRedemption, "amount",
+                        property(lambda x: redemption_amount))
 
     transaction = DriveWealthTransaction()
     monkeypatch.setattr(transaction, "id", new_transaction_id)
@@ -494,6 +501,8 @@ def test_rebalance_portfolio_cash(monkeypatch):
 
     monkeypatch.setattr(repository, "get_new_transactions",
                         mock_get_new_transactions)
+    monkeypatch.setattr(repository, "get_pending_redemptions",
+                        lambda x: [redemption])
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
@@ -507,7 +516,8 @@ def test_rebalance_portfolio_cash(monkeypatch):
 
     assert abs(portfolio.cash_target_weight * new_equity_value -
                (CASH_TARGET_WEIGHT * last_equity_value +
-                transaction_account_amount_delta)) < PRECISION
+                transaction_account_amount_delta +
+                redemption_amount)) < PRECISION
     assert abs(
         portfolio.get_fund_weight(FUND1_ID) * new_equity_value -
         FUND1_TARGET_WEIGHT * last_equity_value) < PRECISION
@@ -517,6 +527,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
 
     assert portfolio.last_transaction_id == new_transaction_id
     assert portfolio.last_equity_value == new_equity_value
+    assert portfolio.pending_redemptions_amount_sum == redemption_amount
 
     assert DriveWealthPortfolio in persisted_objects
     assert portfolio in persisted_objects[DriveWealthPortfolio]
@@ -535,12 +546,18 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
     new_transaction_id = 2
     transaction_account_amount_delta = Decimal(0)
     last_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
+    pending_redemptions_amount_sum = Decimal(0)
+
+    portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.set_from_response(PORTFOLIO_STATUS)
 
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(PORTFOLIO)
     monkeypatch.setattr(portfolio, "drivewealth_account_id", account_id)
     monkeypatch.setattr(portfolio, "last_equity_value", last_equity_value)
     monkeypatch.setattr(portfolio, "last_transaction_id", last_transaction_id)
+    monkeypatch.setattr(portfolio, "pending_redemptions_amount_sum",
+                        Decimal(0))
 
     transaction = DriveWealthTransaction()
     monkeypatch.setattr(transaction, "id", new_transaction_id)
@@ -552,11 +569,13 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
     monkeypatch.setattr(
         repository, "get_new_transactions", lambda x, y: [transaction]
         if transaction_exists else [])
+
+    monkeypatch.setattr(repository, "get_pending_redemptions", lambda x: [])
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
     provider = DriveWealthProvider(repository, None, None, None)
-    provider.rebalance_portfolio_cash(portfolio, None)
+    provider.rebalance_portfolio_cash(portfolio, portfolio_status)
 
     assert DriveWealthPortfolio in persisted_objects
     assert portfolio in persisted_objects[DriveWealthPortfolio]
@@ -566,6 +585,7 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
         assert portfolio.last_transaction_id == last_transaction_id
 
     assert portfolio.last_equity_value == last_equity_value
+    assert portfolio.pending_redemptions_amount_sum == pending_redemptions_amount_sum
 
 
 def test_sync_portfolio(monkeypatch):
