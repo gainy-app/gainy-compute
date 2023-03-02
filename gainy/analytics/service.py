@@ -70,7 +70,7 @@ class AnalyticsService:
         prev_money_flow = self.repository.find_one(
             TradingMoneyFlow, {
                 "profile_id": profile_id,
-                "status": TradingMoneyFlowStatus.SUCCESS,
+                "status": TradingMoneyFlowStatus.SUCCESS.name,
                 "id": OperatorLt(money_flow.id)
             })
         is_first_deposit = not prev_money_flow
