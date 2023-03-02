@@ -423,6 +423,8 @@ def test_execute_order_in_portfolio(monkeypatch):
 
 
 def test_actualize_portfolio(monkeypatch):
+    portfolio_changed = True
+
     portfolio = DriveWealthPortfolio()
     set_target_weights_from_status_actual_weights_calls = []
     monkeypatch.setattr(
@@ -436,30 +438,22 @@ def test_actualize_portfolio(monkeypatch):
     repository = DriveWealthRepository(None)
 
     provider = DriveWealthProvider(repository, None, None, None)
-    sync_portfolio_calls = []
-    monkeypatch.setattr(provider, "sync_portfolio",
-                        mock_record_calls(sync_portfolio_calls))
-    rebalance_portfolio_cash_calls = []
+
+    def mock_rebalance_portfolio_cash(_portfolio, _portfolio_status):
+        assert _portfolio == portfolio
+        assert _portfolio_status == portfolio_status
+        return portfolio_changed
+
     monkeypatch.setattr(provider, "rebalance_portfolio_cash",
-                        mock_record_calls(rebalance_portfolio_cash_calls))
+                        mock_rebalance_portfolio_cash)
 
-    def mock_sync_portfolio_status(*args, **kwargs):
-        assert args[0] == portfolio
-        assert kwargs["force"]
-        return portfolio_status
+    _portfolio_changed = provider.actualize_portfolio(portfolio,
+                                                      portfolio_status)
 
-    monkeypatch.setattr(provider, "sync_portfolio_status",
-                        mock_sync_portfolio_status)
-
-    provider.actualize_portfolio(portfolio)
-
+    assert _portfolio_changed == portfolio_changed
     assert portfolio_status in [
         args[0]
         for args, kwargs in set_target_weights_from_status_actual_weights_calls
-    ]
-    assert portfolio in [args[0] for args, kwargs in sync_portfolio_calls]
-    assert (portfolio, portfolio_status) in [
-        args for args, kwargs in rebalance_portfolio_cash_calls
     ]
 
 
