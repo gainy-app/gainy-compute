@@ -109,11 +109,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         return account
 
     def actualize_portfolio(
-            self,
-            portfolio: DriveWealthPortfolio) -> DriveWealthPortfolioStatus:
-        self.sync_portfolio(portfolio)
-        portfolio_status = self.sync_portfolio_status(portfolio, force=True)
-
+            self, portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus) -> bool:
         if not portfolio_status.is_pending_rebalance():
             logging_extra = {
                 "profile_id": portfolio.profile_id,
@@ -126,11 +123,11 @@ class DriveWealthProvider(DriveWealthProviderBase):
             logger.info('set_target_weights_from_status_actual_weights',
                         extra=logging_extra)
 
-        self.rebalance_portfolio_cash(portfolio, portfolio_status)
-        return portfolio_status
+        return self.rebalance_portfolio_cash(portfolio, portfolio_status)
 
-    def rebalance_portfolio_cash(self, portfolio: DriveWealthPortfolio,
-                                 portfolio_status: DriveWealthPortfolioStatus):
+    def rebalance_portfolio_cash(
+            self, portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus) -> bool:
         new_equity_value = portfolio_status.equity_value
 
         new_transactions_amount_sum = Decimal(0)
@@ -159,11 +156,11 @@ class DriveWealthProvider(DriveWealthProviderBase):
             portfolio.last_equity_value = new_equity_value
             portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
             self.repository.persist(portfolio)
-            return None
+            return False
 
         if not new_equity_value:
             # todo handle?
-            return None
+            return False
         '''
         new_transactions_amount_sum=200
         cash_weight 0.5     0.8333
@@ -198,6 +195,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
             logger.info('rebalance_portfolio_cash', extra=logging_extra)
             self.repository.persist(portfolio)
+            return True
         except Exception as e:
             logging_extra["exc"] = e
             logger.exception('rebalance_portfolio_cash', extra=logging_extra)

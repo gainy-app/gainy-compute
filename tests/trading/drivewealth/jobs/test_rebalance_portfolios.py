@@ -40,6 +40,7 @@ def test_rebalance_portfolios(monkeypatch):
     drivewealth_account_id1 = "drivewealth_account_id1"
     drivewealth_account_id2 = "drivewealth_account_id2"
     is_pending_rebalance = True
+    portfolio_changed = False
 
     account1 = DriveWealthAccount()
     monkeypatch.setattr(account1, "is_open", lambda: True)
@@ -72,11 +73,21 @@ def test_rebalance_portfolios(monkeypatch):
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
-    def mock_actualize_portfolio(_portfolio):
+    def mock_sync_portfolio_status(_portfolio, force=None):
         return portfolio_status
+
+    monkeypatch.setattr(provider, "sync_portfolio_status",
+                        mock_sync_portfolio_status)
+
+    def mock_actualize_portfolio(_portfolio, _portfolio_status):
+        return portfolio_changed
 
     monkeypatch.setattr(provider, "actualize_portfolio",
                         mock_actualize_portfolio)
+
+    sync_portfolio_calls = []
+    monkeypatch.setattr(provider, "sync_portfolio",
+                        mock_record_calls(sync_portfolio_calls))
 
     trading_repository = TradingRepository(None)
     monkeypatch.setattr(
@@ -115,6 +126,9 @@ def test_rebalance_portfolios(monkeypatch):
                         mock_record_calls(force_rebalance_calls))
 
     job.run()
+
+    assert ((portfolio1, ), {}) in sync_portfolio_calls
+    assert ((portfolio2, ), {}) in sync_portfolio_calls
 
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
 
