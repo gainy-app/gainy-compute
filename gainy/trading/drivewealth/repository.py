@@ -2,11 +2,12 @@ from psycopg2.extras import RealDictCursor
 
 from typing import List, Iterable, Optional
 
-from gainy.data_access.operators import OperatorGt
+from gainy.data_access.operators import OperatorGt, OperatorIn
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
-    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthTransaction
+    DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthTransaction, \
+    DriveWealthRedemption, DriveWealthRedemptionStatus
 from gainy.trading.models import TradingOrderStatus
 from gainy.utils import get_logger
 
@@ -151,3 +152,17 @@ class DriveWealthRepository(Repository):
             params["id"] = OperatorGt(last_transaction_id)
 
         return self.find_all(DriveWealthTransaction, params)
+
+    def get_pending_redemptions(
+            self, account_id: str) -> list[DriveWealthRedemption]:
+        params = {
+            "trading_account_ref_id":
+            account_id,
+            "status":
+            OperatorIn([
+                DriveWealthRedemptionStatus.Approved.name,
+                DriveWealthRedemptionStatus.RIA_Approved.name
+            ])
+        }
+
+        return self.find_all(DriveWealthRedemption, params)
