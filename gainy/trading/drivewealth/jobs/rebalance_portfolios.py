@@ -79,7 +79,6 @@ class RebalancePortfoliosJob:
                     portfolio, is_pending_rebalance)
                 portfolio_changed = portfolio_changed or trading_collection_versions
 
-                print(is_pending_rebalance or portfolio_changed)
                 trading_orders = self.apply_trading_orders(
                     portfolio, is_pending_rebalance or portfolio_changed)
                 portfolio_changed = portfolio_changed or trading_orders
