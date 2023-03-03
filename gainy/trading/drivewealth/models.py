@@ -900,11 +900,7 @@ class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
 
 
 class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
-    id: int = None
     payment_transaction_id = None
-
-    db_excluded_fields = ["id", "created_at", "updated_at"]
-    non_persistent_fields = ["id", "created_at", "updated_at"]
 
     def set_from_response(self, data=None):
         if not data:
