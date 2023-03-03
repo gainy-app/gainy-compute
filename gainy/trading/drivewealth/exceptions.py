@@ -39,3 +39,7 @@ class BadMissingParametersBodyException(DriveWealthApiException):
 
 class TradingAccountNotOpenException(Exception):
     pass
+
+
+class InvalidDriveWealthPortfolioStatusException(Exception):
+    pass

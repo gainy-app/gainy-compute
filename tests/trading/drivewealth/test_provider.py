@@ -719,13 +719,16 @@ def test_create_portfolio_holdings_from_status(monkeypatch):
     }
     assert "dw_ttf_1_2_TSLA" in holdings_by_id
     assert "dw_ttf_1_2_AAPL" in holdings_by_id
+    assert "dw_ticker_1_AAPL" in holdings_by_id
     assert "1_cash_CUR:USD" in holdings_by_id
-    assert len(holdings_by_id) == 3
+    assert len(holdings_by_id) == 4
 
     for holding in holdings_by_id.values():
         assert holding.portfolio_status_id == portfolio_status_id
         assert holding.profile_id == profile_id
 
+        if holding.holding_id_v2 == "dw_ticker_1_AAPL":
+            continue
         if holding.holding_id_v2 == "1_cash_CUR:USD":
             assert holding.actual_value == Decimal(CASH_ACTUAL_VALUE)
             assert holding.quantity == Decimal(CASH_ACTUAL_VALUE)
