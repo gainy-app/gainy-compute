@@ -852,6 +852,7 @@ class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
 
 
 class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
+
     def set_from_response(self, data=None):
         if not data:
             return
