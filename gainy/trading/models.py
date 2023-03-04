@@ -80,7 +80,7 @@ class TradingAccount(BaseModel):
         return "trading_accounts"
 
 
-class AbstractTradingOrder(ABC, BaseModel):
+class AbstractTradingOrder(BaseModel, ABC):
     id = None
     profile_id = None
     target_amount_delta: Decimal = None
