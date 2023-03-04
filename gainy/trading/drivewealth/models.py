@@ -739,6 +739,7 @@ class DriveWealthCountry(BaseDriveWealthModel):
     ref_id = None
     code2 = None
     code3 = None
+    name = None
     active = None
     data = None
     created_at = None
@@ -756,6 +757,7 @@ class DriveWealthCountry(BaseDriveWealthModel):
         self.ref_id = data.get("id")
         self.code2 = data["code2"]
         self.code3 = data["code3"]
+        self.name = data["name"]
         self.active = data["active"]
         self.data = data
 
