@@ -47,6 +47,7 @@ gainy_optimize_collections = "gainy.optimization.jobs.optimize_collections:cli"
 gainy_update_account_balances = "gainy.trading.jobs.update_account_balances:cli"
 gainy_rebalance_portfolios = "gainy.trading.drivewealth.jobs.rebalance_portfolios:cli"
 gainy_fetch_drivewealth_instruments = "gainy.trading.drivewealth.jobs.fetch_instruments:cli"
+gainy_fetch_drivewealth_countries = "gainy.trading.drivewealth.jobs.fetch_countries:cli"
 
 # Billing
 gainy_create_invoices = "gainy.billing.jobs.create_invoices:cli"
