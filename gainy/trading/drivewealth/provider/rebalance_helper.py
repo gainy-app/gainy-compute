@@ -5,7 +5,7 @@ from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, DW_WEIGHT_THRESHOLD, PRECISION
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.exceptions import InsufficientFundsException
-from gainy.trading.models import TradingCollectionVersion, TradingOrder, AmountAwareTradingOrder
+from gainy.trading.models import TradingCollectionVersion, TradingOrder, AbstractTradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
@@ -80,14 +80,13 @@ class DriveWealthProviderRebalanceHelper:
 
         return fund
 
-    def handle_cash_amount_change(self,
-                                  amount_aware_order: AmountAwareTradingOrder,
+    def handle_cash_amount_change(self, order: AbstractTradingOrder,
                                   portfolio: DriveWealthPortfolio,
                                   chosen_fund: DriveWealthFund,
                                   is_pending_rebalance: bool):
 
-        target_amount_delta = amount_aware_order.target_amount_delta
-        target_amount_delta_relative = amount_aware_order.target_amount_delta_relative
+        target_amount_delta = order.target_amount_delta
+        target_amount_delta_relative = order.target_amount_delta_relative
 
         if not target_amount_delta and not target_amount_delta_relative:
             return
@@ -129,7 +128,7 @@ class DriveWealthProviderRebalanceHelper:
                 if fund_actual_weight < DW_WEIGHT_THRESHOLD:
                     raise InsufficientFundsException()
                 weight_delta = target_amount_delta_relative * fund_actual_weight
-                amount_aware_order.target_amount_delta = target_amount_delta_relative * fund_value
+                order.target_amount_delta = target_amount_delta_relative * fund_value
             elif target_amount_delta > 0:
                 if cash_value - target_amount_delta < -PRECISION:
                     raise InsufficientFundsException()
