@@ -33,14 +33,12 @@ class AnalyticsService:
     def on_dw_brokerage_account_opened(self, profile_id):
         event_name = EVENT_DW_BROKERAGE_ACCOUNT_OPENED
         properties = {}
-        for sink in self.sinks:
-            sink.send_event(profile_id, event_name, properties)
+        self._emit(profile_id, event_name, properties)
 
     def on_dw_kyc_status_rejected(self, profile_id: int):
         event_name = EVENT_DW_KYC_STATUS_REJECTED
         properties = {}
-        for sink in self.sinks:
-            sink.send_event(profile_id, event_name, properties)
+        self._emit(profile_id, event_name, properties)
 
     def on_deposit_success(self, money_flow: TradingMoneyFlow):
         profile_id = money_flow.profile_id
@@ -57,16 +55,14 @@ class AnalyticsService:
             "amount": money_flow.amount,
             "isFirstDeposit": is_first_deposit
         }
-        for sink in self.sinks:
-            sink.send_event(profile_id, event_name, properties)
+        self._emit(profile_id, event_name, properties)
 
     def on_withdraw_success(self, profile_id: int, amount: float):
         event_name = EVENT_WITHDRAW_SUCCESS
         properties = {
             "amount": amount,
         }
-        for sink in self.sinks:
-            sink.send_event(profile_id, event_name, properties)
+        self._emit(profile_id, event_name, properties)
 
     def on_order_executed(self, order: AbstractTradingOrder):
         if not isinstance(order, AbstractTradingOrder):
@@ -99,14 +95,12 @@ class AnalyticsService:
                     break
             properties["isFirstPurchase"] = is_first_purchase
 
-        for sink in self.sinks:
-            sink.send_event(order.profile_id, event_name, properties)
+        self._emit(order.profile_id, event_name, properties)
 
     def on_commission_withdrawn(self, profile_id: int, revenue: float):
         event_name = EVENT_COMMISSION_WITHDRAWN
         properties = {"$revenue": revenue}
-        for sink in self.sinks:
-            sink.send_event(profile_id, event_name, properties)
+        self._emit(profile_id, event_name, properties)
 
     def _get_order_properties(self, order) -> dict:
         if isinstance(order, TradingOrder):
@@ -135,3 +129,14 @@ class AnalyticsService:
             "tickerSymbol": symbol,
             "productType": _type,
         }
+
+    def _emit(self, profile_id, event_name, properties):
+        logger.info('Emitting event %s',
+                    event_name,
+                    extra={
+                        "profile_id": profile_id,
+                        "event_name": event_name,
+                        "properties": properties,
+                    })
+        for sink in self.sinks:
+            sink.send_event(profile_id, event_name, properties)
