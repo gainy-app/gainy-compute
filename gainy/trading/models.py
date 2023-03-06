@@ -155,7 +155,7 @@ class TradingCollectionVersion(AbstractTradingOrder):
         return self.status == TradingOrderStatus.EXECUTED_FULLY
 
 
-class TradingOrder(BaseModel, AbstractTradingOrder):
+class TradingOrder(AbstractTradingOrder):
     id = None
     profile_id = None
     symbol = None
