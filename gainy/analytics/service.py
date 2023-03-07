@@ -60,7 +60,7 @@ class AnalyticsService:
     def on_withdraw_success(self, profile_id: int, amount: float):
         event_name = EVENT_WITHDRAW_SUCCESS
         properties = {
-            "_amount": amount,
+            "amount": amount,
         }
         self._emit(profile_id, event_name, properties)
 
@@ -76,8 +76,10 @@ class AnalyticsService:
             return
         elif order.target_amount_delta < 0:
             event_name = EVENT_SELL_COMPLETED
-            properties["isSellAll"] = abs(
-                Decimal(-1) - order.target_amount_delta_relative) < PRECISION
+            properties[
+                "isSellAll"] = order.target_amount_delta_relative is not None and abs(
+                    Decimal(-1) -
+                    order.target_amount_delta_relative) < PRECISION
         else:
             event_name = EVENT_PURCHASE_COMPLETED
             order_classes = [TradingOrder, TradingCollectionVersion]
@@ -88,9 +90,10 @@ class AnalyticsService:
                         "profile_id":
                         order.profile_id,
                         "status":
-                        OperatorNot(OperatorEq(TradingOrderStatus.CANCELLED))
+                        OperatorNot(
+                            OperatorEq(TradingOrderStatus.CANCELLED.name))
                     }, [("created_at", "asc")])
-                if first_order.created_at < order.created_at:
+                if first_order and first_order.created_at < order.created_at:
                     is_first_purchase = False
                     break
             properties["isFirstPurchase"] = is_first_purchase
@@ -122,15 +125,22 @@ class AnalyticsService:
             raise Exception('unsupported class ' + order.__class__.__name__)
 
         amount = order.target_amount_delta
-        return {
+        properties = {
             "orderId": order_id,
             "amount": amount,
-            "collectionId": collection_id,
-            "tickerSymbol": symbol,
             "productType": _type,
         }
+        if collection_id:
+            properties["collectionId"] = collection_id
+        if symbol:
+            properties["tickerSymbol"] = symbol
+        return properties
 
     def _emit(self, profile_id, event_name, properties):
+        for k, i in properties.items():
+            if i is None:
+                del properties[k]
+
         logger.info('Emitting event %s',
                     event_name,
                     extra={
