@@ -71,6 +71,15 @@ class TradingService:
                     plaid_account.
                     account_id].balance = plaid_account.balance_available
 
+            logger.info('update_funding_accounts_balance',
+                        extra={
+                            "profile_id":
+                            access_token.profile_id,
+                            "funding_accounts": [
+                                funding_account.to_dict()
+                                for funding_account in funding_accounts
+                            ],
+                        })
             self.trading_repository.persist(
                 funding_accounts_by_account_id.values())
 

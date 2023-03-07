@@ -791,6 +791,37 @@ class DriveWealthInstrument(BaseDriveWealthModel):
         return "drivewealth_instruments"
 
 
+class DriveWealthCountry(BaseDriveWealthModel):
+    ref_id = None
+    code2 = None
+    code3 = None
+    name = None
+    active = None
+    data = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+
+        self.ref_id = data.get("id")
+        self.code2 = data["code2"]
+        self.code3 = data["code3"]
+        self.name = data["name"]
+        self.active = data["active"]
+        self.data = data
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_countries"
+
+
 class DriveWealthTransaction(BaseDriveWealthModel):
     id = None
     ref_id = None
@@ -908,10 +939,6 @@ class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
 
 
 class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
-    id: int = None
-
-    db_excluded_fields = ["id", "created_at", "updated_at"]
-    non_persistent_fields = ["id", "created_at", "updated_at"]
 
     def set_from_response(self, data=None):
         if not data:
