@@ -36,5 +36,5 @@ class AmplitudeService(AnalyticsSinkInterface):
                           event_properties=properties)
         self.client.track(event)
 
-        logger.info('Flushing Amplitude events')
-        self.client.flush()
+        result = self.client.flush()
+        logger.info('Flush Amplitude events', {"result": result})
