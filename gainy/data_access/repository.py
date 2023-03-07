@@ -168,6 +168,7 @@ class TablePersist:
                                                 field_names, entities)
 
         entity_dicts = [entity.to_dict() for entity in entities]
+        print(entity_dicts)
         values = [[entity_dict[field_name] for field_name in field_names]
                   for entity_dict in entity_dicts]
 
