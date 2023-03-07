@@ -5,9 +5,10 @@ import os
 from amplitude import Amplitude, Identify, EventOptions, BaseEvent
 
 from gainy.analytics.interfaces import AnalyticsSinkInterface
-from gainy.utils import DATETIME_ISO8601_FORMAT_TZ
+from gainy.utils import DATETIME_ISO8601_FORMAT_TZ, get_logger
 
 AMPLITUDE_API_KEY = os.getenv("AMPLITUDE_API_KEY")
+logger = get_logger(__name__)
 
 
 def _get_user_id(profile_id: int) -> str:
@@ -34,3 +35,7 @@ class AmplitudeService(AnalyticsSinkInterface):
                           user_id=_get_user_id(profile_id),
                           event_properties=properties)
         self.client.track(event)
+
+    def __del__(self):
+        logger.info('Flushing Amplitude events')
+        self.client.flush()
