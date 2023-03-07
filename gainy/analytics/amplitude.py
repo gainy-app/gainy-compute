@@ -10,6 +10,19 @@ from gainy.utils import DATETIME_ISO8601_FORMAT_TZ, get_logger
 AMPLITUDE_API_KEY = os.getenv("AMPLITUDE_API_KEY")
 logger = get_logger(__name__)
 
+def event_cb(event: BaseEvent, code: int, message: str):
+    extra = {
+        "event": event,
+        "response": {
+            "code": code,
+            "message": message,
+        }
+    }
+    if code == 200:
+        logger.info('Amplitude event sent', extra=extra)
+    else:
+        logger.error('Amplitude event sent', extra=extra)
+
 
 def _get_user_id(profile_id: int) -> str:
     return '%05d' % profile_id
@@ -18,7 +31,7 @@ def _get_user_id(profile_id: int) -> str:
 class AmplitudeService(AnalyticsSinkInterface):
 
     def __init__(self):
-        config = Config(logger=logger, server_zone="US")
+        config = Config(logger=logger, server_zone="US", callback=event_cb)
         self.client = Amplitude(AMPLITUDE_API_KEY, config)
 
     def update_profile_attribution(self, profile_id: int, attributes: dict):
