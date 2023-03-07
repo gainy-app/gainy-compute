@@ -3,7 +3,7 @@ import datetime
 import os
 
 from gainy.analytics.amplitude.sdk import AmplitudeClient, AmplitudeSequentialDestinationPlugin
-from amplitude import Identify, EventOptions, BaseEvent, Config
+from amplitude import Identify, EventOptions, BaseEvent, Config, Amplitude
 from amplitude.plugin import AmplitudeDestinationPlugin
 
 from gainy.analytics.interfaces import AnalyticsSinkInterface
@@ -35,11 +35,11 @@ class AmplitudeService(AnalyticsSinkInterface):
 
     def __init__(self):
         config = Config(logger=logger, server_zone="US", callback=event_cb)
-        self.client = AmplitudeClient(AMPLITUDE_API_KEY, config)
-        for plugin in self.client.plugins:
-            if isinstance(plugin, AmplitudeDestinationPlugin):
-                self.client.remove(plugin)
-        self.client.add(AmplitudeSequentialDestinationPlugin())
+        self.client = Amplitude(AMPLITUDE_API_KEY, config)
+        # for plugin in self.client.plugins:
+        #     if isinstance(plugin, AmplitudeDestinationPlugin):
+        #         self.client.remove(plugin)
+        # self.client.add(AmplitudeSequentialDestinationPlugin())
 
     def update_profile_attribution(self, profile_id: int, attributes: dict):
         identify_obj = Identify()
