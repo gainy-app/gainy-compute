@@ -60,7 +60,7 @@ class AnalyticsService:
     def on_withdraw_success(self, profile_id: int, amount: float):
         event_name = EVENT_WITHDRAW_SUCCESS
         properties = {
-            "amount": amount,
+            "_amount": amount,
         }
         self._emit(profile_id, event_name, properties)
 
