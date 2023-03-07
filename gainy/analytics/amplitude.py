@@ -2,7 +2,7 @@ import datetime
 
 import os
 
-from amplitude import Amplitude, Identify, EventOptions, BaseEvent
+from amplitude import Amplitude, Identify, EventOptions, BaseEvent, Config
 
 from gainy.analytics.interfaces import AnalyticsSinkInterface
 from gainy.utils import DATETIME_ISO8601_FORMAT_TZ, get_logger
@@ -18,7 +18,8 @@ def _get_user_id(profile_id: int) -> str:
 class AmplitudeService(AnalyticsSinkInterface):
 
     def __init__(self):
-        self.client = Amplitude(AMPLITUDE_API_KEY)
+        config = Config(logger=logger, server_zone="US")
+        self.client = Amplitude(AMPLITUDE_API_KEY, config)
 
     def update_profile_attribution(self, profile_id: int, attributes: dict):
         identify_obj = Identify()
@@ -37,4 +38,5 @@ class AmplitudeService(AnalyticsSinkInterface):
         self.client.track(event)
 
         result = self.client.flush()
+        print(result)
         logger.info('Flush Amplitude events', {"result": result})
