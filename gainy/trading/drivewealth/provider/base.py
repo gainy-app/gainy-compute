@@ -2,12 +2,13 @@ import regex
 from decimal import Decimal
 
 import datetime
-from typing import List, Iterable, Dict
+from typing import List, Iterable, Dict, Optional
 
 from gainy.analytics.service import AnalyticsService
-from gainy.data_access.operators import OperatorGt, OperatorNot, OperatorIn
+from gainy.data_access.operators import OperatorNot, OperatorIn
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.trading.drivewealth import DriveWealthApi
+from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
     PRECISION
@@ -50,7 +51,15 @@ class DriveWealthProviderBase:
             if portfolio.is_artificial:
                 return
             self.sync_portfolio(portfolio, force=force)
-            self.sync_portfolio_status(portfolio, force=force)
+            try:
+                self.sync_portfolio_status(portfolio, force=force)
+            except InvalidDriveWealthPortfolioStatusException as e:
+                logger.warning(e,
+                               extra={
+                                   "profile_id": portfolio.profile_id,
+                                   "account_id":
+                                   portfolio.drivewealth_account_id
+                               })
 
     def sync_portfolio(self,
                        portfolio: DriveWealthPortfolio,
@@ -169,23 +178,21 @@ class DriveWealthProviderBase:
             portfolio: DriveWealthPortfolio,
             force: bool = False) -> DriveWealthPortfolioStatus:
 
-        portfolio_status: DriveWealthPortfolioStatus = self.repository.find_one(
-            DriveWealthPortfolioStatus, {
-                "drivewealth_portfolio_id":
-                portfolio.ref_id,
-                "created_at":
-                OperatorGt(
-                    datetime.datetime.now(datetime.timezone.utc) -
-                    datetime.timedelta(
-                        seconds=DRIVE_WEALTH_PORTFOLIO_STATUS_TTL)),
-            }, [("created_at", "DESC")])
+        if not force:
+            portfolio_status = self.get_latest_portfolio_status(
+                portfolio.ref_id)
 
-        if not force and portfolio_status:
-            return portfolio_status
+            min_created_at = datetime.datetime.now(
+                datetime.timezone.utc) - datetime.timedelta(
+                    seconds=DRIVE_WEALTH_PORTFOLIO_STATUS_TTL)
+            if portfolio_status and portfolio_status.created_at > min_created_at:
+                return portfolio_status
 
         data = self.api.get_portfolio_status(portfolio)
         portfolio_status = DriveWealthPortfolioStatus()
         portfolio_status.set_from_response(data)
+        if not portfolio_status.is_valid():
+            raise InvalidDriveWealthPortfolioStatusException()
         self.repository.persist(portfolio_status)
 
         self._create_portfolio_holdings_from_status(portfolio_status)
@@ -354,3 +361,11 @@ class DriveWealthProviderBase:
                 "profile_id": profile_id,
                 "holding_id_v2": OperatorNot(OperatorIn(holding_ids))
             })
+
+    def get_latest_portfolio_status(
+            self,
+            portfolio_ref_id: str) -> Optional[DriveWealthPortfolioStatus]:
+        return self.repository.find_one(
+            DriveWealthPortfolioStatus, {
+                "drivewealth_portfolio_id": portfolio_ref_id,
+            }, [("created_at", "DESC")])

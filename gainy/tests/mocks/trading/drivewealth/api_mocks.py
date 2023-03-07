@@ -62,12 +62,24 @@ PORTFOLIO_STATUS = {
             "value": 10675.22
         }]
     }, {
-        "id": FUND2_ID,
-        "type": "FUND",
-        "target": FUND2_TARGET_WEIGHT,
-        "actual": FUND2_ACTUAL_WEIGHT,
-        "value": FUND2_VALUE,
-        "holdings": []
+        "id":
+        FUND2_ID,
+        "type":
+        "FUND",
+        "target":
+        FUND2_TARGET_WEIGHT,
+        "actual":
+        FUND2_ACTUAL_WEIGHT,
+        "value":
+        FUND2_VALUE,
+        "holdings": [{
+            "instrumentID": "a67422af-8504-43df-9e63-7361eb0bd99e",
+            "symbol": "AAPL",
+            "target": 1,
+            "actual": 1,
+            "openQty": 62.4942,
+            "value": FUND2_VALUE
+        }]
     }]
 }
 
