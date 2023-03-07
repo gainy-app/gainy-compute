@@ -30,5 +30,5 @@ class AmplitudeClient(Amplitude):
 
     @property
     def plugins(self) -> Iterable[Plugin]:
-        for plugins in self.__timeline.plugins.values():
+        for plugins in self._Amplitude__timeline.plugins.values():
             yield from plugins
