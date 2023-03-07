@@ -10,7 +10,8 @@ import time
 
 from gainy.context_container import ContextContainer
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
-from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException
+from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException, \
+    InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
     DriveWealthFund
 from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
@@ -103,6 +104,13 @@ class RebalancePortfoliosJob:
                     DriveWealthApiException) as e:
                 logger.exception(e)
                 self.repo.rollback()
+            except InvalidDriveWealthPortfolioStatusException:
+                logger.info(
+                    f"Skipping portfolio {portfolio.ref_id} due to invalid status",
+                    extra={
+                        "profile_id": portfolio.profile_id,
+                        "account_id": portfolio.drivewealth_account_id
+                    })
             except Exception as e:
                 logger.exception(e)
 
