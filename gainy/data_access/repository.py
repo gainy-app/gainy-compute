@@ -168,7 +168,7 @@ class TablePersist:
                                                 field_names, entities)
 
         entity_dicts = [entity.to_dict() for entity in entities]
-        values = [[entity_dict[field_name] for field_name in field_names]
+        values = [[entity_dict.get(field_name) for field_name in field_names]
                   for entity_dict in entity_dicts]
 
         with self.db_conn.cursor() as cursor:
