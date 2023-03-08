@@ -137,6 +137,7 @@ class AnalyticsService:
         return properties
 
     def _emit(self, profile_id, event_name, properties):
+        #TODO make async through sqs
         for k, i in properties.items():
             if i is None:
                 del properties[k]
