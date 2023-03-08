@@ -3,9 +3,6 @@ from decimal import Decimal
 import json
 from typing import List, Any, Dict
 from gainy.data_access.db_lock import ResourceType
-from gainy.utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -41,18 +38,8 @@ class BaseModel(ABC):
         if not new_entity:
             return
 
-        logger.info('refresh_entity pre',
-                    extra={
-                        "entity": self.to_dict(),
-                        "new_entity": new_entity.to_dict()
-                    })
         for field_name in new_entity.to_dict().keys():
             self.__dict__[field_name] = new_entity.__dict__[field_name]
-        logger.info('refresh_entity post',
-                    extra={
-                        "entity": self.to_dict(),
-                        "new_entity": new_entity.to_dict()
-                    })
 
     @property
     @abstractmethod
