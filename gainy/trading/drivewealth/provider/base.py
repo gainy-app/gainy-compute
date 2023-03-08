@@ -14,7 +14,7 @@ from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfol
     PRECISION
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
-    AmountAwareTradingOrder
+    AbstractTradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.utils import get_logger
 
@@ -228,7 +228,7 @@ class DriveWealthProviderBase:
 
     def _fill_executed_amount(self,
                               profile_id,
-                              orders: List[AmountAwareTradingOrder],
+                              orders: List[AbstractTradingOrder],
                               portfolio_status: DriveWealthPortfolioStatus,
                               collection_id: int = None,
                               symbol: str = None):

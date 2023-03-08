@@ -80,17 +80,19 @@ class TradingAccount(BaseModel):
         return "trading_accounts"
 
 
-class AmountAwareTradingOrder(ABC):
+class AbstractTradingOrder(BaseModel, ABC):
     id = None
+    profile_id = None
     target_amount_delta: Decimal = None
     target_amount_delta_relative: Decimal = None
     executed_amount: Decimal = None
     status: TradingOrderStatus = None
     pending_execution_since: datetime.datetime
+    created_at: datetime.datetime
     executed_at: datetime.datetime
 
 
-class TradingCollectionVersion(BaseModel, AmountAwareTradingOrder):
+class TradingCollectionVersion(AbstractTradingOrder):
     id = None
     profile_id = None
     collection_id = None
@@ -153,7 +155,7 @@ class TradingCollectionVersion(BaseModel, AmountAwareTradingOrder):
         return self.status == TradingOrderStatus.EXECUTED_FULLY
 
 
-class TradingOrder(BaseModel, AmountAwareTradingOrder):
+class TradingOrder(AbstractTradingOrder):
     id = None
     profile_id = None
     symbol = None
