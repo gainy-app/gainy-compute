@@ -261,7 +261,7 @@ class DriveWealthProviderBase:
             "is_pending_rebalance": portfolio_status.is_pending_rebalance(),
         }
         last_portfolio_rebalance_at_threshold = datetime.datetime.now(
-        ) - datetime.timedelta(minutes=30)
+            tz=datetime.timezone.utc) - datetime.timedelta(minutes=30)
         for order in reversed(orders):
             logger_extra["order_class"] = order.__class__.__name__
             logger_extra["order_id"] = order.id
