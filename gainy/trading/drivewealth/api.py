@@ -58,6 +58,12 @@ class DriveWealthApi:
         entity.set_from_response(response)
         return entity
 
+    def get_countries(self, status: str = None):
+        get_data = {}
+        if status:
+            get_data["status"] = status
+        return self._make_request("GET", "/countries", get_data=get_data)
+
     # Accounts
 
     def get_account(self, account_id: str):

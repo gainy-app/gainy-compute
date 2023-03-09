@@ -3,7 +3,7 @@ from contextlib import AbstractContextManager
 from psycopg2._psycopg import connection
 from functools import cached_property, cache
 
-from gainy.analytics.amplitude import AmplitudeService
+from gainy.analytics.amplitude.service import AmplitudeService
 from gainy.analytics.attribution_sources.db import DBAttributionSource
 from gainy.analytics.service import AnalyticsService
 from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
