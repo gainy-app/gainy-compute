@@ -866,8 +866,8 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
 
 
 def get_fill_executed_amount_data():
-    pending_execution_since = datetime.datetime.now() - datetime.timedelta(
-        minutes=1)
+    pending_execution_since = datetime.datetime.now(
+        tz=datetime.timezone.utc) - datetime.timedelta(minutes=1)
 
     def assert_persisted(orders, persisted_objects):
         assert TradingOrder in persisted_objects
@@ -1059,7 +1059,8 @@ def get_fill_executed_amount_data():
     get_fill_executed_amount_data())
 def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
                               orders, assert_func):
-    last_portfolio_rebalance_at = datetime.datetime.now()
+    last_portfolio_rebalance_at = datetime.datetime.now(
+        tz=datetime.timezone.utc)
     profile_id = 1
     collection_id = 2
     executed_amount_sum = Decimal(executed_amount_sum)
