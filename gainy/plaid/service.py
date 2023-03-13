@@ -18,7 +18,7 @@ class PlaidService:
                           access_token: PlaidAccessToken,
                           account_ids=None):
         try:
-            return self.plaid_client.get_item_accounts(
+            return self.plaid_client.get_item_accounts_balances(
                 access_token.access_token, account_ids)
         except plaid.ApiException as e:
             self._handle_api_exception(e, access_token)

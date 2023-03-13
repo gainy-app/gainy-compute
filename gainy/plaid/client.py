@@ -1,4 +1,6 @@
 from functools import cached_property
+from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
+from plaid.model.accounts_balance_get_request_options import AccountsBalanceGetRequestOptions
 from typing import List
 
 from plaid.model.accounts_get_request import AccountsGetRequest
@@ -34,6 +36,21 @@ class PlaidClient:
             request = AccountsGetRequest(access_token=access_token)
 
         response = self.get_client(access_token).accounts_get(request)
+
+        return [PlaidAccount(i) for i in response['accounts']]
+
+    def get_item_accounts_balances(
+            self,
+            access_token: str,
+            account_ids: List = None) -> List[PlaidAccount]:
+        if account_ids:
+            options = AccountsBalanceGetRequestOptions(account_ids=account_ids)
+            request = AccountsBalanceGetRequest(access_token=access_token,
+                                                options=options)
+        else:
+            request = AccountsBalanceGetRequest(access_token=access_token)
+
+        response = self.get_client(access_token).accounts_balance_get(request)
 
         return [PlaidAccount(i) for i in response['accounts']]
 
