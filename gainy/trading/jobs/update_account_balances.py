@@ -6,7 +6,7 @@ import time
 
 from gainy.context_container import ContextContainer
 from gainy.trading.drivewealth import DriveWealthRepository
-from gainy.trading.drivewealth.exceptions import DriveWealthApiException, InvalidDriveWealthPortfolioStatusException
+from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount
 from gainy.trading.models import TradingAccount, FundingAccount
 from gainy.trading.service import TradingService
@@ -41,7 +41,7 @@ class UpdateAccountBalancesJob:
                 self.service.sync_balances(account)
                 logger.info("Synced trading account %d in %f", account.id,
                             time.time() - start_time)
-            except DriveWealthApiException as e:
+            except Exception as e:
                 logger.exception(e)
 
     def _update_funding_accounts(self, realtime: bool = False):
@@ -57,7 +57,7 @@ class UpdateAccountBalancesJob:
                 self.service.update_funding_accounts_balance([account])
                 logger.info("Synced funding account %d in %f", account.id,
                             time.time() - start_time)
-            except DriveWealthApiException as e:
+            except Exception as e:
                 logger.exception(e)
 
     def _update_portfolios(self, realtime: bool = False):
@@ -92,7 +92,7 @@ class UpdateAccountBalancesJob:
                                    "account_id":
                                    portfolio.drivewealth_account_id
                                })
-            except DriveWealthApiException as e:
+            except Exception as e:
                 logger.exception(e)
 
 
