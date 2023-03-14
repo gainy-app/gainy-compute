@@ -88,8 +88,36 @@ class AbstractTradingOrder(BaseModel, ABC):
     executed_amount: Decimal = None
     status: TradingOrderStatus = None
     pending_execution_since: datetime.datetime
+    source: TradingOrderSource = None
     created_at: datetime.datetime
     executed_at: datetime.datetime
+
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
+
+        if not row:
+            return self
+
+        self.source = TradingOrderSource[
+            row["source"]] if row["source"] else None
+        self.status = TradingOrderStatus[
+            row["status"]] if row["status"] else None
+        return self
+
+    def to_dict(self) -> dict:
+        return {
+            **super().to_dict(),
+            "source": self.source.name if self.source else None,
+            "status": self.status.name if self.status else None,
+        }
+
+    def is_pending(self) -> bool:
+        return self.status in [
+            TradingOrderStatus.PENDING, TradingOrderStatus.PENDING_EXECUTION
+        ]
+
+    def is_executed(self) -> bool:
+        return self.status == TradingOrderStatus.EXECUTED_FULLY
 
 
 class TradingCollectionVersion(AbstractTradingOrder):
@@ -115,18 +143,6 @@ class TradingCollectionVersion(AbstractTradingOrder):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def set_from_dict(self, row: dict = None):
-        super().set_from_dict(row)
-
-        if not row:
-            return self
-
-        self.source = TradingOrderSource[
-            row["source"]] if row["source"] else None
-        self.status = TradingOrderStatus[
-            row["status"]] if row["status"] else None
-        return self
-
     @classproperty
     def schema_name(self) -> str:
         return "app"
@@ -138,21 +154,9 @@ class TradingCollectionVersion(AbstractTradingOrder):
     def to_dict(self) -> dict:
         return {
             **super().to_dict(),
-            "source": self.source.name if self.source else None,
-            "status": self.status.name if self.status else None,
-            "weights": json.dumps(self.weights, cls=DecimalEncoder),
+            "weights":
+            json.dumps(self.weights, cls=DecimalEncoder),
         }
-
-    def set_status(self, status: TradingOrderStatus):
-        self.status = status
-
-    def is_pending(self) -> bool:
-        return self.status in [
-            TradingOrderStatus.PENDING, TradingOrderStatus.PENDING_EXECUTION
-        ]
-
-    def is_executed(self) -> bool:
-        return self.status == TradingOrderStatus.EXECUTED_FULLY
 
 
 class TradingOrder(AbstractTradingOrder):
@@ -176,18 +180,6 @@ class TradingOrder(AbstractTradingOrder):
     db_excluded_fields = ["created_at", "updated_at"]
     non_persistent_fields = ["id", "created_at", "updated_at"]
 
-    def set_from_dict(self, row: dict = None):
-        super().set_from_dict(row)
-
-        if not row:
-            return self
-
-        self.source = TradingOrderSource[
-            row["source"]] if row["source"] else None
-        self.status = TradingOrderStatus[
-            row["status"]] if row["status"] else None
-        return self
-
     @classproperty
     def schema_name(self) -> str:
         return "app"
@@ -195,24 +187,6 @@ class TradingOrder(AbstractTradingOrder):
     @classproperty
     def table_name(self) -> str:
         return "trading_orders"
-
-    def to_dict(self) -> dict:
-        return {
-            **super().to_dict(),
-            "source": self.source.name if self.source else None,
-            "status": self.status.name if self.status else None,
-        }
-
-    def set_status(self, status: TradingOrderStatus):
-        self.status = status
-
-    def is_pending(self) -> bool:
-        return self.status in [
-            TradingOrderStatus.PENDING, TradingOrderStatus.PENDING_EXECUTION
-        ]
-
-    def is_executed(self) -> bool:
-        return self.status == TradingOrderStatus.EXECUTED_FULLY
 
 
 class TradingMoneyFlow(BaseModel):
