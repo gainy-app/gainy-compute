@@ -380,6 +380,9 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             self.next_portfolio_rebalance_at = dateutil.parser.parse(
                 self.data["nextPortfolioRebalance"])
         self.equity_value = Decimal(self.data["equity"])
+        self.cash_value = Decimal(0)
+        self.cash_actual_weight = Decimal(0)
+        self.cash_target_weight = Decimal(0)
 
         for i in self.data["holdings"]:
             if i["type"] == "CASH_RESERVE":
