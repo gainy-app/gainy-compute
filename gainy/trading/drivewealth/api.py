@@ -122,11 +122,15 @@ class DriveWealthApi:
         portfolio.set_from_response(data)
 
     def update_portfolio(self, portfolio: DriveWealthPortfolio):
-        # noinspection PyTypeChecker
-        holdings = [{
-            "type": "CASH_RESERVE",
-            "target": portfolio.cash_target_weight,
-        }] + [{
+        holdings = []
+
+        if portfolio.cash_target_weight > Decimal(0):
+            holdings.append({
+                "type": "CASH_RESERVE",
+                "target": portfolio.cash_target_weight,
+            })
+
+        holdings += [{
             "type": "FUND",
             "id": fund_id,
             "target": weight,

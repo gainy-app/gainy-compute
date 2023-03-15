@@ -43,7 +43,7 @@ def test_update_funding_accounts_balance(monkeypatch):
         assert plaid_account_ids == [plaid_account_id]
         return [plaid_account]
 
-    monkeypatch.setattr(plaid_service, "get_item_accounts",
+    monkeypatch.setattr(plaid_service, "get_item_accounts_balances",
                         mock_get_item_accounts)
 
     trading_service = TradingService(trading_repository, None, plaid_service)
