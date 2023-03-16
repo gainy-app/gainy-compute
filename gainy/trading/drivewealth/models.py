@@ -1016,7 +1016,7 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
     def update_payment_transaction(self,
                                    payment_transaction: PaymentTransaction):
         status = self.get_money_flow_status()
-        if status == [
+        if status in [
                 TradingMoneyFlowStatus.PENDING, TradingMoneyFlowStatus.APPROVED
         ]:
             payment_transaction.status = TransactionStatus.PENDING
