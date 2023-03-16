@@ -82,6 +82,7 @@ def test_charge(monkeypatch):
         assert _profile_id == profile_id
         return payment_method
 
+    monkeypatch.setattr(repo, "get_pending_invoice_transaction", mock_noop)
     monkeypatch.setattr(repo, "get_active_payment_method",
                         mock_get_active_payment_method)
     persisted_objects = {}
