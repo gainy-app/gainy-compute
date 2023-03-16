@@ -88,6 +88,7 @@ class AbstractTradingOrder(BaseModel, ABC):
     executed_amount: Decimal = None
     status: TradingOrderStatus = None
     pending_execution_since: datetime.datetime
+    source: TradingOrderSource = None
     created_at: datetime.datetime
     executed_at: datetime.datetime
 

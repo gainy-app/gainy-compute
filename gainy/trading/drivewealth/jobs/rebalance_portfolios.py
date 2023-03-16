@@ -4,7 +4,7 @@ from decimal import Decimal
 import datetime
 import dateutil.parser
 
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Optional
 
 import time
 
@@ -211,14 +211,14 @@ class RebalancePortfoliosJob:
         return trading_collection_versions
 
     def rebalance_existing_funds(self, portfolio: DriveWealthPortfolio,
-                                 is_pending_rebalance: True) -> bool:
+                                 is_pending_rebalance: bool) -> bool:
         """
         Automatically change portfolio weights according to the new collection weights
-        :param portfolio: DriveWealthPortfolio
-        :return:
         """
         profile_id = portfolio.profile_id
         portfolio_changed = False
+        orders = []
+
         try:
             for fund in self.provider.iterate_profile_funds(profile_id):
                 fund_weight = portfolio.get_fund_weight(fund.ref_id)
@@ -226,13 +226,43 @@ class RebalancePortfoliosJob:
                     continue
 
                 if fund.trading_collection_version_id:
-                    result = self.rebalance_existing_collection_fund(
-                        portfolio, fund, is_pending_rebalance)
-                    portfolio_changed = portfolio_changed or result
+                    trading_collection_version = self.rebalance_existing_collection_fund(
+                        portfolio, fund)
+                    if trading_collection_version:
+                        orders.append((trading_collection_version, fund_weight))
+
                 if fund.trading_order_id:
-                    result = self.rebalance_existing_ticker_fund(
-                        portfolio, fund, is_pending_rebalance)
-                    portfolio_changed = portfolio_changed or result
+                    trading_order = self.rebalance_existing_ticker_fund(
+                        portfolio, fund)
+
+                    if trading_order:
+                        orders.append((trading_order, fund_weight))
+
+            weight_sum = Decimal(0)
+            for order, weight in orders:
+                weight_sum += weight
+
+            amount_to_auto_sell = self.repo.calculate_amount_to_auto_sell(profile_id)
+
+            for order, weight in orders:
+                if amount_to_auto_sell:
+                    if order.target_amount_delta is not None:
+                        raise Exception('target_amount_delta is not supposed to be set for automatic orders.')
+
+                    order.target_amount_delta = -amount_to_auto_sell * weight / weight_sum
+
+                if isinstance(order, TradingCollectionVersion):
+                    self.provider.reconfigure_collection_holdings(
+                        portfolio, order, is_pending_rebalance or portfolio_changed)
+                    portfolio_changed = True
+
+                elif isinstance(order, TradingOrder):
+                    self.provider.execute_order_in_portfolio(portfolio, order,
+                                                             is_pending_rebalance or portfolio_changed)
+                    portfolio_changed = True
+                else:
+                    raise Exception('Unknown class ' + order.__class__.name)
+
         except DriveWealthApiException as e:
             logger.exception(e)
 
@@ -289,8 +319,7 @@ class RebalancePortfoliosJob:
 
     def rebalance_existing_collection_fund(self,
                                            portfolio: DriveWealthPortfolio,
-                                           fund: DriveWealthFund,
-                                           is_pending_rebalance: bool) -> bool:
+                                           fund: DriveWealthFund) -> Optional[TradingCollectionVersion]:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -321,13 +350,13 @@ class RebalancePortfoliosJob:
             logger.debug(
                 'rebalance_existing_collection_fund skipping fund: not eligible for automatic rebalancing',
                 extra=logging_extra)
-            return False
+            return None
         if not symbols_differ and tcv.last_optimization_at >= collection_last_optimization_at:
             logger.debug(
                 'rebalance_existing_collection_fund skipping fund: already automatically rebalanced',
                 extra=logging_extra)
             # Already automatically rebalanced
-            return False
+            return None
 
         trading_account_id = self._get_trading_account_id(portfolio)
 
@@ -345,14 +374,10 @@ class RebalancePortfoliosJob:
             weights=weights,
             last_optimization_at=collection_last_optimization_at)
 
-        self.provider.reconfigure_collection_holdings(
-            portfolio, trading_collection_version, is_pending_rebalance)
-
-        return True
+        return trading_collection_version
 
     def rebalance_existing_ticker_fund(self, portfolio: DriveWealthPortfolio,
-                                       fund: DriveWealthFund,
-                                       is_pending_rebalance: bool) -> bool:
+                                       fund: DriveWealthFund) -> Optional[TradingOrder]:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -361,7 +386,7 @@ class RebalancePortfoliosJob:
 
         try:
             self.trading_service.check_tradeable_symbol(fund.symbol)
-            return False
+            return None
         except SymbolIsNotTradeableException:
             logger.info(
                 'rebalance_existing_ticker_fund: symbol not tradeable, force selling',
@@ -376,9 +401,7 @@ class RebalancePortfoliosJob:
             trading_account_id,
             target_amount_delta_relative=Decimal(-1))
 
-        self.provider.execute_order_in_portfolio(portfolio, trading_order,
-                                                 is_pending_rebalance)
-        return True
+        return trading_order
 
 
 def cli():

@@ -245,3 +245,6 @@ class TradingRepository(Repository):
             return Decimal(row[0])
 
         return Decimal(0)
+
+    def calculate_amount_to_auto_sell(self, profile_id) -> Decimal:
+        pass
