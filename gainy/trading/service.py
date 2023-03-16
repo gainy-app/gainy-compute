@@ -59,7 +59,7 @@ class TradingService:
             }
 
             try:
-                plaid_accounts = self.plaid_service.get_item_accounts(
+                plaid_accounts = self.plaid_service.get_item_accounts_balances(
                     access_token, list(funding_accounts_by_account_id.keys()))
             except AccessTokenLoginRequiredException:
                 continue

@@ -260,6 +260,8 @@ class DriveWealthProviderBase:
             "last_portfolio_rebalance_at": last_portfolio_rebalance_at,
             "is_pending_rebalance": portfolio_status.is_pending_rebalance(),
         }
+        last_portfolio_rebalance_at_threshold = datetime.datetime.now(
+            tz=datetime.timezone.utc) - datetime.timedelta(minutes=30)
         for order in reversed(orders):
             logger_extra["order_class"] = order.__class__.__name__
             logger_extra["order_id"] = order.id
@@ -267,7 +269,9 @@ class DriveWealthProviderBase:
 
             if order.target_amount_delta is None or abs(
                     order.target_amount_delta) < PRECISION:
-                if last_portfolio_rebalance_at > order.pending_execution_since:
+                if last_portfolio_rebalance_at and last_portfolio_rebalance_at > max(
+                        order.pending_execution_since,
+                        last_portfolio_rebalance_at_threshold):
                     order.status = TradingOrderStatus.EXECUTED_FULLY
                     order.executed_at = last_portfolio_rebalance_at
 
@@ -290,7 +294,9 @@ class DriveWealthProviderBase:
 
             is_executed = abs(error) < EXECUTED_AMOUNT_PRECISION
             is_executed = is_executed or (
-                last_portfolio_rebalance_at > order.pending_execution_since
+                last_portfolio_rebalance_at and last_portfolio_rebalance_at >
+                max(order.pending_execution_since,
+                    last_portfolio_rebalance_at_threshold)
                 and not portfolio_status.is_pending_rebalance())
 
             if is_executed:
