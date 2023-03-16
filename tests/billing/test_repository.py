@@ -86,7 +86,7 @@ def test_iterate_unpaid_invoices_due():
                 delete from app.invoices where profile_id = %(profile_id)s;
                 insert into app.invoices(profile_id, period_id, amount, status, due_date, period_start, period_end)
                 select %(profile_id)s, status || '_' || due_date::date, %(amount)s, status, due_date, %(period_start)s, %(period_end)s
-                from (values(%(status_pending)s), (%(status_paid)s), (%(status_failed)s)) t1(status)
+                from (values(%(status_pending)s), (%(status_paid)s)) t1(status)
                 join (values(now() - interval '1 week'), (now() + interval '1 week')) t2(due_date) on true;
                 """, {
                     "profile_id": profile_id,
@@ -95,7 +95,6 @@ def test_iterate_unpaid_invoices_due():
                     "period_end": period_end,
                     "status_pending": InvoiceStatus.PENDING,
                     "status_paid": InvoiceStatus.PAID,
-                    "status_failed": InvoiceStatus.FAILED
                 })
 
         invoices = list(

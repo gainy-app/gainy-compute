@@ -11,7 +11,6 @@ from gainy.data_access.models import BaseModel, classproperty, ResourceVersion
 class InvoiceStatus(str, Enum):
     PENDING = 'PENDING'
     PAID = 'PAID'
-    FAILED = 'FAILED'
 
 
 class PaymentMethodProvider(str, Enum):
@@ -118,14 +117,10 @@ class Invoice(BaseModel, ResourceVersion):
 
         if transaction.status == TransactionStatus.SUCCESS and self.status == InvoiceStatus.PAID:
             return
-        if transaction.status == TransactionStatus.FAILED and self.status == InvoiceStatus.FAILED:
-            return
 
         if self.status == InvoiceStatus.PENDING:
             if transaction.status == TransactionStatus.SUCCESS:
                 self.status = InvoiceStatus.PAID
-            else:
-                self.status = InvoiceStatus.FAILED
         else:
             raise InvoiceSealedException()
 
