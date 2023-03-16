@@ -30,8 +30,8 @@ class DriveWealthPaymentProvider(AbstractPaymentProvider):
         if not account:
             raise Exception('DriveWealthAccount not found')
 
-        self.provider.sync_account(account)
-        if Decimal(account.cash_balance) < invoice.amount:
+        account_money = self.provider.sync_account_money(account.ref_id)
+        if Decimal(account_money.cash_balance) < invoice.amount:
             raise InsufficientFundsException()
 
         transaction = self._create_transaction(invoice, payment_method)

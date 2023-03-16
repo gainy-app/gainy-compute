@@ -37,6 +37,9 @@ class BillingService(BillingServiceInterface):
             if not invoice.can_charge():
                 raise InvoiceSealedException()
 
+            if self.repo.get_pending_invoice_transaction(invoice):
+                return
+
             payment_method = self.repo.get_active_payment_method(
                 invoice.profile_id)
             provider = self._get_payment_method_provider(payment_method)
