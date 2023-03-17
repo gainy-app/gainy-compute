@@ -3,7 +3,7 @@ from decimal import Decimal
 import stripe
 from stripe.api_resources.payment_intent import PaymentIntent
 
-from gainy.billing.models import TransactionStatus
+from gainy.billing.models import PaymentTransactionStatus
 from gainy.billing.stripe.api import StripeApi
 from gainy.billing.stripe.models import StripePaymentMethod
 
@@ -40,4 +40,4 @@ def test_charge(monkeypatch):
                                                       amount)
 
     assert stripe_payment_intent.ref_id == payment_intent_ref_id
-    assert stripe_payment_intent.status == TransactionStatus.SUCCESS
+    assert stripe_payment_intent.status == PaymentTransactionStatus.SUCCESS

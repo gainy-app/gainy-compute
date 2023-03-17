@@ -5,9 +5,13 @@ import datetime
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Any, Tuple, Iterable
 
+from gainy.billing.models import Invoice, PaymentTransaction, InvoiceStatus, PaymentTransactionStatus
 from gainy.data_access.operators import OperatorLte
 from gainy.data_access.repository import Repository
 from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder
+from gainy.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class TradingRepository(Repository):
@@ -93,6 +97,41 @@ class TradingRepository(Repository):
             return Decimal(row[0])
 
         return Decimal(0)
+
+    def get_fees_to_charge_sum(self, profile_id: int) -> Decimal:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "select pending_fees from trading_profile_status where profile_id = %(profile_id)s",
+                {
+                    "profile_id": profile_id,
+                })
+            row = cursor.fetchone()
+
+        if row and row[0]:
+            result = Decimal(row[0])
+        else:
+            result = Decimal(0)
+
+        invoices = self.find_all(Invoice, {
+            "profile_id": profile_id,
+            "status": InvoiceStatus.PENDING
+        })
+        payment_transactions = self.find_all(
+            PaymentTransaction, {
+                "profile_id": profile_id,
+                "status": PaymentTransactionStatus.PENDING_WITHDRAWN
+            })
+
+        extra = {
+            "invoices": [i.to_dict() for i in invoices],
+            "payment_transactions":
+            [i.to_dict() for i in payment_transactions],
+            "profile_id": profile_id,
+            "result": result,
+        }
+        logger.info('get_fees_to_charge_sum', extra=extra)
+
+        return result
 
     def get_collection_holding_value(self, profile_id: int,
                                      collection_id: int) -> Decimal:
@@ -245,6 +284,3 @@ class TradingRepository(Repository):
             return Decimal(row[0])
 
         return Decimal(0)
-
-    def calculate_amount_to_auto_sell(self, profile_id) -> Decimal:
-        pass

@@ -229,7 +229,8 @@ class RebalancePortfoliosJob:
                     trading_collection_version = self.rebalance_existing_collection_fund(
                         portfolio, fund)
                     if trading_collection_version:
-                        orders.append((trading_collection_version, fund_weight))
+                        orders.append(
+                            (trading_collection_version, fund_weight))
 
                 if fund.trading_order_id:
                     trading_order = self.rebalance_existing_ticker_fund(
@@ -242,23 +243,28 @@ class RebalancePortfoliosJob:
             for order, weight in orders:
                 weight_sum += weight
 
-            amount_to_auto_sell = self.repo.calculate_amount_to_auto_sell(profile_id)
+            amount_to_auto_sell = self.trading_service.calculate_amount_to_auto_sell(
+                self._get_trading_account_id(portfolio))
 
             for order, weight in orders:
-                if amount_to_auto_sell:
+                if amount_to_auto_sell and weight_sum > 0:
                     if order.target_amount_delta is not None:
-                        raise Exception('target_amount_delta is not supposed to be set for automatic orders.')
+                        raise Exception(
+                            'target_amount_delta is not supposed to be set for automatic orders.'
+                        )
 
                     order.target_amount_delta = -amount_to_auto_sell * weight / weight_sum
 
                 if isinstance(order, TradingCollectionVersion):
                     self.provider.reconfigure_collection_holdings(
-                        portfolio, order, is_pending_rebalance or portfolio_changed)
+                        portfolio, order, is_pending_rebalance
+                        or portfolio_changed)
                     portfolio_changed = True
 
                 elif isinstance(order, TradingOrder):
-                    self.provider.execute_order_in_portfolio(portfolio, order,
-                                                             is_pending_rebalance or portfolio_changed)
+                    self.provider.execute_order_in_portfolio(
+                        portfolio, order, is_pending_rebalance
+                        or portfolio_changed)
                     portfolio_changed = True
                 else:
                     raise Exception('Unknown class ' + order.__class__.name)
@@ -317,9 +323,9 @@ class RebalancePortfoliosJob:
                         })
             pass
 
-    def rebalance_existing_collection_fund(self,
-                                           portfolio: DriveWealthPortfolio,
-                                           fund: DriveWealthFund) -> Optional[TradingCollectionVersion]:
+    def rebalance_existing_collection_fund(
+            self, portfolio: DriveWealthPortfolio,
+            fund: DriveWealthFund) -> Optional[TradingCollectionVersion]:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -376,8 +382,9 @@ class RebalancePortfoliosJob:
 
         return trading_collection_version
 
-    def rebalance_existing_ticker_fund(self, portfolio: DriveWealthPortfolio,
-                                       fund: DriveWealthFund) -> Optional[TradingOrder]:
+    def rebalance_existing_ticker_fund(
+            self, portfolio: DriveWealthPortfolio,
+            fund: DriveWealthFund) -> Optional[TradingOrder]:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,

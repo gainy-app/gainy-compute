@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Iterable, Optional
 
 from gainy.billing.exceptions import NoActivePaymentMethodException
-from gainy.billing.models import Invoice, InvoiceStatus, PaymentMethod, PaymentTransaction, TransactionStatus
+from gainy.billing.models import Invoice, InvoiceStatus, PaymentMethod, PaymentTransaction, PaymentTransactionStatus
 from gainy.data_access.operators import OperatorLt
 from gainy.data_access.repository import Repository
 
@@ -97,6 +97,6 @@ class BillingRepository(Repository):
     def get_pending_invoice_transaction(
             self, invoice: Invoice) -> Optional[PaymentTransaction]:
         return self.find_one(PaymentTransaction, {
-            "status": TransactionStatus.PENDING,
+            "status": PaymentTransactionStatus.PENDING,
             "invoice_id": invoice.id
         })

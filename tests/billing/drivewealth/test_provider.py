@@ -1,7 +1,7 @@
 from _decimal import Decimal
 
 from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
-from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, TransactionStatus
+from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, PaymentTransactionStatus
 
 from gainy.tests.mocks.repository_mocks import mock_persist as base_mock_persist, mock_find, mock_record_calls
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider

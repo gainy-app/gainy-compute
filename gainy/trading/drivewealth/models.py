@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import pytz
 
-from gainy.billing.models import PaymentTransaction, TransactionStatus
+from gainy.billing.models import PaymentTransaction, PaymentTransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
 from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus
@@ -961,6 +961,9 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
             DriveWealthRedemptionStatus.RIA_Approved.name
         ]
 
+    def is_successful(self) -> bool:
+        return self.status == DriveWealthRedemptionStatus.Successful.name
+
     def get_money_flow_status(self) -> TradingMoneyFlowStatus:
         """
         Started	0	"STARTED"
@@ -982,7 +985,7 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
             return TradingMoneyFlowStatus.PENDING
         if self.is_approved():
             return TradingMoneyFlowStatus.APPROVED
-        if self.status == DriveWealthRedemptionStatus.Successful.name:
+        if self.is_successful():
             return TradingMoneyFlowStatus.SUCCESS
         return TradingMoneyFlowStatus.FAILED
 
@@ -1015,15 +1018,16 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
 
     def update_payment_transaction(self,
                                    payment_transaction: PaymentTransaction):
-        status = self.get_money_flow_status()
-        if status in [
-                TradingMoneyFlowStatus.PENDING, TradingMoneyFlowStatus.APPROVED
-        ]:
-            payment_transaction.status = TransactionStatus.PENDING
-        elif status == TradingMoneyFlowStatus.SUCCESS:
-            payment_transaction.status = TransactionStatus.SUCCESS
+        if self.is_pending():
+            status = PaymentTransactionStatus.PENDING
+        elif self.is_approved():
+            status = PaymentTransactionStatus.PENDING_WITHDRAWN
+        elif self.is_successful():
+            status = PaymentTransactionStatus.SUCCESS
         else:
-            payment_transaction.status = TransactionStatus.FAILED
+            status = PaymentTransactionStatus.FAILED
+
+        payment_transaction.status = status
 
     @property
     def amount(self) -> Optional[Decimal]:

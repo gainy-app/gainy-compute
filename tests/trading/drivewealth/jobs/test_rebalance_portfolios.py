@@ -2,6 +2,8 @@ import datetime
 
 from decimal import Decimal
 
+import pytest
+
 from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, mock_persist, mock_noop
 from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.jobs.rebalance_portfolios import RebalancePortfoliosJob
@@ -252,7 +254,14 @@ def test_apply_trading_orders(monkeypatch):
     assert trading_order in persisted_objects[TradingOrder]
 
 
-def test_rebalance_existing_funds(monkeypatch):
+def get_test_rebalance_existing_funds_amount_to_auto_sell():
+    return [Decimal(0), Decimal(1)]
+
+
+@pytest.mark.parametrize(
+    "amount_to_auto_sell",
+    get_test_rebalance_existing_funds_amount_to_auto_sell())
+def test_rebalance_existing_funds(monkeypatch, amount_to_auto_sell):
     profile_id = 1
     fund_ref_id = 'fund_ref_id'
     fund_weight = Decimal(0.1)
@@ -320,6 +329,9 @@ def test_rebalance_existing_funds(monkeypatch):
     monkeypatch.setattr(trading_service, "create_collection_version",
                         mock_create_collection_version)
 
+    monkeypatch.setattr(trading_service, "calculate_amount_to_auto_sell",
+                        lambda _: amount_to_auto_sell)
+
     provider = DriveWealthProvider(None, None, None, None)
 
     def mock_iterate_profile_funds(_profile_id):
@@ -349,3 +361,7 @@ def test_rebalance_existing_funds(monkeypatch):
             is_pending_rebalance) in [
                 args for args, kwargs in reconfigure_collection_holdings_calls
             ]
+    if amount_to_auto_sell > 0:
+        assert new_trading_collection_version.target_amount_delta == -amount_to_auto_sell
+    else:
+        assert new_trading_collection_version.target_amount_delta is None
