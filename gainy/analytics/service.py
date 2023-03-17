@@ -52,7 +52,7 @@ class AnalyticsService:
 
         event_name = EVENT_DEPOSIT_SUCCESS
         properties = {
-            "amount": money_flow.amount,
+            "_amount": money_flow.amount,
             "isFirstDeposit": is_first_deposit
         }
         self._emit(profile_id, event_name, properties)
@@ -60,7 +60,7 @@ class AnalyticsService:
     def on_withdraw_success(self, profile_id: int, amount: float):
         event_name = EVENT_WITHDRAW_SUCCESS
         properties = {
-            "amount": amount,
+            "_amount": amount,
         }
         self._emit(profile_id, event_name, properties)
 
@@ -127,7 +127,7 @@ class AnalyticsService:
         amount = order.target_amount_delta
         properties = {
             "orderId": order_id,
-            "amount": amount,
+            "_amount": amount,
             "productType": _type,
         }
         if collection_id:
