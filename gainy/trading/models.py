@@ -1,3 +1,4 @@
+import abc
 from abc import ABC
 
 import datetime
@@ -36,6 +37,7 @@ class FundingAccount(BaseModel):
     plaid_account_id = None
     name = None
     balance = None
+    mask: str = None
     created_at = None
     updated_at = None
 
@@ -51,6 +53,13 @@ class FundingAccount(BaseModel):
     @classproperty
     def table_name(self) -> str:
         return "trading_funding_accounts"
+
+
+class AbstractProviderBankAccount(BaseModel):
+
+    @abc.abstractmethod
+    def fill_funding_account_details(self, funding_account: FundingAccount):
+        pass
 
 
 class TradingAccount(BaseModel):
