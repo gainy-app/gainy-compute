@@ -55,5 +55,15 @@ class AmplitudeService(AnalyticsSinkInterface):
         event = BaseEvent(event_type=event_name,
                           user_id=_get_user_id(profile_id),
                           event_properties=properties)
+
+        logger.info('Emitting amplitude event %s',
+                    event_name,
+                    extra={
+                        "profile_id": profile_id,
+                        "event_name": event_name,
+                        "properties": properties,
+                        "event": event.get_event_body(),
+                    })
+
         self.client.track(event)
         self.client.flush()
