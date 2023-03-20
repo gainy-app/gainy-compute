@@ -53,7 +53,9 @@ class BillingRepository(Repository):
                                  select *,
                                         'mo_' || period_start::date::varchar as period_id
                                  from drivewealth_monthly_usage
-                                 where profile_id is not null {conditions}
+                                 where profile_id is not null
+                                   and equity_value > 0
+                                   {conditions}
                          )
                     select drivewealth_monthly_usage_extended.profile_id,
                            drivewealth_monthly_usage_extended.period_id,
