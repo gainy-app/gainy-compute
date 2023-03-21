@@ -9,7 +9,7 @@ from gainy.trading.models import FundingAccount
 def test_update_funding_accounts_balance(monkeypatch):
     plaid_access_token_id = 1
     plaid_account_id = 2
-    balance_available = 3
+    balance_current = 3
     access_token = "access_token"
 
     funding_account = FundingAccount()
@@ -22,7 +22,7 @@ def test_update_funding_accounts_balance(monkeypatch):
 
     plaid_account = PlaidAccount()
     monkeypatch.setattr(plaid_account, "account_id", plaid_account_id)
-    monkeypatch.setattr(plaid_account, "balance_available", balance_available)
+    monkeypatch.setattr(plaid_account, "balance_current", balance_current)
 
     trading_repository = TradingRepository(None)
     monkeypatch.setattr(
@@ -50,4 +50,4 @@ def test_update_funding_accounts_balance(monkeypatch):
     trading_service.update_funding_accounts_balance([funding_account])
 
     assert funding_account in persisted_objects[FundingAccount]
-    assert funding_account.balance == balance_available
+    assert funding_account.balance == balance_current
