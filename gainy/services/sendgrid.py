@@ -1,5 +1,6 @@
 from typing import Union
 
+import python_http_client
 import sendgrid
 import os
 
@@ -36,15 +37,19 @@ class SendGridService:
         email.template_id = template_id
 
         sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
-        response = sg.client.mail.send.post(request_body=email.get())
+        response: python_http_client.client.Response = sg.client.mail.send.post(
+            request_body=email.get())
 
         logger.info('Sent email',
                     extra={
                         "to": to,
                         "subject": subject,
-                        "status_code": response.status_code,
-                        "body": response.body,
-                        "headers": response.headers,
+                        "content_plain": content_plain,
+                        "dynamic_template_data": dynamic_template_data,
+                        "template_id": template_id,
+                        "response_status_code": response.status_code,
+                        "response_body": response.body,
+                        "response_headers": response.headers,
                     })
 
         if response.status_code != 202:
