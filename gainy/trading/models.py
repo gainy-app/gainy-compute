@@ -202,7 +202,7 @@ class TradingMoneyFlow(BaseModel):
     id = None
     profile_id = None
     status: TradingMoneyFlowStatus = None
-    amount = None
+    amount: Decimal = None
     trading_account_id = None
     funding_account_id = None
     fees_total_amount: Decimal = None
