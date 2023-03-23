@@ -185,14 +185,28 @@ class TradingRepository(Repository):
         if collection_id:
             query = """select sum(executed_amount)
                 from app.trading_collection_versions
+                         left join (
+                                       select profile_id, collection_id, max(id) as last_selloff_id
+                                       from app.trading_collection_versions
+                                       where target_amount_delta_relative = -1
+                                       group by profile_id, collection_id
+                              ) t using (profile_id, collection_id)
                 where profile_id = %(profile_id)s
+                  and (id > last_selloff_id or last_selloff_id is null)
                   and collection_id = %(collection_id)s
                   and status = %(status)s"""
             params["collection_id"] = collection_id
         elif symbol:
             query = """select sum(executed_amount)
                 from app.trading_orders
+                         left join (
+                                       select profile_id, symbol, max(id) as last_selloff_id
+                                       from app.trading_orders
+                                       where target_amount_delta_relative = -1
+                                       group by profile_id, symbol
+                              ) t using (profile_id, symbol)
                 where profile_id = %(profile_id)s
+                  and (id > last_selloff_id or last_selloff_id is null)
                   and symbol = %(symbol)s
                   and status = %(status)s"""
             params["symbol"] = symbol
@@ -214,19 +228,16 @@ class TradingRepository(Repository):
 
     def calculate_cash_flow_sum(self,
                                 profile_id: int,
-                                min_date: datetime.date = None,
                                 collection_id: int = None,
                                 symbol: str = None) -> Decimal:
         query = """select sum(cash_flow)
             from drivewealth_portfolio_historical_holdings
-            where profile_id = %(profile_id)s"""
+                     left join drivewealth_portfolio_historical_holdings_marked using (holding_id_v2)
+            where (date > last_selloff_date or last_selloff_date is null)
+              and profile_id = %(profile_id)s"""
         params = {
             "profile_id": profile_id,
         }
-
-        if min_date:
-            query = query + " and date >= %(min_date)s"
-            params["min_date"] = min_date
 
         if collection_id:
             query = query + " and collection_id = %(collection_id)s"

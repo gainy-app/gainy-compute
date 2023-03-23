@@ -293,11 +293,11 @@ class DriveWealthProviderBase:
             logger_extra["executed_amount"] = order.executed_amount
 
             is_executed = abs(error) < EXECUTED_AMOUNT_PRECISION
-            is_executed = is_executed or (
-                last_portfolio_rebalance_at and last_portfolio_rebalance_at >
-                max(order.pending_execution_since,
-                    last_portfolio_rebalance_at_threshold)
-                and not portfolio_status.is_pending_rebalance())
+            # is_executed = is_executed or (
+            #     last_portfolio_rebalance_at and last_portfolio_rebalance_at >
+            #     max(order.pending_execution_since,
+            #         last_portfolio_rebalance_at_threshold)
+            #     and not portfolio_status.is_pending_rebalance())
 
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
