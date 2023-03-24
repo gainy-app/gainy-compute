@@ -127,9 +127,10 @@ class AnalyticsService:
         amount = order.target_amount_delta
         properties = {
             "orderId": order_id,
-            "amount": float(amount),
             "productType": _type,
         }
+        if amount is not None:
+            properties["amount"] = float(amount)
         if collection_id:
             properties["collectionId"] = collection_id
         if symbol:
