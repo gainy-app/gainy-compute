@@ -6,14 +6,14 @@ from typing import Any, Dict
 import dateutil.relativedelta
 
 from gainy.billing.models import InvoiceStatus, PaymentMethodProvider
-from gainy.billing.repository import BILLING_MIN_YEARLY_FEE, BILLING_EQUITY_VALUE_FEE_MULTIPLIER
+from gainy.billing.repository import BILLING_MIN_YEARLY_FEE, BILLING_VALUE_FEE_MULTIPLIER
 from gainy.tests.common import TestContextContainer
 from psycopg2.extras import RealDictCursor
 
 
 def test_create_invoices():
     profile_id = 1
-    equity_value = 100
+    value = 100
     start_of_month = datetime.datetime.today().replace(day=1,
                                                        hour=0,
                                                        minute=0,
@@ -33,15 +33,15 @@ def test_create_invoices():
         with context_container.db_conn.cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO drivewealth_monthly_usage (profile_id, period_start, period_end, equity_value)
-                VALUES (%(profile_id)s, %(period_start)s, %(period_end)s, %(equity_value)s)
+                INSERT INTO drivewealth_monthly_usage (profile_id, period_start, period_end, value)
+                VALUES (%(profile_id)s, %(period_start)s, %(period_end)s, %(value)s)
                 on conflict do nothing;
                 delete from app.invoices where profile_id = %(profile_id)s;
                 """, {
                     "profile_id": profile_id,
                     "period_start": period_start,
                     "period_end": period_end,
-                    "equity_value": equity_value
+                    "value": value
                 })
         context_container.billing_repository.create_invoices()
 
@@ -58,10 +58,10 @@ def test_create_invoices():
         assert invoice["period_id"] == "mo_" + period_start.strftime(
             "%Y-%m-%d")
         assert invoice["status"] == InvoiceStatus.PENDING
-        assert abs(invoice["amount"] -
-                   max(equity_value * BILLING_EQUITY_VALUE_FEE_MULTIPLIER,
-                       BILLING_MIN_YEARLY_FEE) * days_in_month /
-                   days_in_year) < Decimal(1e-3)
+        assert abs(
+            invoice["amount"] -
+            max(value * BILLING_VALUE_FEE_MULTIPLIER, BILLING_MIN_YEARLY_FEE) *
+            days_in_month / days_in_year) < Decimal(1e-3)
         assert invoice["due_date"] > period_end.date()
         assert invoice["period_start"] == period_start
         assert invoice["period_end"] == period_end

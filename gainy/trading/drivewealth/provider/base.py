@@ -212,17 +212,17 @@ class DriveWealthProviderBase:
             DriveWealthPortfolio,
             {"ref_id": portfolio_status.drivewealth_portfolio_id})
         if not portfolio or not portfolio.drivewealth_account_id:
-            raise EntityNotFoundException
+            raise EntityNotFoundException(DriveWealthPortfolio)
 
         dw_account: DriveWealthAccount = self.repository.find_one(
             DriveWealthAccount, {"ref_id": portfolio.drivewealth_account_id})
         if not dw_account or not dw_account.trading_account_id:
-            raise EntityNotFoundException
+            raise EntityNotFoundException(DriveWealthAccount)
 
         trading_account: TradingAccount = self.repository.find_one(
             TradingAccount, {"id": dw_account.trading_account_id})
         if not trading_account:
-            raise EntityNotFoundException
+            raise EntityNotFoundException(TradingAccount)
 
         return trading_account
 
