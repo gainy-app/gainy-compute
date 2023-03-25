@@ -99,21 +99,6 @@ class DriveWealthRepository(Repository):
 
         raise EntityNotFoundException(DriveWealthInstrument)
 
-    def iterate_portfolios_to_sync(self) -> Iterable[DriveWealthPortfolio]:
-        # allow resync if last order was executed up to a minute before last sync
-        query = """
-            select *
-            from app.drivewealth_portfolios 
-            where last_sync_at is null or last_order_executed_at > last_sync_at - interval '1 minute'"""
-
-        with self.db_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query)
-
-            for row in cursor:
-                entity = DriveWealthPortfolio()
-                entity.set_from_dict(row)
-                yield entity
-
     def portfolio_has_pending_orders(self,
                                      portfolio: DriveWealthPortfolio) -> bool:
         query = """

@@ -1,5 +1,3 @@
-import argparse
-
 from typing import Iterable
 
 import time
@@ -21,15 +19,12 @@ class UpdateAccountBalancesJob:
         self.repo = repo
         self.service = service
 
-    def run(self, realtime: bool = False):
-        self._update_trading_accounts(realtime=realtime)
-        self._update_funding_accounts(realtime=realtime)
-        self._update_portfolios(realtime=realtime)
+    def run(self):
+        self._update_trading_accounts()
+        self._update_funding_accounts()
+        self._update_portfolios()
 
-    def _update_trading_accounts(self, realtime: bool = False):
-        if realtime:
-            return
-
+    def _update_trading_accounts(self):
         trading_accounts: Iterable[TradingAccount] = self.repo.iterate_all(
             TradingAccount)
         for account in trading_accounts:
@@ -44,10 +39,7 @@ class UpdateAccountBalancesJob:
             except Exception as e:
                 logger.exception(e)
 
-    def _update_funding_accounts(self, realtime: bool = False):
-        if realtime:
-            return
-
+    def _update_funding_accounts(self):
         funding_accounts: Iterable[FundingAccount] = self.repo.iterate_all(
             FundingAccount)
         for account in funding_accounts:
@@ -60,13 +52,9 @@ class UpdateAccountBalancesJob:
             except Exception as e:
                 logger.exception(e)
 
-    def _update_portfolios(self, realtime: bool = False):
-        if realtime:
-            portfolios: Iterable[
-                DriveWealthPortfolio] = self.repo.iterate_portfolios_to_sync()
-        else:
-            portfolios: Iterable[DriveWealthPortfolio] = self.repo.iterate_all(
-                DriveWealthPortfolio)
+    def _update_portfolios(self):
+        portfolios: Iterable[DriveWealthPortfolio] = self.repo.iterate_all(
+            DriveWealthPortfolio)
 
         for portfolio in portfolios:
             if portfolio.is_artificial:
@@ -96,18 +84,13 @@ class UpdateAccountBalancesJob:
                 logger.exception(e)
 
 
-def cli(args=None):
-    parser = argparse.ArgumentParser(
-        description='Update different 3rd party accounts information.')
-    parser.add_argument('--realtime', action='store_true')
-    args = parser.parse_args(args)
-
+def cli():
     try:
         with ContextContainer() as context_container:
             job = UpdateAccountBalancesJob(
                 context_container.drivewealth_repository,
                 context_container.trading_service)
-            job.run(realtime=args.realtime)
+            job.run()
 
     except Exception as e:
         logger.exception(e)
