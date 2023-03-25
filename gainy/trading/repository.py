@@ -3,7 +3,7 @@ from decimal import Decimal
 import datetime
 
 from psycopg2.extras import RealDictCursor
-from typing import List, Dict, Any, Tuple, Iterable
+from typing import List, Dict, Any, Tuple, Iterable, Optional
 
 from gainy.data_access.operators import OperatorLte
 from gainy.data_access.repository import Repository
@@ -185,28 +185,14 @@ class TradingRepository(Repository):
         if collection_id:
             query = """select sum(executed_amount)
                 from app.trading_collection_versions
-                         left join (
-                                       select profile_id, collection_id, max(id) as last_selloff_id
-                                       from app.trading_collection_versions
-                                       where target_amount_delta_relative = -1
-                                       group by profile_id, collection_id
-                              ) t using (profile_id, collection_id)
                 where profile_id = %(profile_id)s
-                  and (id > last_selloff_id or last_selloff_id is null)
                   and collection_id = %(collection_id)s
                   and status = %(status)s"""
             params["collection_id"] = collection_id
         elif symbol:
             query = """select sum(executed_amount)
                 from app.trading_orders
-                         left join (
-                                       select profile_id, symbol, max(id) as last_selloff_id
-                                       from app.trading_orders
-                                       where target_amount_delta_relative = -1
-                                       group by profile_id, symbol
-                              ) t using (profile_id, symbol)
                 where profile_id = %(profile_id)s
-                  and (id > last_selloff_id or last_selloff_id is null)
                   and symbol = %(symbol)s
                   and status = %(status)s"""
             params["symbol"] = symbol
@@ -228,13 +214,45 @@ class TradingRepository(Repository):
 
     def calculate_cash_flow_sum(self,
                                 profile_id: int,
+                                min_date: datetime.date = None,
                                 collection_id: int = None,
                                 symbol: str = None) -> Decimal:
         query = """select sum(cash_flow)
             from drivewealth_portfolio_historical_holdings
-                     left join drivewealth_portfolio_historical_holdings_marked using (holding_id_v2)
-            where (date > last_selloff_date or last_selloff_date is null)
-              and profile_id = %(profile_id)s"""
+            where profile_id = %(profile_id)s"""
+        params = {
+            "profile_id": profile_id,
+        }
+
+        if collection_id:
+            query = query + " and collection_id = %(collection_id)s"
+            params["collection_id"] = collection_id
+        elif symbol:
+            query = query + " and collection_id is null and symbol = %(symbol)s"
+            params["symbol"] = symbol
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
+        if min_date:
+            query = query + " and date >= %(min_date)s"
+            params["min_date"] = min_date
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row and row[0] is not None:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def get_last_selloff_date(self,
+                              profile_id: int,
+                              collection_id: int = None,
+                              symbol: str = None) -> Optional[datetime.date]:
+        query = """select last_selloff_date
+            from drivewealth_portfolio_historical_holdings_marked
+            where profile_id = %(profile_id)s"""
         params = {
             "profile_id": profile_id,
         }
@@ -253,6 +271,6 @@ class TradingRepository(Repository):
             row = cursor.fetchone()
 
         if row and row[0] is not None:
-            return Decimal(row[0])
+            return row[0]
 
-        return Decimal(0)
+        return None
