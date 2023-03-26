@@ -3,7 +3,7 @@ from decimal import Decimal
 import datetime
 
 from psycopg2.extras import RealDictCursor
-from typing import List, Dict, Any, Tuple, Iterable
+from typing import List, Dict, Any, Tuple, Iterable, Optional
 
 from gainy.data_access.operators import OperatorLte
 from gainy.data_access.repository import Repository
@@ -224,9 +224,38 @@ class TradingRepository(Repository):
             "profile_id": profile_id,
         }
 
+        if collection_id:
+            query = query + " and collection_id = %(collection_id)s"
+            params["collection_id"] = collection_id
+        elif symbol:
+            query = query + " and collection_id is null and symbol = %(symbol)s"
+            params["symbol"] = symbol
+        else:
+            raise Exception("You must specify either collection_id or symbol")
+
         if min_date:
             query = query + " and date >= %(min_date)s"
             params["min_date"] = min_date
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row and row[0] is not None:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def get_last_selloff_date(self,
+                              profile_id: int,
+                              collection_id: int = None,
+                              symbol: str = None) -> Optional[datetime.date]:
+        query = """select last_selloff_date
+            from drivewealth_portfolio_historical_holdings_marked
+            where profile_id = %(profile_id)s"""
+        params = {
+            "profile_id": profile_id,
+        }
 
         if collection_id:
             query = query + " and collection_id = %(collection_id)s"
@@ -242,6 +271,6 @@ class TradingRepository(Repository):
             row = cursor.fetchone()
 
         if row and row[0] is not None:
-            return Decimal(row[0])
+            return row[0]
 
-        return Decimal(0)
+        return None

@@ -35,7 +35,7 @@ class AnalyticsService:
         properties = {}
         self._emit(profile_id, event_name, properties)
 
-    def on_dw_kyc_status_rejected(self, profile_id: int):
+    def on_kyc_status_rejected(self, profile_id: int):
         event_name = EVENT_DW_KYC_STATUS_REJECTED
         properties = {}
         self._emit(profile_id, event_name, properties)

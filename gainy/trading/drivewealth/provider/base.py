@@ -120,7 +120,7 @@ class DriveWealthProviderBase:
                                        portfolio_status,
                                        collection_id=collection_id)
             for tcv in trading_collection_versions:
-                if tcv.status != TradingOrderStatus.EXECUTED_FULLY:
+                if not tcv.is_executed():
                     continue
                 self.analytics_service.on_order_executed(tcv)
 
@@ -156,7 +156,7 @@ class DriveWealthProviderBase:
                                        portfolio_status,
                                        symbol=symbol)
             for order in trading_orders:
-                if order.status != TradingOrderStatus.EXECUTED_FULLY:
+                if not order.is_executed():
                     continue
                 self.analytics_service.on_order_executed(order)
 
@@ -236,15 +236,19 @@ class DriveWealthProviderBase:
                                  if order.target_amount_delta is not None)
 
         if collection_id:
+            min_date = self.trading_repository.get_last_selloff_date(
+                profile_id, collection_id=collection_id)
             executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
-                profile_id, collection_id=collection_id)
+                profile_id, collection_id=collection_id, min_date=min_date)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
-                profile_id, collection_id=collection_id)
+                profile_id, collection_id=collection_id, min_date=min_date)
         elif symbol:
+            min_date = self.trading_repository.get_last_selloff_date(
+                profile_id, symbol=symbol)
             executed_amount_sum = self.trading_repository.calculate_executed_amount_sum(
-                profile_id, symbol=symbol)
+                profile_id, symbol=symbol, min_date=min_date)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
-                profile_id, symbol=symbol)
+                profile_id, symbol=symbol, min_date=min_date)
         else:
             raise Exception("You must specify either collection_id or symbol")
 
@@ -277,6 +281,7 @@ class DriveWealthProviderBase:
 
                     logger_extra[
                         "target_amount_delta"] = order.target_amount_delta
+                    logger_extra["is_executed"] = order.is_executed()
                     logger.info('_fill_executed_amount', extra=logger_extra)
 
                 continue
@@ -293,15 +298,12 @@ class DriveWealthProviderBase:
             logger_extra["executed_amount"] = order.executed_amount
 
             is_executed = abs(error) < EXECUTED_AMOUNT_PRECISION
-            is_executed = is_executed or (
-                last_portfolio_rebalance_at and last_portfolio_rebalance_at >
-                max(order.pending_execution_since,
-                    last_portfolio_rebalance_at_threshold)
-                and not portfolio_status.is_pending_rebalance())
 
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
                 order.executed_at = last_portfolio_rebalance_at
+
+            logger_extra["is_executed"] = order.is_executed()
             logger.info('_fill_executed_amount', extra=logger_extra)
         self.trading_repository.persist(orders)
 
