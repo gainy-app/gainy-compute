@@ -16,6 +16,7 @@ from gainy.optimization.collection.repository import CollectionOptimizerReposito
 from gainy.plaid.service import PlaidService
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.serivce import RecommendationService
+from gainy.services.notification import NotificationService
 from gainy.services.sendgrid import SendGridService
 from gainy.trading.service import TradingService
 from gainy.trading.repository import TradingRepository
@@ -75,6 +76,11 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def sendgrid_service(self) -> SendGridService:
         return SendGridService()
+
+    @cached_property
+    def notification_service(self) -> NotificationService:
+        return NotificationService(self.get_repository(),
+                                   self.sendgrid_service)
 
     # Stripe
     @cached_property
