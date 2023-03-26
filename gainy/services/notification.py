@@ -180,7 +180,7 @@ class NotificationService:
         logger.info('Sending notification on_kyc_form_abandoned',
                     extra={"profile_id": profile_id})
         dynamic_template_data = {
-            "link": APP_STORE_LINK, # TODO change
+            "link": APP_STORE_LINK,  # TODO change
             "first_name": self._get_profile(profile_id).first_name,
         }
         template_id = SENDGRID_KYC_FORM_ABANDONED_TEMPLATE_ID
