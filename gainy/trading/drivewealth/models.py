@@ -459,8 +459,14 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         }
 
     def is_pending_rebalance(self):
-        return self.data and "rebalanceRequired" in self.data and self.data[
-            "rebalanceRequired"]
+        if not self.data:
+            return False
+        if self.data.get("rebalanceRequired"):
+            return True
+
+        next_portfolio_rebalance = self.data.get("nextPortfolioRebalance")
+        last_portfolio_rebalance = self.data.get("lastPortfolioRebalance")
+        return next_portfolio_rebalance and last_portfolio_rebalance and next_portfolio_rebalance > last_portfolio_rebalance
 
 
 class DriveWealthPortfolioHolding(BaseModel):

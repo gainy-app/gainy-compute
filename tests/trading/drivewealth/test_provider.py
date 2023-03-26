@@ -1065,12 +1065,22 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     collection_id = 2
     executed_amount_sum = Decimal(executed_amount_sum)
     cash_flow_sum = Decimal(cash_flow_sum)
+    min_date = datetime.date.today()
 
     repository = TradingRepository(None)
+
+    def mock_get_last_selloff_date(*args, **kwargs):
+        assert args[0] == profile_id
+        assert kwargs["collection_id"] == collection_id
+        return min_date
+
+    monkeypatch.setattr(repository, "get_last_selloff_date",
+                        mock_get_last_selloff_date)
 
     def mock_calculate_executed_amount_sum(*args, **kwargs):
         assert args[0] == profile_id
         assert kwargs["collection_id"] == collection_id
+        assert kwargs["min_date"] == min_date
         return executed_amount_sum
 
     monkeypatch.setattr(repository, "calculate_executed_amount_sum",
@@ -1079,6 +1089,7 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     def mock_calculate_cash_flow_sum(*args, **kwargs):
         assert args[0] == profile_id
         assert kwargs["collection_id"] == collection_id
+        assert kwargs["min_date"] == min_date
         return cash_flow_sum
 
     monkeypatch.setattr(repository, "calculate_cash_flow_sum",
