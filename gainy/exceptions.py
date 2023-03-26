@@ -32,3 +32,9 @@ class EntityNotFoundException(NotFoundException):
 
     def __init__(self, cls):
         super().__init__(f'Entity {cls} not found.')
+
+
+class EmailNotSentException(Exception):
+
+    def __init__(self, message='Email not sent.', *args):
+        super().__init__(message, *args)

@@ -120,7 +120,7 @@ class DriveWealthProviderBase:
                                        portfolio_status,
                                        collection_id=collection_id)
             for tcv in trading_collection_versions:
-                if tcv.status != TradingOrderStatus.EXECUTED_FULLY:
+                if not tcv.is_executed():
                     continue
                 self.analytics_service.on_order_executed(tcv)
 
@@ -156,7 +156,7 @@ class DriveWealthProviderBase:
                                        portfolio_status,
                                        symbol=symbol)
             for order in trading_orders:
-                if order.status != TradingOrderStatus.EXECUTED_FULLY:
+                if not order.is_executed():
                     continue
                 self.analytics_service.on_order_executed(order)
 
@@ -281,6 +281,7 @@ class DriveWealthProviderBase:
 
                     logger_extra[
                         "target_amount_delta"] = order.target_amount_delta
+                    logger_extra["is_executed"] = order.is_executed()
                     logger.info('_fill_executed_amount', extra=logger_extra)
 
                 continue
@@ -301,6 +302,8 @@ class DriveWealthProviderBase:
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
                 order.executed_at = last_portfolio_rebalance_at
+
+            logger_extra["is_executed"] = order.is_executed()
             logger.info('_fill_executed_amount', extra=logger_extra)
         self.trading_repository.persist(orders)
 
