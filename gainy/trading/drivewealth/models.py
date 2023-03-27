@@ -12,7 +12,7 @@ import pytz
 from gainy.billing.models import PaymentTransaction, TransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
-from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus
+from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -879,7 +879,8 @@ class DriveWealthTransaction(BaseDriveWealthModel):
         return "drivewealth_transactions"
 
 
-class DriveWealthBankAccount(BaseDriveWealthModel):
+class DriveWealthBankAccount(AbstractProviderBankAccount,
+                             BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
     funding_account_id = None
@@ -919,6 +920,9 @@ class DriveWealthBankAccount(BaseDriveWealthModel):
                 data["userDetails"]['firstName'],
                 data["userDetails"]['lastName']
             ])
+
+    def fill_funding_account_details(self, funding_account: FundingAccount):
+        funding_account.mask = self.bank_account_number
 
     @classproperty
     def table_name(self) -> str:
