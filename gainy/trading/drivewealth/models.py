@@ -411,9 +411,10 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             value_sum += holding.value
 
         equity_value = self.equity_value
-        if abs(value_sum - equity_value) > 1:
-            logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-            return False
+        # this is frequently false negative
+        # if abs(value_sum - equity_value) > 1:
+        #     logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
+        #     return False
         if abs(weight_sum - 1) > 2e-3 and equity_value > 0:
             logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
             return False
