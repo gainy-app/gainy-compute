@@ -59,12 +59,7 @@ def test_update_funding_accounts(monkeypatch):
     ]
 
 
-def get_realtime():
-    return [True, False]
-
-
-@pytest.mark.parametrize("realtime", get_realtime())
-def test_update_portfolios(monkeypatch, realtime):
+def test_update_portfolios(monkeypatch):
     drivewealth_account_id = "drivewealth_account_id"
 
     account = DriveWealthAccount()
@@ -75,15 +70,11 @@ def test_update_portfolios(monkeypatch, realtime):
                         drivewealth_account_id)
 
     repository = DriveWealthRepository(None)
-    if realtime:
-        monkeypatch.setattr(repository, "iterate_portfolios_to_sync",
-                            lambda: [portfolio])
-    else:
-        monkeypatch.setattr(
-            repository, "iterate_all",
-            mock_find([
-                (DriveWealthPortfolio, None, [portfolio]),
-            ]))
+    monkeypatch.setattr(
+        repository, "iterate_all",
+        mock_find([
+            (DriveWealthPortfolio, None, [portfolio]),
+        ]))
     monkeypatch.setattr(
         repository, "find_one",
         mock_find([
@@ -102,8 +93,7 @@ def test_update_portfolios(monkeypatch, realtime):
 
     trading_service = TradingService(None, provider, None)
 
-    UpdateAccountBalancesJob(repository,
-                             trading_service)._update_portfolios(realtime)
+    UpdateAccountBalancesJob(repository, trading_service)._update_portfolios()
 
     assert portfolio in [args[0] for args, kwargs in sync_portfolio_calls]
     assert portfolio in [

@@ -1,4 +1,7 @@
+import datetime
 from functools import cached_property
+
+import plaid
 from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
 from plaid.model.accounts_balance_get_request_options import AccountsBalanceGetRequestOptions
 from typing import List
@@ -8,6 +11,9 @@ from plaid.model.accounts_get_request_options import AccountsGetRequestOptions
 
 from gainy.plaid.common import get_plaid_client
 from gainy.plaid.models import PlaidAccount
+from gainy.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class PlaidClient:
@@ -27,7 +33,6 @@ class PlaidClient:
     def get_item_accounts(self,
                           access_token: str,
                           account_ids: List = None) -> List[PlaidAccount]:
-        # todo cache
         if account_ids:
             options = AccountsGetRequestOptions(account_ids=account_ids)
             request = AccountsGetRequest(access_token=access_token,
@@ -35,7 +40,23 @@ class PlaidClient:
         else:
             request = AccountsGetRequest(access_token=access_token)
 
-        response = self.get_client(access_token).accounts_get(request)
+        logging_extra = {
+            "access_token": access_token,
+            "account_ids": account_ids,
+        }
+
+        try:
+            response = self.get_client(access_token).accounts_get(request)
+
+            logging_extra["response_data"] = response.to_dict()
+            logging_extra["requestId"] = response.request_id
+        except plaid.ApiException as e:
+            logger.exception("[PLAID] get_item_accounts",
+                             e,
+                             extra=logging_extra)
+            raise e
+
+        logger.info("[PLAID] get_item_accounts", extra=logging_extra)
 
         return [PlaidAccount(i) for i in response['accounts']]
 
@@ -43,14 +64,33 @@ class PlaidClient:
             self,
             access_token: str,
             account_ids: List = None) -> List[PlaidAccount]:
+        min_last_updated_datetime = datetime.datetime.now(
+            tz=datetime.timezone.utc) - datetime.timedelta(days=7)
+        options = AccountsBalanceGetRequestOptions(
+            min_last_updated_datetime=min_last_updated_datetime)
         if account_ids:
-            options = AccountsBalanceGetRequestOptions(account_ids=account_ids)
-            request = AccountsBalanceGetRequest(access_token=access_token,
-                                                options=options)
-        else:
-            request = AccountsBalanceGetRequest(access_token=access_token)
+            options.account_ids = account_ids
+        request = AccountsBalanceGetRequest(access_token=access_token,
+                                            options=options)
 
-        response = self.get_client(access_token).accounts_balance_get(request)
+        logging_extra = {
+            "access_token": access_token,
+            "account_ids": account_ids,
+        }
+
+        try:
+            response = self.get_client(access_token).accounts_balance_get(
+                request)
+
+            logging_extra["response_data"] = response.to_dict()
+            logging_extra["requestId"] = response.request_id
+        except plaid.ApiException as e:
+            logger.exception("[PLAID] get_item_accounts_balances",
+                             e,
+                             extra=logging_extra)
+            raise e
+
+        logger.info("[PLAID] get_item_accounts_balances", extra=logging_extra)
 
         return [PlaidAccount(i) for i in response['accounts']]
 

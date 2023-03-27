@@ -137,7 +137,7 @@ create table if not exists drivewealth_monthly_usage
     profile_id   integer,
     period_start timestamp,
     period_end   timestamp,
-    equity_value numeric,
+    value numeric,
     unique (profile_id, period_start)
 );
 

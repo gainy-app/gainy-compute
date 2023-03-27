@@ -11,10 +11,8 @@ from gainy.data_access.operators import OperatorLt
 from gainy.data_access.repository import Repository
 
 # all yearly
-BILLING_EQUITY_VALUE_FEE_MULTIPLIER = os.getenv(
-    "BILLING_EQUITY_VALUE_FEE_MULTIPLIER", 0.01)
-BILLING_EQUITY_VALUE_FEE_MULTIPLIER = Decimal(
-    BILLING_EQUITY_VALUE_FEE_MULTIPLIER)
+BILLING_VALUE_FEE_MULTIPLIER = os.getenv("BILLING_VALUE_FEE_MULTIPLIER", 0.01)
+BILLING_VALUE_FEE_MULTIPLIER = Decimal(BILLING_VALUE_FEE_MULTIPLIER)
 
 BILLING_MIN_YEARLY_FEE = os.getenv("BILLING_MIN_YEARLY_FEE", 100)
 BILLING_MIN_YEARLY_FEE = Decimal(BILLING_MIN_YEARLY_FEE)
@@ -34,7 +32,7 @@ class BillingRepository(Repository):
         conditions = ""
         params = {
             "min_fee": BILLING_MIN_YEARLY_FEE,
-            "equity_value_fee_multiplier": BILLING_EQUITY_VALUE_FEE_MULTIPLIER,
+            "value_fee_multiplier": BILLING_VALUE_FEE_MULTIPLIER,
         }
 
         if BILLING_MIN_DATE:
@@ -53,11 +51,13 @@ class BillingRepository(Repository):
                                  select *,
                                         'mo_' || period_start::date::varchar as period_id
                                  from drivewealth_monthly_usage
-                                 where profile_id is not null {conditions}
+                                 where profile_id is not null
+                                   and value > 0
+                                   {conditions}
                          )
                     select drivewealth_monthly_usage_extended.profile_id,
                            drivewealth_monthly_usage_extended.period_id,
-                           greatest(%(min_fee)s, equity_value * %(equity_value_fee_multiplier)s)::numeric *
+                           greatest(%(min_fee)s, value * %(value_fee_multiplier)s)::numeric *
                            -- days in month
                            extract(days from
                                    drivewealth_monthly_usage_extended.period_end - drivewealth_monthly_usage_extended.period_start) /

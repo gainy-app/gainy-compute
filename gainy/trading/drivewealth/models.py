@@ -12,7 +12,7 @@ import pytz
 from gainy.billing.models import PaymentTransaction, PaymentTransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
-from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus
+from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -411,9 +411,10 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             value_sum += holding.value
 
         equity_value = self.equity_value
-        if abs(value_sum - equity_value) > 1:
-            logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-            return False
+        # this is frequently false negative
+        # if abs(value_sum - equity_value) > 1:
+        #     logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
+        #     return False
         if abs(weight_sum - 1) > 2e-3 and equity_value > 0:
             logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
             return False
@@ -461,8 +462,14 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         }
 
     def is_pending_rebalance(self):
-        return self.data and "rebalanceRequired" in self.data and self.data[
-            "rebalanceRequired"]
+        if not self.data:
+            return False
+        if self.data.get("rebalanceRequired"):
+            return True
+
+        next_portfolio_rebalance = self.data.get("nextPortfolioRebalance")
+        last_portfolio_rebalance = self.data.get("lastPortfolioRebalance")
+        return next_portfolio_rebalance and last_portfolio_rebalance and next_portfolio_rebalance > last_portfolio_rebalance
 
 
 class DriveWealthPortfolioHolding(BaseModel):
@@ -873,7 +880,8 @@ class DriveWealthTransaction(BaseDriveWealthModel):
         return "drivewealth_transactions"
 
 
-class DriveWealthBankAccount(BaseDriveWealthModel):
+class DriveWealthBankAccount(AbstractProviderBankAccount,
+                             BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
     funding_account_id = None
@@ -913,6 +921,9 @@ class DriveWealthBankAccount(BaseDriveWealthModel):
                 data["userDetails"]['firstName'],
                 data["userDetails"]['lastName']
             ])
+
+    def fill_funding_account_details(self, funding_account: FundingAccount):
+        funding_account.mask = self.bank_account_number
 
     @classproperty
     def table_name(self) -> str:

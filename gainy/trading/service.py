@@ -70,7 +70,7 @@ class TradingService:
                     continue
                 funding_accounts_by_account_id[
                     plaid_account.
-                    account_id].balance = plaid_account.balance_available
+                    account_id].balance = plaid_account.balance_current
 
             logger.info('update_funding_accounts_balance',
                         extra={
