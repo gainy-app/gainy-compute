@@ -2,6 +2,10 @@ import os
 import json
 import plaid
 from plaid.api import plaid_api
+from plaid.model.depository_account_subtype import DepositoryAccountSubtype
+from plaid.model.depository_account_subtypes import DepositoryAccountSubtypes
+from plaid.model.depository_filter import DepositoryFilter
+from plaid.model.link_token_account_filters import LinkTokenAccountFilters
 
 from gainy.exceptions import HttpException
 from gainy.utils import get_logger
@@ -37,6 +41,19 @@ def get_purpose_products(purpose):
         return ['investments']
     elif purpose == PURPOSE_TRADING:
         return ['auth']
+    else:
+        raise Exception('Wrong purpose')
+
+
+def get_account_filters(purpose):
+    if purpose == PURPOSE_PORTFOLIO:
+        return None
+    elif purpose == PURPOSE_TRADING:
+        return LinkTokenAccountFilters(depository=DepositoryFilter(
+            account_subtypes=DepositoryAccountSubtypes([
+                DepositoryAccountSubtype('checking'),
+                DepositoryAccountSubtype('savings')
+            ])))
     else:
         raise Exception('Wrong purpose')
 

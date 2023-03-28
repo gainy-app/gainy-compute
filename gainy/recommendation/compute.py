@@ -1,5 +1,4 @@
 from gainy.data_access.pessimistic_lock import AbstractPessimisticLockingFunction
-from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.models import ProfileRecommendationsMetadata
 from gainy.utils import get_logger
 

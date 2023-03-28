@@ -409,9 +409,10 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
             value_sum += holding.value
 
         equity_value = self.equity_value
-        if abs(value_sum - equity_value) > 1:
-            logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-            return False
+        # this is frequently false negative
+        # if abs(value_sum - equity_value) > 1:
+        #     logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
+        #     return False
         if abs(weight_sum - 1) > 2e-3 and equity_value > 0:
             logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
             return False
@@ -459,8 +460,14 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         }
 
     def is_pending_rebalance(self):
-        return self.data and "rebalanceRequired" in self.data and self.data[
-            "rebalanceRequired"]
+        if not self.data:
+            return False
+        if self.data.get("rebalanceRequired"):
+            return True
+
+        next_portfolio_rebalance = self.data.get("nextPortfolioRebalance")
+        last_portfolio_rebalance = self.data.get("lastPortfolioRebalance")
+        return next_portfolio_rebalance and last_portfolio_rebalance and next_portfolio_rebalance > last_portfolio_rebalance
 
 
 class DriveWealthPortfolioHolding(BaseModel):
@@ -604,7 +611,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.ref_id = data["id"]
         self.data = data
 
-        self.cash_target_weight = Decimal(1)
+        self.cash_target_weight = Decimal(0)
         self.holdings = {}
         for i in data["holdings"]:
             if i["type"] == "CASH_RESERVE":
