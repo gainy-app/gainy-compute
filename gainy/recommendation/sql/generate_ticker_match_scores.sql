@@ -179,9 +179,9 @@ with profiles as materialized
      )
 select profile_id,
        symbol,
-       ((public.sigmoid(match_comp_risk_normalized * 0.6, 3) +
-       public.sigmoid(match_comp_interest_normalized * 0.3, 3) +
-       public.sigmoid(match_comp_category_normalized * 0.1, 3)) * 100)::int                        as match_score,
+       ((public.sigmoid(match_comp_risk_normalized, 3) * 0.6 +
+       public.sigmoid(match_comp_interest_normalized, 3) * 0.3 +
+       public.sigmoid(match_comp_category_normalized, 3) * 0.1) * 100)::int                as match_score,
        (match_comp_risk_normalized > 1/3.)::int + (match_comp_risk_normalized > 2/3.)::int         as fits_risk,
        match_comp_risk_normalized                                                                  as risk_similarity,
        (match_comp_category_normalized > 1/3.)::int + (match_comp_category_normalized > 2/3.)::int as fits_categories,
