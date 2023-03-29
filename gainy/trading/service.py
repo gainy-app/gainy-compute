@@ -257,16 +257,6 @@ class TradingService:
     def check_tradeable_symbol(self, symbol: str):
         return self._get_provider_service().check_tradeable_symbol(symbol)
 
-    def calculate_amount_to_auto_sell(self,
-                                      trading_account_id: int) -> Decimal:
-        trading_account = self.get_trading_account(trading_account_id,
-                                                   refresh=True)
-        pending_fees = self.trading_repository.get_fees_to_charge_sum(
-            trading_account.profile_id)
-        cash_balance = Decimal(trading_account.cash_balance)
-
-        return max(Decimal(0), pending_fees - cash_balance)
-
     def get_trading_account(self,
                             trading_account_id: int,
                             refresh: bool = False) -> TradingAccount:

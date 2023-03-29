@@ -202,7 +202,6 @@ def test_apply_trading_collection_versions(monkeypatch):
     assert (portfolio, trading_collection_version, is_pending_rebalance) in [
         args for args, kwargs in reconfigure_collection_holdings_calls
     ]
-    assert trading_collection_version.status == TradingOrderStatus.PENDING_EXECUTION
     assert trading_collection_version in persisted_objects[
         TradingCollectionVersion]
 
@@ -250,7 +249,6 @@ def test_apply_trading_orders(monkeypatch):
     assert (portfolio, trading_order, is_pending_rebalance) in [
         args for args, kwargs in execute_order_in_portfolio_calls
     ]
-    assert trading_order.status == TradingOrderStatus.PENDING_EXECUTION
     assert trading_order in persisted_objects[TradingOrder]
 
 
@@ -329,8 +327,8 @@ def test_rebalance_existing_funds(monkeypatch, amount_to_auto_sell):
     monkeypatch.setattr(trading_service, "create_collection_version",
                         mock_create_collection_version)
 
-    monkeypatch.setattr(trading_service, "calculate_amount_to_auto_sell",
-                        lambda _: amount_to_auto_sell)
+    monkeypatch.setattr(repository, "get_buying_power",
+                        lambda _: -amount_to_auto_sell)
 
     provider = DriveWealthProvider(None, None, None, None)
 

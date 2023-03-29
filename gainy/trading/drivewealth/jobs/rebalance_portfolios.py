@@ -141,8 +141,6 @@ class RebalancePortfoliosJob:
                 is_pending_rebalance = True
 
                 trading_orders.append(trading_order)
-                trading_order.status = TradingOrderStatus.PENDING_EXECUTION
-                trading_order.pending_execution_since = datetime.datetime.now()
                 self.repo.persist(trading_order)
             except InsufficientFundsException as e:
                 logger.info(
@@ -190,9 +188,6 @@ class RebalancePortfoliosJob:
                 is_pending_rebalance = True
 
                 trading_collection_versions.append(trading_collection_version)
-                trading_collection_version.status = TradingOrderStatus.PENDING_EXECUTION
-                trading_collection_version.pending_execution_since = datetime.datetime.now(
-                )
                 self.repo.persist(trading_collection_version)
             except InsufficientFundsException as e:
                 logger.info(
@@ -239,15 +234,28 @@ class RebalancePortfoliosJob:
                     if trading_order:
                         orders.append((trading_order, fund_weight))
 
+            if not orders:
+                return portfolio_changed
+
             weight_sum = Decimal(0)
             for order, weight in orders:
                 weight_sum += weight
 
-            amount_to_auto_sell = self.trading_service.calculate_amount_to_auto_sell(
+            buying_power = self.repo.get_buying_power(
                 self._get_trading_account_id(portfolio))
+            amount_to_auto_sell = max(Decimal(0), -buying_power)
+
+            if amount_to_auto_sell > 0:
+                logging_extra = {
+                    "orders": {order.id: weight
+                               for order, weight in orders},
+                    "weight_sum": weight_sum,
+                    "amount_to_auto_sell": amount_to_auto_sell,
+                }
+                logger.info('rebalance_existing_funds', extra=logging_extra)
 
             for order, weight in orders:
-                if amount_to_auto_sell and weight_sum > 0:
+                if amount_to_auto_sell > 0 and weight_sum > 0:
                     if order.target_amount_delta is not None:
                         raise Exception(
                             'target_amount_delta is not supposed to be set for automatic orders.'
