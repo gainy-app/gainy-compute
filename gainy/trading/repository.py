@@ -291,6 +291,7 @@ class TradingRepository(Repository):
                               symbol: str = None) -> Optional[datetime.date]:
         query = """select last_selloff_date
             from drivewealth_portfolio_historical_holdings_marked
+                     join drivewealth_holdings using (holding_id_v2)
             where profile_id = %(profile_id)s"""
         params = {
             "profile_id": profile_id,

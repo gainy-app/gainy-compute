@@ -613,7 +613,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.ref_id = data["id"]
         self.data = data
 
-        self.cash_target_weight = Decimal(1)
+        self.cash_target_weight = Decimal(0)
         self.holdings = {}
         for i in data["holdings"]:
             if i["type"] == "CASH_RESERVE":
