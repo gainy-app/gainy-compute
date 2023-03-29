@@ -132,13 +132,15 @@ create table if not exists collection_ticker_actual_weights
 );
 
 
-create table if not exists drivewealth_monthly_usage
+create table if not exists drivewealth_daily_fees
 (
     profile_id   integer,
-    period_start timestamp,
-    period_end   timestamp,
-    equity_value numeric,
-    unique (profile_id, period_start)
+    date         date,
+    period_start date,
+    period_end   date,
+    value        numeric,
+    fee          numeric,
+    unique (profile_id, date)
 );
 
 create table if not exists collections

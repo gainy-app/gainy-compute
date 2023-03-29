@@ -109,7 +109,6 @@ class DriveWealthProviderRebalanceHelper:
             "target_amount_delta": target_amount_delta,
             "target_amount_delta_relative": target_amount_delta_relative,
             "portfolio_status": portfolio_status.to_dict(),
-            "portfolio": portfolio.to_dict(),
             "is_pending_rebalance": is_pending_rebalance,
             "chosen_fund": chosen_fund.to_dict(),
             "cash_actual_weight": cash_actual_weight,

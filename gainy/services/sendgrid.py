@@ -33,8 +33,10 @@ class SendGridService:
                      subject=subject,
                      plain_text_content=plain_text_content)
 
-        email.dynamic_template_data = dynamic_template_data
-        email.template_id = template_id
+        if dynamic_template_data:
+            email.dynamic_template_data = dynamic_template_data
+        if template_id:
+            email.template_id = template_id
 
         sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
         response: python_http_client.client.Response = sg.client.mail.send.post(

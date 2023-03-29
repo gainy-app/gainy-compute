@@ -9,9 +9,10 @@ from typing import Any, Dict, List, Optional
 
 import pytz
 
+from gainy.billing.models import PaymentTransaction, TransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
-from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus
+from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -115,12 +116,13 @@ class DriveWealthAccount(BaseDriveWealthModel):
     ref_id = None
     drivewealth_user_id = None
     trading_account_id = None
+    payment_method_id = None
     status = None
     ref_no = None
     nickname = None
     cash_available_for_trade = None
     cash_available_for_withdrawal = None
-    cash_balance = None
+    cash_balance: float = None
     data = None
     is_artificial = False
     created_at: datetime.datetime = None
@@ -611,7 +613,7 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.ref_id = data["id"]
         self.data = data
 
-        self.cash_target_weight = Decimal(1)
+        self.cash_target_weight = Decimal(0)
         self.holdings = {}
         for i in data["holdings"]:
             if i["type"] == "CASH_RESERVE":
@@ -878,6 +880,56 @@ class DriveWealthTransaction(BaseDriveWealthModel):
         return "drivewealth_transactions"
 
 
+class DriveWealthBankAccount(AbstractProviderBankAccount,
+                             BaseDriveWealthModel):
+    ref_id = None
+    drivewealth_user_id = None
+    funding_account_id = None
+    plaid_access_token_id = None
+    plaid_account_id = None
+    status = None
+    bank_account_nickname = None
+    bank_account_number = None
+    bank_routing_number = None
+    holder_name = None
+    bank_account_type = None
+    data = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data=None):
+        if not data:
+            return
+        self.ref_id = data['id']
+        self.status = data["status"]
+
+        details = data["bankAccountDetails"]
+        self.bank_account_nickname = details['bankAccountNickname']
+        self.bank_account_number = details['bankAccountNumber']
+        self.bank_routing_number = details['bankRoutingNumber']
+        self.bank_account_type = details.get('bankAccountType')
+        self.data = data
+
+        if "userDetails" in data:
+            self.drivewealth_user_id = data["userDetails"]['userID']
+            self.holder_name = " ".join([
+                data["userDetails"]['firstName'],
+                data["userDetails"]['lastName']
+            ])
+
+    def fill_funding_account_details(self, funding_account: FundingAccount):
+        funding_account.mask = self.bank_account_number
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_bank_accounts"
+
+
 class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
     ref_id = None
     trading_account_ref_id = None
@@ -954,6 +1006,7 @@ class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
 
 
 class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
+    payment_transaction_id = None
 
     def set_from_response(self, data=None):
         if not data:
@@ -970,6 +1023,18 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
     @classproperty
     def table_name(self) -> str:
         return "drivewealth_redemptions"
+
+    def update_payment_transaction(self,
+                                   payment_transaction: PaymentTransaction):
+        status = self.get_money_flow_status()
+        if status in [
+                TradingMoneyFlowStatus.PENDING, TradingMoneyFlowStatus.APPROVED
+        ]:
+            payment_transaction.status = TransactionStatus.PENDING
+        elif status == TradingMoneyFlowStatus.SUCCESS:
+            payment_transaction.status = TransactionStatus.SUCCESS
+        else:
+            payment_transaction.status = TransactionStatus.FAILED
 
     @property
     def amount(self) -> Optional[Decimal]:
