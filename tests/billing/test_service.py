@@ -82,6 +82,7 @@ def test_charge(monkeypatch):
         assert _profile_id == profile_id
         return payment_method
 
+    monkeypatch.setattr(repo, "get_pending_invoice_transaction", mock_noop)
     monkeypatch.setattr(repo, "get_active_payment_method",
                         mock_get_active_payment_method)
     persisted_objects = {}
@@ -92,7 +93,8 @@ def test_charge(monkeypatch):
     on_commission_withdrawn_calls = []
     monkeypatch.setattr(analytics_service, "on_commission_withdrawn",
                         mock_record_calls(on_commission_withdrawn_calls))
-    service = BillingService(repo, analytics_service, stripe_payment_provider)
+    service = BillingService(repo, analytics_service,
+                             [stripe_payment_provider])
     service.charge(invoice)
 
     assert invoice.status == InvoiceStatus.PAID

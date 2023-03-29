@@ -1,6 +1,6 @@
+from decimal import Decimal
+
 import json
-import os
-from _decimal import Decimal
 
 import backoff
 import requests
@@ -12,7 +12,8 @@ from gainy.trading.drivewealth.config import DRIVEWEALTH_APP_KEY, DRIVEWEALTH_RI
     DRIVEWEALTH_API_PASSWORD, DRIVEWEALTH_API_URL
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
-from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund
+from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund, \
+    DriveWealthAccount, DriveWealthBankAccount, DriveWealthRedemption
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.utils import get_logger
 
@@ -27,6 +28,35 @@ class DriveWealthApi:
 
     def get_user(self, user_id: str):
         return self._make_request("GET", f"/users/{user_id}")
+
+    def create_redemption(self,
+                          amount: Decimal,
+                          account: DriveWealthAccount,
+                          bank_account: DriveWealthBankAccount = None,
+                          _type='ACH',
+                          transaction_code=None,
+                          partner_account_no=None,
+                          note=None) -> DriveWealthRedemption:
+        params = {
+            'accountNo': account.ref_no,
+            'amount': amount,
+            'currency': 'USD',
+            'type': _type,
+        }
+
+        if bank_account:
+            params['bankAccountID'] = bank_account.ref_id
+        if transaction_code:
+            params['transactionCode'] = transaction_code
+        if note:
+            params['note'] = note
+        if partner_account_no:
+            params['details'] = {"partnerAccountNo": partner_account_no}
+
+        response = self._make_request("POST", "/funding/redemptions", params)
+        entity = DriveWealthRedemption()
+        entity.set_from_response(response)
+        return entity
 
     def get_countries(self, status: str = None):
         get_data = {}

@@ -11,17 +11,18 @@ from gainy.data_access.models import BaseModel, classproperty, ResourceVersion
 class InvoiceStatus(str, Enum):
     PENDING = 'PENDING'
     PAID = 'PAID'
-    FAILED = 'FAILED'
 
 
 class PaymentMethodProvider(str, Enum):
     STRIPE = 'STRIPE'
+    DRIVEWEALTH = 'DRIVEWEALTH'
 
 
 class TransactionStatus(str, Enum):
     PENDING = 'PENDING'
     REQUIRES_AUTHENTICATION = 'REQUIRES_AUTHENTICATION'
     SUCCESS = 'SUCCESS'
+    FAILED = 'FAILED'
 
 
 class PaymentTransaction(BaseModel):
@@ -29,7 +30,7 @@ class PaymentTransaction(BaseModel):
     profile_id: int = None
     invoice_id: int = None
     payment_method_id: int = None
-    status: str = None
+    status: TransactionStatus = None
     metadata: Any = None
     created_at: datetime.datetime = None
 
@@ -111,13 +112,17 @@ class Invoice(BaseModel, ResourceVersion):
         self.version = self.version + 1 if self.version else 1
 
     def on_new_transaction(self, transaction: PaymentTransaction):
-        if not self.can_charge():
-            raise InvoiceSealedException()
+        if transaction.status == TransactionStatus.PENDING:
+            return
 
-        if transaction.status == TransactionStatus.SUCCESS:
-            self.status = InvoiceStatus.PAID
+        if transaction.status == TransactionStatus.SUCCESS and self.status == InvoiceStatus.PAID:
+            return
+
+        if self.status == InvoiceStatus.PENDING:
+            if transaction.status == TransactionStatus.SUCCESS:
+                self.status = InvoiceStatus.PAID
         else:
-            self.status = InvoiceStatus.FAILED
+            raise InvoiceSealedException()
 
 
 class PaymentMethod(BaseModel):
