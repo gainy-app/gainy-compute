@@ -79,7 +79,7 @@ class ContextContainer(AbstractContextManager):
 
     @cached_property
     def appsflyer_service(self) -> AppsflyerService:
-        return AppsflyerService()
+        return AppsflyerService(self.analytics_repository)
 
     @cached_property
     def firebase_client(self) -> FirebaseClient:

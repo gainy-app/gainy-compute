@@ -13,6 +13,14 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 PRECISION = Decimal(10)**-3
 
+EVENT_PROPERTY_IS_FIRST_DEPOSIT = "isFirstDeposit"
+EVENT_PROPERTY_AMOUNT = "amount"
+EVENT_PROPERTY_ORDER_ID = "order_id"
+EVENT_PROPERTY_PRODUCT_TYPE = "productType"
+EVENT_PROPERTY_COLLECTION_ID = "collectionId"
+EVENT_PROPERTY_TICKER_SYMBOL = "tickerSymbol"
+EVENT_PROPERTY_REVENUE = "$revenue"
+
 
 class AnalyticsService:
 
@@ -52,15 +60,15 @@ class AnalyticsService:
 
         event_name = EVENT_DEPOSIT_SUCCESS
         properties = {
-            "amount": float(money_flow.amount),
-            "isFirstDeposit": is_first_deposit
+            EVENT_PROPERTY_AMOUNT: float(money_flow.amount),
+            EVENT_PROPERTY_IS_FIRST_DEPOSIT: is_first_deposit
         }
         self._emit(profile_id, event_name, properties)
 
     def on_withdraw_success(self, profile_id: int, amount: float):
         event_name = EVENT_WITHDRAW_SUCCESS
         properties = {
-            "amount": amount,
+            EVENT_PROPERTY_AMOUNT: amount,
         }
         self._emit(profile_id, event_name, properties)
 
@@ -102,7 +110,7 @@ class AnalyticsService:
 
     def on_commission_withdrawn(self, profile_id: int, revenue: float):
         event_name = EVENT_COMMISSION_WITHDRAWN
-        properties = {"$revenue": revenue}
+        properties = {EVENT_PROPERTY_REVENUE: revenue}
         self._emit(profile_id, event_name, properties)
 
     def _get_order_properties(self, order) -> dict:
@@ -126,15 +134,15 @@ class AnalyticsService:
 
         amount = order.target_amount_delta
         properties = {
-            "orderId": order_id,
-            "productType": _type,
+            EVENT_PROPERTY_ORDER_ID: order_id,
+            EVENT_PROPERTY_PRODUCT_TYPE: _type,
         }
         if amount is not None:
-            properties["amount"] = float(amount)
+            properties[EVENT_PROPERTY_AMOUNT] = float(amount)
         if collection_id:
-            properties["collectionId"] = collection_id
+            properties[EVENT_PROPERTY_COLLECTION_ID] = collection_id
         if symbol:
-            properties["tickerSymbol"] = symbol
+            properties[EVENT_PROPERTY_TICKER_SYMBOL] = symbol
         return properties
 
     def _emit(self, profile_id, event_name, properties):
