@@ -15,7 +15,7 @@ class DBAttributionSource(AttributionSourceInterface):
     def get_attributes(self, profile_id: int) -> dict:
         with self.repository.db_conn.cursor(
                 cursor_factory=RealDictCursor) as cursor:
-            query = "select * from analytics_profile_attributes where profile_id = %(profile_id)s"
+            query = "select * from analytics_profile_properties where profile_id = %(profile_id)s"
             params = {"profile_id": profile_id}
             cursor.execute(query, params)
             return dict(cursor.fetchone())

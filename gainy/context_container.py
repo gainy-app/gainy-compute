@@ -5,6 +5,9 @@ from functools import cached_property, cache
 
 from gainy.analytics.amplitude.service import AmplitudeService
 from gainy.analytics.attribution_sources.db import DBAttributionSource
+from gainy.analytics.firebase.sdk import FirebaseClient
+from gainy.analytics.firebase.service import FirebaseService
+from gainy.analytics.repository import AnalyticsRepository
 from gainy.analytics.service import AnalyticsService
 from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
 from gainy.billing.repository import BillingRepository
@@ -63,16 +66,31 @@ class ContextContainer(AbstractContextManager):
     def plaid_service(self) -> PlaidService:
         return PlaidService(self.db_conn)
 
+    # Analytics
+
+    @cached_property
+    def analytics_repository(self) -> AnalyticsRepository:
+        return AnalyticsRepository(self.db_conn)
+
     @cached_property
     def amplitude_service(self) -> AmplitudeService:
         return AmplitudeService()
 
     @cached_property
+    def firebase_client(self) -> FirebaseClient:
+        return FirebaseClient(self.analytics_repository)
+
+    @cached_property
+    def firebase_service(self) -> FirebaseService:
+        return FirebaseService(self.firebase_client)
+
+    @cached_property
     def analytics_service(self) -> AnalyticsService:
         db_attribution_source = DBAttributionSource(self.get_repository())
-        return AnalyticsService([db_attribution_source],
-                                [self.amplitude_service],
-                                self.get_repository())
+        return AnalyticsService(
+            [db_attribution_source],
+            [self.amplitude_service, self.firebase_service],
+            self.get_repository())
 
     @cached_property
     def sendgrid_service(self) -> SendGridService:

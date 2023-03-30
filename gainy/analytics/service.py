@@ -28,7 +28,7 @@ class AnalyticsService:
             attributes.update(source.get_attributes(profile_id))
 
         for sink in self.sinks:
-            sink.update_profile_attribution(profile_id, attributes)
+            sink.update_user_properties(profile_id, attributes)
 
     def on_dw_brokerage_account_opened(self, profile_id):
         event_name = EVENT_DW_BROKERAGE_ACCOUNT_OPENED

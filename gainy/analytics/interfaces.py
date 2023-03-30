@@ -11,8 +11,8 @@ class AttributionSourceInterface(ABC):
 class AnalyticsSinkInterface(ABC):
 
     @abstractmethod
-    def update_profile_attribution(self, profile_id: int,
-                                   attributes: dict) -> dict:
+    def update_user_properties(self, profile_id: int,
+                               attributes: dict) -> dict:
         pass
 
     @abstractmethod
