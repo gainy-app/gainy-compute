@@ -90,8 +90,11 @@ class AppsflyerService(AnalyticsSinkInterface):
 
     def __init__(self, analytics_repository: AnalyticsRepository):
         self.repository = analytics_repository
-        self.client = Client(app_id=APPSFLYER_APP_ID,
-                             dev_key=APPSFLYER_DEV_KEY)
+
+        self.client = None
+        if APPSFLYER_APP_ID and APPSFLYER_DEV_KEY:
+            self.client = Client(app_id=APPSFLYER_APP_ID,
+                                 dev_key=APPSFLYER_DEV_KEY)
 
     def update_user_properties(self, profile_id: int, attributes: dict):
         pass
