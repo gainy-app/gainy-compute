@@ -2,6 +2,7 @@ from gainy.analytics.exceptions import AnalyticsMetadataNotFound
 from gainy.data_access.repository import Repository
 
 ANALYTICS_METADATA_SERVICE_FIREBASE = 'FIREBASE'
+ANALYTICS_METADATA_SERVICE_APPSFLYER = 'APPSFLYER'
 
 
 class AnalyticsRepository(Repository):

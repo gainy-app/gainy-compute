@@ -13,6 +13,21 @@ files = [
 ]
 
 [[package]]
+name = "appsflyer"
+version = "0.1.0"
+description = "AppsFlyer S2S events API client"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "appsflyer-0.1.0-py3-none-any.whl", hash = "sha256:5aac0fdcdbe318ee492ea36cbfb5161a5920bd7778e8fb7eebf429ae038ad561"},
+    {file = "appsflyer-0.1.0.tar.gz", hash = "sha256:b08e79708560c523cee6e1167b1b498d1ec63ebbf77a8b71c783400afd8b39f9"},
+]
+
+[package.dependencies]
+requests = ">=2.0.0"
+
+[[package]]
 name = "attrs"
 version = "22.1.0"
 description = "Classes Without Boilerplate"
@@ -1063,4 +1078,4 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9,<3.11"
-content-hash = "e15aa133438d97285b8cbdadc853ff2cd7ace4096f5720408823a75f1d2919d5"
+content-hash = "64e62d23f5f95a4312e653eb36d9e532a47b504cbd5af1befe603435e81dcbd5"

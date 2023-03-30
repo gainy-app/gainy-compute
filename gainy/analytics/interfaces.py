@@ -12,7 +12,7 @@ class AnalyticsSinkInterface(ABC):
 
     @abstractmethod
     def update_user_properties(self, profile_id: int,
-                               attributes: dict) -> dict:
+                               properties: dict) -> dict:
         pass
 
     @abstractmethod

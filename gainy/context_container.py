@@ -4,6 +4,7 @@ from psycopg2._psycopg import connection
 from functools import cached_property, cache
 
 from gainy.analytics.amplitude.service import AmplitudeService
+from gainy.analytics.appsflyer import AppsflyerService
 from gainy.analytics.attribution_sources.db import DBAttributionSource
 from gainy.analytics.firebase.sdk import FirebaseClient
 from gainy.analytics.firebase.service import FirebaseService
@@ -77,6 +78,10 @@ class ContextContainer(AbstractContextManager):
         return AmplitudeService()
 
     @cached_property
+    def appsflyer_service(self) -> AppsflyerService:
+        return AppsflyerService(self.analytics_repository)
+
+    @cached_property
     def firebase_client(self) -> FirebaseClient:
         return FirebaseClient(self.analytics_repository)
 
@@ -87,10 +92,10 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def analytics_service(self) -> AnalyticsService:
         db_attribution_source = DBAttributionSource(self.get_repository())
-        return AnalyticsService(
-            [db_attribution_source],
-            [self.amplitude_service, self.firebase_service],
-            self.get_repository())
+        return AnalyticsService([db_attribution_source], [
+            self.amplitude_service, self.firebase_service,
+            self.appsflyer_service
+        ], self.get_repository())
 
     @cached_property
     def sendgrid_service(self) -> SendGridService:

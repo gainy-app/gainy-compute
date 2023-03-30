@@ -373,5 +373,6 @@ CREATE TABLE "app"."analytics_profile_data"
     CONSTRAINT "metadata_firebase" CHECK (not (service_name = 'FIREBASE' and (metadata -> 'app_instance_id') is null))
 );
 insert into app.analytics_profile_data(profile_id, service_name, metadata)
-VALUES (1, 'FIREBASE', '{"app_instance_id": "text"}'::jsonb)
+VALUES (1, 'FIREBASE', '{"app_instance_id": "cqtJrlJKYkRerQW1G5960_"}'::jsonb),
+       (1, 'APPSFLYER', '{"appsflyer_id": "1677666510758-9043781"}'::jsonb)
 on conflict do nothing;
