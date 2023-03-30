@@ -44,7 +44,7 @@ class FirebaseService(AnalyticsSinkInterface):
         try:
             self.client.send_user_properties(profile_id, properties)
         except (InvalidAnalyticsMetadata, AnalyticsMetadataNotFound) as e:
-            logger.info(e, extra={"profile_id": profile_id})
+            logger.info(e.__class__.name, extra={"profile_id": profile_id})
             pass
 
     def send_event(self,
