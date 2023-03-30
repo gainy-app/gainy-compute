@@ -5,6 +5,7 @@ import backoff
 import requests
 from backoff import full_jitter
 
+from gainy.analytics import format_properties
 from gainy.analytics.exceptions import InvalidAnalyticsMetadata
 from gainy.analytics.repository import AnalyticsRepository, ANALYTICS_METADATA_SERVICE_FIREBASE
 from gainy.data_access.models import DecimalEncoder
@@ -26,29 +27,33 @@ class FirebaseClient:
 
     def send_event(self, profile_id, name, params: dict):
         app_instance_id = self._get_profile_app_instance_id(profile_id)
-        return self._make_request("POST",
-                                  f"/mp/collect",
-                                  post_data={
-                                      "app_instance_id":
-                                      app_instance_id,
-                                      "user_id":
-                                      profile_id,
-                                      "events": [{
-                                          "name": name,
-                                          "params": params,
-                                      }]
-                                  })
-
-    # https://developers.google.com/analytics/devguides/collection/protocol/ga4/user-properties?client_type=firebase
-    def send_user_properties(self, profile_id, properties: dict):
-        app_instance_id = self._get_profile_app_instance_id(profile_id)
-        user_properties = {k: {"value": i} for k, i in properties.items()}
+        events = [{
+            "name": name,
+            "params": format_properties(params),
+        }]
         return self._make_request("POST",
                                   f"/mp/collect",
                                   post_data={
                                       "app_instance_id": app_instance_id,
                                       "user_id": profile_id,
-                                      "user_properties": user_properties,
+                                      "events": events
+                                  })
+
+    # https://developers.google.com/analytics/devguides/collection/protocol/ga4/user-properties?client_type=firebase
+    def send_user_properties(self, profile_id, properties: dict):
+        app_instance_id = self._get_profile_app_instance_id(profile_id)
+        properties = {
+            k: {
+                "value": format_properties(i)
+            }
+            for k, i in properties.items()
+        }
+        return self._make_request("POST",
+                                  f"/mp/collect",
+                                  post_data={
+                                      "app_instance_id": app_instance_id,
+                                      "user_id": profile_id,
+                                      "user_properties": properties,
                                   })
 
     def _make_request(self, method, url, post_data=None, get_data=None):
