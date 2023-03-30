@@ -1,4 +1,5 @@
 import json
+import os
 
 import backoff
 import requests
@@ -13,8 +14,10 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 GA_API_URL = "https://www.google-analytics.com"
-FIREBASE_APP_ID = "1:378836078681:ios:96f00acc54c24486106148"
-FIREBASE_API_SECRET = "dL-voVM0Tka0YfDqqMbpVw"
+FIREBASE_APP_ID = os.getenv(
+    "FIREBASE_APP_ID")  # "1:378836078681:ios:96f00acc54c24486106148"
+FIREBASE_API_SECRET = os.getenv(
+    "FIREBASE_API_SECRET")  # "dL-voVM0Tka0YfDqqMbpVw"
 
 
 class FirebaseClient:
@@ -24,34 +27,31 @@ class FirebaseClient:
         self.repository = analytics_repository
 
     def send_event(self, profile_id, name, params: dict):
-        return self._make_request(
-            "POST",
-            f"/mp/collect",
-            post_data={
-                "app_instance_id":
-                self._get_profile_app_instance_id(profile_id),
-                "user_id": profile_id,
-                "events": [{
-                    "name": name,
-                    "params": params,
-                }]
-            })
+        app_instance_id = self._get_profile_app_instance_id(profile_id)
+        return self._make_request("POST",
+                                  f"/mp/collect",
+                                  post_data={
+                                      "app_instance_id":
+                                      app_instance_id,
+                                      "user_id":
+                                      profile_id,
+                                      "events": [{
+                                          "name": name,
+                                          "params": params,
+                                      }]
+                                  })
 
     # https://developers.google.com/analytics/devguides/collection/protocol/ga4/user-properties?client_type=firebase
     def send_user_properties(self, profile_id, properties: dict):
-        return self._make_request(
-            "POST",
-            f"/mp/collect",
-            post_data={
-                "app_instance_id":
-                self._get_profile_app_instance_id(profile_id),
-                "user_id": profile_id,
-                "user_properties":
-                {k: {
-                    "value": i
-                }
-                 for k, i in properties.items()},
-            })
+        app_instance_id = self._get_profile_app_instance_id(profile_id)
+        user_properties = {k: {"value": i} for k, i in properties.items()}
+        return self._make_request("POST",
+                                  f"/mp/collect",
+                                  post_data={
+                                      "app_instance_id": app_instance_id,
+                                      "user_id": profile_id,
+                                      "user_properties": user_properties,
+                                  })
 
     def _make_request(self, method, url, post_data=None, get_data=None):
         headers = {}
@@ -92,6 +92,8 @@ class FirebaseClient:
                          extra=logging_extra)
 
             raise HttpException(status_code, "Firebase request failed")
+
+        logger.info("[FIREBASE] %s %s" % (method, url), extra=logging_extra)
 
         return response_data
 
