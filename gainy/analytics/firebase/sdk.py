@@ -14,10 +14,8 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 GA_API_URL = "https://www.google-analytics.com"
-FIREBASE_APP_ID = os.getenv(
-    "FIREBASE_APP_ID")  # "1:378836078681:ios:96f00acc54c24486106148"
-FIREBASE_API_SECRET = os.getenv(
-    "FIREBASE_API_SECRET")  # "dL-voVM0Tka0YfDqqMbpVw"
+FIREBASE_APP_ID = os.getenv("FIREBASE_APP_ID")
+FIREBASE_API_SECRET = os.getenv("FIREBASE_API_SECRET")
 
 
 class FirebaseClient:
