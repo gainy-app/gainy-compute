@@ -461,6 +461,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
     account_id = "account_id"
     last_transaction_id = 1
     new_transaction_id = 2
+    new_transaction_ref_id = "new_transaction_ref_id"
     new_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
     transaction_account_amount_delta = PORTFOLIO_STATUS_EQUITY_VALUE / 10
     redemption_amount = Decimal(-10)
@@ -483,6 +484,7 @@ def test_rebalance_portfolio_cash(monkeypatch):
 
     transaction = DriveWealthTransaction()
     monkeypatch.setattr(transaction, "id", new_transaction_id)
+    monkeypatch.setattr(transaction, "ref_id", new_transaction_ref_id)
     monkeypatch.setattr(transaction, "account_amount_delta",
                         transaction_account_amount_delta)
 
@@ -499,6 +501,11 @@ def test_rebalance_portfolio_cash(monkeypatch):
                         lambda x: [redemption])
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+    monkeypatch.setattr(
+        repository, "find_one",
+        mock_find([(DriveWealthRedemption, {
+            "transaction_ref_id": new_transaction_ref_id
+        }, None)]))
 
     provider = DriveWealthProvider(repository, None, None, None)
 
@@ -538,6 +545,7 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
     account_id = "account_id"
     last_transaction_id = 1
     new_transaction_id = 2
+    new_transaction_ref_id = "new_transaction_ref_id"
     transaction_account_amount_delta = Decimal(0)
     last_equity_value = PORTFOLIO_STATUS_EQUITY_VALUE
     pending_redemptions_amount_sum = Decimal(0)
@@ -555,6 +563,7 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
 
     transaction = DriveWealthTransaction()
     monkeypatch.setattr(transaction, "id", new_transaction_id)
+    monkeypatch.setattr(transaction, "ref_id", new_transaction_ref_id)
     monkeypatch.setattr(transaction, "account_amount_delta",
                         transaction_account_amount_delta)
 
@@ -567,6 +576,11 @@ def test_rebalance_portfolio_cash_noop(monkeypatch, transaction_exists):
     monkeypatch.setattr(repository, "get_pending_redemptions", lambda x: [])
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+    monkeypatch.setattr(
+        repository, "find_one",
+        mock_find([(DriveWealthRedemption, {
+            "transaction_ref_id": new_transaction_ref_id
+        }, None)]))
 
     provider = DriveWealthProvider(repository, None, None, None)
     provider.rebalance_portfolio_cash(portfolio, portfolio_status)
