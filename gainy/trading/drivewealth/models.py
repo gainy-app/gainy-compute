@@ -1007,6 +1007,7 @@ class DriveWealthDeposit(BaseDriveWealthMoneyFlowModel):
 
 class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
     payment_transaction_id = None
+    transaction_ref_id = None
 
     def set_from_response(self, data=None):
         if not data:
@@ -1017,6 +1018,7 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
             for fee in data["fees"]:
                 fees_total_amount += Decimal(fee["amount"])
             self.fees_total_amount = fees_total_amount
+        self.transaction_ref_id = data.get("finTranRef")
 
         super().set_from_response(data)
 

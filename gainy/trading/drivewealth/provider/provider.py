@@ -8,7 +8,8 @@ from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthPortfolioStatus, PRECISION
+    DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthPortfolioStatus, PRECISION, \
+    DriveWealthRedemption
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -142,9 +143,12 @@ class DriveWealthProvider(DriveWealthProviderBase):
             else:
                 portfolio.last_transaction_id = transaction.id
 
+            if self.repository.find_one(DriveWealthRedemption, {"transaction_ref_id": transaction.ref_id}):
+                # transactions linked with redemptions were already handled below
+                continue
             new_transactions_amount_sum += transaction.account_amount_delta
 
-        # pending redemptions do not have transactions, but are already accounted in portfolio balance.
+        # pending redemptions may not have transactions, but are already accounted in portfolio balance.
         pending_redemptions_amount_sum = Decimal(0)
         pending_redemptions = self.repository.get_pending_redemptions(
             portfolio.drivewealth_account_id)
@@ -323,9 +327,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         except EntityNotFoundException:
             raise SymbolIsNotTradeableException(symbol)
 
-    def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
-        return self.repository.get_user_accounts(user_ref_id)[0]
-
     def sync_account(self, account: DriveWealthAccount):
         account_data = self.api.get_account(account.ref_id)
         account.set_from_response(account_data)
@@ -335,3 +336,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
             self.sync_user(account.drivewealth_user_id)
 
         self.repository.persist(account)
+
+    def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
+        return self.repository.get_user_accounts(user_ref_id)[0]

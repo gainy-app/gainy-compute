@@ -37,6 +37,8 @@ class RebalancePortfoliosJob:
     def run(self):
         # todo thread safety
 
+        self.provider.handle_pending_queue_messages()
+
         for profile_id, trading_account_id in self._iterate_accounts_with_pending_trading_collection_versions(
         ):
             start_time = time.time()
