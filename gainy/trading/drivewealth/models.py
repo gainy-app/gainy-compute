@@ -1018,7 +1018,8 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
             for fee in data["fees"]:
                 fees_total_amount += Decimal(fee["amount"])
             self.fees_total_amount = fees_total_amount
-        self.transaction_ref_id = data.get("finTranRef")
+        self.transaction_ref_id = data.get("finTranRef") or data.get(
+            "finTranReference")
 
         super().set_from_response(data)
 

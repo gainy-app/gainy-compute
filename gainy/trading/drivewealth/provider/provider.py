@@ -8,8 +8,7 @@ from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthPortfolioStatus, PRECISION, \
-    DriveWealthRedemption
+    DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthPortfolioStatus, PRECISION
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -143,14 +142,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
             else:
                 portfolio.last_transaction_id = transaction.id
 
-            if self.repository.find_one(
-                    DriveWealthRedemption,
-                {"transaction_ref_id": transaction.ref_id}):
-                # transactions linked with redemptions were already handled below
-                continue
             new_transactions_amount_sum += transaction.account_amount_delta
 
-        # pending redemptions may not have transactions, but are already accounted in portfolio balance.
+        # pending redemptions do not have transactions, but are already accounted in portfolio balance.
         pending_redemptions_amount_sum = Decimal(0)
         pending_redemptions = self.repository.get_pending_redemptions(
             portfolio.drivewealth_account_id)
@@ -158,7 +152,17 @@ class DriveWealthProvider(DriveWealthProviderBase):
             pending_redemptions_amount_sum += redemption.amount
 
         new_transactions_amount_sum += pending_redemptions_amount_sum - portfolio.pending_redemptions_amount_sum
-        portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "prev_pending_redemptions_amount_sum":
+            portfolio.pending_redemptions_amount_sum,
+            "new_pending_redemptions_amount_sum":
+            pending_redemptions_amount_sum,
+            "new_transactions_amount_sum": new_transactions_amount_sum,
+            "new_transactions": [i.to_dict() for i in new_transactions],
+            "portfolio_pre": portfolio.to_dict(),
+        }
 
         if abs(new_transactions_amount_sum) < PRECISION:
             portfolio.last_equity_value = new_equity_value
@@ -177,13 +181,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         
         cash_weight_delta = (0.5 * 100 + 200) / 300 - 0.5 = 0.3333
         '''
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "new_transactions_amount_sum": new_transactions_amount_sum,
-            "new_transactions": [i.to_dict() for i in new_transactions],
-            "portfolio_pre": portfolio.to_dict(),
-        }
 
         if portfolio.last_equity_value:
             last_equity_value = portfolio.last_equity_value
