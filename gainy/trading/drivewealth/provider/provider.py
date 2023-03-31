@@ -143,7 +143,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
             else:
                 portfolio.last_transaction_id = transaction.id
 
-            if self.repository.find_one(DriveWealthRedemption, {"transaction_ref_id": transaction.ref_id}):
+            if self.repository.find_one(
+                    DriveWealthRedemption,
+                {"transaction_ref_id": transaction.ref_id}):
                 # transactions linked with redemptions were already handled below
                 continue
             new_transactions_amount_sum += transaction.account_amount_delta
