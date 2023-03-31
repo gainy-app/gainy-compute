@@ -1,4 +1,5 @@
 PROPERTY_PROFILE_ID = "profile_id"
+PROPERTY_USER_TYPE = "user_type"
 PROPERTY_USER_EMAIL = "user_email"
 PROPERTY_INTERESTS = "interests"
 PROPERTY_CATEGORIES = "categories"
