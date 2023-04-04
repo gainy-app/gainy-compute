@@ -5,7 +5,7 @@ from functools import cached_property, cache
 
 from gainy.analytics.amplitude.service import AmplitudeService
 from gainy.analytics.appsflyer import AppsflyerService
-from gainy.analytics.attribution_sources.db import DBAttributionSource
+from gainy.analytics.attribution_sources.db import DBProfilePropertiesSource
 from gainy.analytics.firebase.sdk import FirebaseClient
 from gainy.analytics.firebase.service import FirebaseService
 from gainy.analytics.repository import AnalyticsRepository
@@ -91,8 +91,8 @@ class ContextContainer(AbstractContextManager):
 
     @cached_property
     def analytics_service(self) -> AnalyticsService:
-        db_attribution_source = DBAttributionSource(self.get_repository())
-        return AnalyticsService([db_attribution_source], [
+        db_source = DBProfilePropertiesSource(self.get_repository())
+        return AnalyticsService([db_source], [
             self.amplitude_service, self.firebase_service,
             self.appsflyer_service
         ], self.get_repository())

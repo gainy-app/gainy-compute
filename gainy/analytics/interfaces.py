@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 
 
-class AttributionSourceInterface(ABC):
+class ProfilePropertiesSourceInterface(ABC):
 
     @abstractmethod
-    def get_attributes(self, profile_id: int) -> dict:
+    def get_properties(self, profile_id: int) -> dict:
         pass
 
 
