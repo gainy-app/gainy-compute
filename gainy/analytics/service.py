@@ -3,7 +3,7 @@ from decimal import Decimal
 from gainy.analytics.constants import EVENT_DW_BROKERAGE_ACCOUNT_OPENED, EVENT_DW_KYC_STATUS_REJECTED, \
     EVENT_DEPOSIT_SUCCESS, EVENT_WITHDRAW_SUCCESS, EVENT_PURCHASE_COMPLETED, EVENT_SELL_COMPLETED, \
     EVENT_COMMISSION_WITHDRAWN
-from gainy.analytics.interfaces import AnalyticsSinkInterface, AttributionSourceInterface
+from gainy.analytics.interfaces import AnalyticsSinkInterface, ProfilePropertiesSourceInterface
 from gainy.data_access.operators import OperatorLt, OperatorNot, OperatorEq
 from gainy.data_access.repository import Repository
 from gainy.trading.models import TradingOrder, TradingCollectionVersion, TradingMoneyFlow, TradingMoneyFlowStatus, \
@@ -15,28 +15,29 @@ PRECISION = Decimal(10)**-3
 
 EVENT_PROPERTY_IS_FIRST_DEPOSIT = "isFirstDeposit"
 EVENT_PROPERTY_AMOUNT = "amount"
-EVENT_PROPERTY_ORDER_ID = "order_id"
+EVENT_PROPERTY_ORDER_ID = "orderId"
 EVENT_PROPERTY_PRODUCT_TYPE = "productType"
-EVENT_PROPERTY_COLLECTION_ID = "collectionId"
+EVENT_PROPERTY_COLLECTION_ID = "collectionID"
 EVENT_PROPERTY_TICKER_SYMBOL = "tickerSymbol"
 EVENT_PROPERTY_REVENUE = "$revenue"
 
 
 class AnalyticsService:
 
-    def __init__(self, attribution_sources: list[AttributionSourceInterface],
+    def __init__(self,
+                 properties_sources: list[ProfilePropertiesSourceInterface],
                  sinks: list[AnalyticsSinkInterface], repository: Repository):
-        self.attribution_sources = attribution_sources
+        self.properties_sources = properties_sources
         self.sinks = sinks
         self.repository = repository
 
-    def sync_profile_attribution(self, profile_id):
-        attributes = {}
-        for source in self.attribution_sources:
-            attributes.update(source.get_attributes(profile_id))
+    def sync_profile_properties(self, profile_id):
+        properties = {}
+        for source in self.properties_sources:
+            properties.update(source.get_properties(profile_id))
 
         for sink in self.sinks:
-            sink.update_user_properties(profile_id, attributes)
+            sink.update_user_properties(profile_id, properties)
 
     def on_dw_brokerage_account_opened(self, profile_id):
         event_name = EVENT_DW_BROKERAGE_ACCOUNT_OPENED
@@ -90,21 +91,19 @@ class AnalyticsService:
                     order.target_amount_delta_relative) < PRECISION
         else:
             event_name = EVENT_PURCHASE_COMPLETED
-            order_classes = [TradingOrder, TradingCollectionVersion]
-            is_first_purchase = True
-            for order_class in order_classes:
-                first_order: AbstractTradingOrder = self.repository.find_one(
-                    order_class, {
-                        "profile_id":
-                        order.profile_id,
-                        "status":
-                        OperatorNot(
-                            OperatorEq(TradingOrderStatus.CANCELLED.name))
-                    }, [("created_at", "asc")])
-                if first_order and first_order.created_at < order.created_at:
-                    is_first_purchase = False
-                    break
-            properties["isFirstPurchase"] = is_first_purchase
+            params = {
+                "profile_id":
+                order.profile_id,
+                "status":
+                OperatorNot(OperatorEq(TradingOrderStatus.CANCELLED.name)),
+                "id":
+                OperatorLt(order.id)
+            }
+            prev_order = self.repository.find_one(order.__class__, params)
+            # "invest" means an initial purchase of specific Position,
+            # "buy" means recurrent buy 2d, 3rd times
+            # for some reason...
+            properties["orderType"] = "buy" if prev_order else "invest"
 
         self._emit(order.profile_id, event_name, properties)
 
@@ -147,6 +146,7 @@ class AnalyticsService:
 
     def _emit(self, profile_id, event_name, properties):
         #TODO make async through sqs
+        self.sync_profile_properties(profile_id)
         for k, i in properties.items():
             if i is None:
                 del properties[k]
