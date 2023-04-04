@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from gainy.billing.models import Invoice, PaymentTransaction, PaymentMethod
+from gainy.billing.models import Invoice, PaymentTransaction, PaymentMethod, TransactionStatus
 
 
 class AbstractPaymentProvider(ABC):
@@ -21,5 +21,6 @@ class AbstractPaymentProvider(ABC):
         transaction.payment_method_id = payment_method.id
         transaction.invoice_id = invoice.id
         transaction.profile_id = invoice.profile_id
+        transaction.status = TransactionStatus.PENDING
 
         return transaction

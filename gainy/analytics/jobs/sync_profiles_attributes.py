@@ -31,14 +31,14 @@ def cli(args=None):
     try:
         with ContextContainer() as context_container:
             if profile_id:
-                context_container.analytics_service.sync_profile_attribution(
+                context_container.analytics_service.sync_profile_properties(
                     profile_id)
                 logger.info(
                     f'Profile attributes synced for profile {profile_id}')
                 return
 
             for profile_id in iterate_profile_ids(context_container.db_conn):
-                context_container.analytics_service.sync_profile_attribution(
+                context_container.analytics_service.sync_profile_properties(
                     profile_id)
                 logger.info(
                     f'Profile attributes synced for profile {profile_id}')
