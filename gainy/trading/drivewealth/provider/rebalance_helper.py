@@ -116,6 +116,7 @@ class DriveWealthProviderRebalanceHelper:
             "fund_actual_weight": fund_actual_weight,
             "fund_value": fund_value,
             "portfolio_pre": portfolio.to_dict(),
+            "order": order.to_dict(),
         }
         try:
             if target_amount_delta_relative is not None:
