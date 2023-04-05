@@ -3,7 +3,7 @@ $$
 select regexp_replace(regexp_replace($1, '\.([AB])$', '-\1'), '\.(.*)$', '');
 $$ language sql;
 
-create or replace function sigmoid(x double precision, beta double precision) returns double precision as
+create or replace function public.sigmoid(x double precision, beta double precision) returns double precision as
 $$
 select 1 / (1 + ((x + 1e-10) / (1 - x + 1e-10)) ^ (-beta));
 $$ language sql;
