@@ -1,28 +1,25 @@
-from typing import List
-
 from gainy.analytics.service import AnalyticsService
 from gainy.billing.exceptions import PaymentProviderNotSupportedException, InvoiceSealedException
 from gainy.billing.interfaces import BillingServiceInterface
 from gainy.billing.locking_functions import ChargeInvoice
-from gainy.billing.models import Invoice, PaymentMethod
+from gainy.billing.models import Invoice, PaymentMethod, InvoiceStatus
 from gainy.billing.provider import AbstractPaymentProvider
 from gainy.billing.repository import BillingRepository
-from gainy.billing.stripe.provider import StripePaymentProvider
 from gainy.data_access.db_lock import LockAcquisitionTimeout
+from gainy.trading.exceptions import InsufficientFundsException
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
 
 class BillingService(BillingServiceInterface):
-    _providers: List[AbstractPaymentProvider]
 
     def __init__(self, repo: BillingRepository,
                  analytics_service: AnalyticsService,
-                 stripe_payment_provider: StripePaymentProvider):
+                 providers: list[AbstractPaymentProvider]):
         self.repo = repo
         self.analytics_service = analytics_service
-        self._providers = [stripe_payment_provider]
+        self._providers = providers
 
     def create_invoices(self):
         self.repo.create_invoices()
@@ -40,6 +37,9 @@ class BillingService(BillingServiceInterface):
             if not invoice.can_charge():
                 raise InvoiceSealedException()
 
+            if self.repo.get_pending_invoice_transaction(invoice):
+                return
+
             payment_method = self.repo.get_active_payment_method(
                 invoice.profile_id)
             provider = self._get_payment_method_provider(payment_method)
@@ -48,9 +48,13 @@ class BillingService(BillingServiceInterface):
             self.repo.persist(invoice)
 
             self.repo.commit()
-            self.analytics_service.on_commission_withdrawn(
-                invoice.profile_id, float(invoice.amount))
+            if invoice.status == InvoiceStatus.PAID:
+                self.analytics_service.on_commission_withdrawn(
+                    invoice.profile_id, float(invoice.amount))
             return transaction
+        except InsufficientFundsException as e:
+            logger.warning(e)
+            self.repo.rollback()
         except Exception as e:
             logger.exception(e)
             self.repo.rollback()
