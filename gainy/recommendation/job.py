@@ -16,7 +16,7 @@ class MatchScoreJob:
         self.batch_size = batch_size
 
     def run(self):
-        for profile_ids_batch in self.repo.read_batch_profile_ids(
+        for profile_ids_batch in self.repo.read_ms_batch_profile_ids(
                 self.batch_size):
             start_time = time.time()
             self.repo.generate_match_scores(profile_ids_batch)

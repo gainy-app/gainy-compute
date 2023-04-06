@@ -1,7 +1,9 @@
+import time
+
 import enum
 import os
 from operator import itemgetter
-from typing import List, Tuple, Iterable
+from typing import List, Tuple, Iterable, Any
 
 from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
@@ -60,11 +62,14 @@ class RecommendationRepository(Repository):
 
         return list(zip(collection_ids, collection_uniq_ids))
 
-    def read_batch_profile_ids(self, batch_size: int) -> Iterable[List[int]]:
+    def read_ms_batch_profile_ids(self,
+                                  batch_size: int) -> Iterable[List[int]]:
         with self.db_conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM app.profiles where email not ilike '%test%@gainy.app'"
-            )
+            cursor.execute("""
+                SELECT id 
+                FROM app.profiles 
+                         join app.profile_scoring_settings on profiles.id = profile_scoring_settings.profile_id
+                where email not ilike '%test%@gainy.app'""")
 
             while True:
                 batch = cursor.fetchmany(batch_size)
@@ -193,7 +198,7 @@ class RecommendationRepository(Repository):
                  for symbol in ticker_list])
 
     def generate_match_scores(self, profile_ids: List[int]):
-        queries = []
+        queries: list[tuple[str, Any]] = []
         query_filenames = [
             'generate_ticker_match_scores.sql',
             'cleanup_ticker_match_scores.sql',
@@ -202,9 +207,9 @@ class RecommendationRepository(Repository):
         ]
 
         for query_filename in query_filenames:
-            query_filename = os.path.join(script_dir, "sql", query_filename)
-            with open(query_filename) as f:
-                queries.append(f.read())
+            query_path = os.path.join(script_dir, "sql", query_filename)
+            with open(query_path) as f:
+                queries.append((query_filename, f.read()))
 
         where_clause = []
         params = {}
@@ -223,14 +228,21 @@ class RecommendationRepository(Repository):
         if not params:
             params = None
 
-        queries = [
-            sql.SQL(query).format(where_clause=where_clause)
-            for query in queries
-        ]
+        queries = [(query_name,
+                    sql.SQL(query).format(where_clause=where_clause))
+                   for query_name, query in queries]
 
         with self.db_conn.cursor() as cursor:
-            for query in queries:
+            for query_name, query in queries:
+                start = time.time()
                 cursor.execute(query, params)
+                logger.info('generate_match_scores',
+                            extra={
+                                "query_name": query_name,
+                                "query": query,
+                                "profile_ids": profile_ids,
+                                "duration": time.time() - start,
+                            })
 
     def _read_sorted_collection_match_scores(self, profile_id: int,
                                              limit: int) -> List[int]:

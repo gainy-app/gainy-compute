@@ -152,7 +152,17 @@ class DriveWealthProvider(DriveWealthProviderBase):
             pending_redemptions_amount_sum += redemption.amount
 
         new_transactions_amount_sum += pending_redemptions_amount_sum - portfolio.pending_redemptions_amount_sum
-        portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "prev_pending_redemptions_amount_sum":
+            portfolio.pending_redemptions_amount_sum,
+            "new_pending_redemptions_amount_sum":
+            pending_redemptions_amount_sum,
+            "new_transactions_amount_sum": new_transactions_amount_sum,
+            "new_transactions": [i.to_dict() for i in new_transactions],
+            "portfolio_pre": portfolio.to_dict(),
+        }
 
         if abs(new_transactions_amount_sum) < PRECISION:
             portfolio.last_equity_value = new_equity_value
@@ -171,13 +181,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         
         cash_weight_delta = (0.5 * 100 + 200) / 300 - 0.5 = 0.3333
         '''
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "new_transactions_amount_sum": new_transactions_amount_sum,
-            "new_transactions": [i.to_dict() for i in new_transactions],
-            "portfolio_pre": portfolio.to_dict(),
-        }
 
         if portfolio.last_equity_value:
             last_equity_value = portfolio.last_equity_value
@@ -327,9 +330,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         except EntityNotFoundException:
             raise SymbolIsNotTradeableException(symbol)
 
-    def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
-        return self.repository.get_user_accounts(user_ref_id)[0]
-
     def sync_account(self, account: DriveWealthAccount):
         account_data = self.api.get_account(account.ref_id)
         account.set_from_response(account_data)
@@ -339,3 +339,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
             self.sync_user(account.drivewealth_user_id)
 
         self.repository.persist(account)
+
+    def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
+        return self.repository.get_user_accounts(user_ref_id)[0]

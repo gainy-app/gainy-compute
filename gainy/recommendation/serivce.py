@@ -1,3 +1,5 @@
+import time
+
 from typing import Tuple, List, Iterable, Dict, Any
 
 from gainy.data_access.db_lock import LockAcquisitionTimeout
@@ -52,6 +54,7 @@ class RecommendationService:
         old_version = recommendations_func.load_version()
 
         try:
+            start = time.time()
             recommendations_func.execute(max_tries=max_tries)
 
             new_version = recommendations_func.load_version()
@@ -60,6 +63,7 @@ class RecommendationService:
                             'profile_id': profile_id,
                             'old_version': old_version.recommendations_version,
                             'new_version': new_version.recommendations_version,
+                            'duration': time.time() - start,
                         })
         except (LockAcquisitionTimeout, ConcurrentVersionUpdate) as e:
             if log_error:

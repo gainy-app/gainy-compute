@@ -290,7 +290,12 @@ class TradingRepository(Repository):
                               collection_id: int = None,
                               symbol: str = None) -> Optional[datetime.date]:
         query = """select last_selloff_date
-            from drivewealth_portfolio_historical_holdings_marked
+            from (
+                     select holding_id_v2, max(date) as last_selloff_date
+                     from drivewealth_portfolio_historical_holdings
+                     where value < 1e-3
+                     group by holding_id_v2
+            ) t
                      join drivewealth_holdings using (holding_id_v2)
             where profile_id = %(profile_id)s"""
         params = {

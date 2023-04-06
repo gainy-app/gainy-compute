@@ -41,9 +41,9 @@ class AmplitudeService(AnalyticsSinkInterface):
                 self.client.remove(plugin)
         self.client.add(AmplitudeSequentialDestinationPlugin())
 
-    def update_profile_attribution(self, profile_id: int, attributes: dict):
+    def update_user_properties(self, profile_id: int, properties: dict):
         identify_obj = Identify()
-        for k, i in attributes.items():
+        for k, i in properties.items():
             if isinstance(i, datetime.datetime):
                 i = i.strftime(DATETIME_ISO8601_FORMAT_TZ)
             identify_obj.set(k, i)

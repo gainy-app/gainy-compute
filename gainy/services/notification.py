@@ -7,7 +7,7 @@ from gainy.services.sendgrid import SendGridService
 from gainy.utils import get_logger, env, ENV_LOCAL
 from gainy.models import Profile
 
-APP_STORE_LINK = "https://go.gainy.app/ZOFw"
+APP_STORE_LINK_KYC = "https://gainy.app.link/7lDVPpJTyyb"
 DW_MANAGER_EMAILS = os.getenv('DW_MANAGER_EMAILS', '').split(',')
 NOTIFICATION_EMAILS_LOCAL = json.loads(
     os.environ.get('NOTIFICATION_EMAILS_LOCAL', '[]'))
@@ -180,7 +180,7 @@ class NotificationService:
         logger.info('Sending notification on_kyc_form_abandoned',
                     extra={"profile_id": profile_id})
         dynamic_template_data = {
-            "link": APP_STORE_LINK,  # TODO change
+            "link": APP_STORE_LINK_KYC,
             "first_name": self._get_profile(profile_id).first_name,
         }
         template_id = SENDGRID_KYC_FORM_ABANDONED_TEMPLATE_ID
