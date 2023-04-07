@@ -2,7 +2,7 @@ import json
 import os
 
 from gainy.data_access.repository import Repository
-from gainy.exceptions import NotFoundException, EmailNotSentException
+from gainy.exceptions import NotFoundException
 from gainy.services.sendgrid import SendGridService
 from gainy.utils import get_logger, env, ENV_LOCAL
 from gainy.models import Profile
@@ -45,7 +45,7 @@ class NotificationService:
             self.sendgrid.send_email(to=DW_MANAGER_EMAILS,
                                      subject=subject,
                                      content_plain=text)
-        except EmailNotSentException as e:
+        except Exception as e:
             logger.exception(e, extra={"subject": subject, "text": text})
 
     def notify_dw_money_flow_status_changed(self, money_flow_type,
@@ -59,7 +59,7 @@ class NotificationService:
             self.sendgrid.send_email(to=DW_MANAGER_EMAILS,
                                      subject=subject,
                                      content_plain=text)
-        except EmailNotSentException as e:
+        except Exception as e:
             logger.exception(e, extra={"subject": subject, "text": text})
 
     def notify_dw_account_status_changed(self, account_ref_id, old_status,
@@ -71,7 +71,7 @@ class NotificationService:
             self.sendgrid.send_email(to=DW_MANAGER_EMAILS,
                                      subject=subject,
                                      content_plain=text)
-        except EmailNotSentException as e:
+        except Exception as e:
             logger.exception(e, extra={"subject": subject, "text": text})
 
     def notify_low_balance(self, profile_id, balance):
@@ -81,7 +81,7 @@ class NotificationService:
             self.sendgrid.send_email(to=DW_MANAGER_EMAILS,
                                      subject=subject,
                                      content_plain=text)
-        except EmailNotSentException as e:
+        except Exception as e:
             logger.exception(e, extra={"subject": subject, "text": text})
 
     def on_kyc_status_approved(self, profile_id):
@@ -193,7 +193,7 @@ class NotificationService:
                 to=self._get_profile_notification_emails(profile_id),
                 dynamic_template_data=dynamic_template_data,
                 template_id=template_id)
-        except EmailNotSentException as e:
+        except Exception as e:
             logger.exception(e,
                              extra={
                                  "template_id": template_id,
