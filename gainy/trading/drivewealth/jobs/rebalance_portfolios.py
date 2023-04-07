@@ -465,8 +465,8 @@ class RebalancePortfoliosJob:
             profile_id,
             "status":
             OperatorIn([
-                TradingOrderStatus.PENDING,
-                TradingOrderStatus.PENDING_EXECUTION
+                TradingOrderStatus.PENDING.name,
+                TradingOrderStatus.PENDING_EXECUTION.name
             ])
         }
         if self.repo.find_one(
