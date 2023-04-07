@@ -92,12 +92,13 @@ class RebalancePortfoliosJob:
                     portfolio, is_pending_rebalance or portfolio_changed)
                 portfolio_changed = portfolio_changed or trading_orders
 
-                portfolio_changed = portfolio_changed or self.rebalance_existing_funds(
-                    portfolio, is_pending_rebalance or portfolio_changed)
+                portfolio_changed = self.rebalance_existing_funds(
+                    portfolio, is_pending_rebalance
+                    or portfolio_changed) or portfolio_changed
 
-                portfolio_changed = portfolio_changed or self.automatic_sell(
+                portfolio_changed = self.automatic_sell(
                     portfolio, portfolio_status, is_pending_rebalance
-                    or portfolio_changed)
+                    or portfolio_changed) or portfolio_changed
 
                 if portfolio_changed:
                     portfolio.normalize_weights()
