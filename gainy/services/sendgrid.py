@@ -10,7 +10,7 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY')
-SENDGRID_FROM_EMAIL = 'no-reply@gainy.app'
+SENDGRID_FROM_EMAIL = os.getenv('SENDGRID_FROM_EMAIL')
 
 
 class SendGridService:
