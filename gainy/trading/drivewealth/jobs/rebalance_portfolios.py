@@ -1,3 +1,5 @@
+import os
+
 import psycopg2.errors
 from decimal import Decimal
 
@@ -22,6 +24,11 @@ from gainy.trading.service import TradingService
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
+
+BILLING_AUTOSELL_ENABLED_PROFILES = os.getenv(
+    "BILLING_AUTOSELL_ENABLED_PROFILES")
+BILLING_AUTOSELL_ENABLED_PROFILES = BILLING_AUTOSELL_ENABLED_PROFILES.split(
+    ",") if BILLING_AUTOSELL_ENABLED_PROFILES else None
 
 
 class RebalancePortfoliosJob:
@@ -243,6 +250,9 @@ class RebalancePortfoliosJob:
         Automatically sell portfolio assets in case of pending fees
         """
         profile_id = portfolio.profile_id
+        if BILLING_AUTOSELL_ENABLED_PROFILES is not None and profile_id not in BILLING_AUTOSELL_ENABLED_PROFILES:
+            return False
+
         if self._pending_sell_orders_exist(profile_id):
             return False
 
@@ -309,7 +319,7 @@ class RebalancePortfoliosJob:
 
                 portfolio_changed = True
                 orders.append(order)
-            logging_extra["orders"] = orders
+            logging_extra["orders"] = {o.to_dict() for o in orders}
 
         except Exception as e:
             logger.exception(e, extra=logging_extra)
