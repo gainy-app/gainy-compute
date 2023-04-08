@@ -8,6 +8,7 @@ from gainy.utils import get_logger, env, ENV_LOCAL
 from gainy.models import Profile
 
 APP_STORE_LINK_KYC = "https://gainy.app.link/7lDVPpJTyyb"
+APP_STORE_LINK_DEPOSIT = "https://gainy.app.link/J7mw3Es2Lyb"
 DW_MANAGER_EMAILS = os.getenv('DW_MANAGER_EMAILS', '').split(',')
 NOTIFICATION_EMAILS_LOCAL = json.loads(
     os.environ.get('NOTIFICATION_EMAILS_LOCAL', '[]'))
@@ -21,6 +22,8 @@ SENDGRID_DEPOSIT_INITIATED_TEMPLATE_ID = "d-6b3eccc179324d1aaff09cd87ba9969e"
 SENDGRID_DEPOSIT_SUCCESS_TEMPLATE_ID = "d-9df474dd0e254f2888ba95d5a1cdf6de"
 SENDGRID_DEPOSIT_FAILED_TEMPLATE_ID = "d-42d45ca2ba3e40ef92ee201886b4eac4"
 SENDGRID_WITHDRAW_SUCCESS_TEMPLATE_ID = "d-3c71485bfeb643eebb87fa519b2e31fd"
+SENDGRID_KYC_PASSED1_ID = "d-8a6dc9fcf0b848e39a63de1a72bc2874"
+SENDGRID_KYC_PASSED2_ID = "d-581bbc610fd9449086e0566888370291"
 
 logger = get_logger(__name__)
 
@@ -184,6 +187,26 @@ class NotificationService:
             "first_name": self._get_profile(profile_id).first_name,
         }
         template_id = SENDGRID_KYC_FORM_ABANDONED_TEMPLATE_ID
+        self._notify_user(profile_id, template_id, dynamic_template_data)
+
+    def on_kyc_passed1(self, profile_id: int):
+        logger.info('Sending notification on_kyc_passed1',
+                    extra={"profile_id": profile_id})
+        dynamic_template_data = {
+            "link": APP_STORE_LINK_DEPOSIT,
+            "first_name": self._get_profile(profile_id).first_name,
+        }
+        template_id = SENDGRID_KYC_PASSED1_ID
+        self._notify_user(profile_id, template_id, dynamic_template_data)
+
+    def on_kyc_passed2(self, profile_id: int):
+        logger.info('Sending notification on_kyc_passed2',
+                    extra={"profile_id": profile_id})
+        dynamic_template_data = {
+            "link": APP_STORE_LINK_DEPOSIT,
+            "first_name": self._get_profile(profile_id).first_name,
+        }
+        template_id = SENDGRID_KYC_PASSED2_ID
         self._notify_user(profile_id, template_id, dynamic_template_data)
 
     def _notify_user(self, profile_id, template_id, dynamic_template_data):
