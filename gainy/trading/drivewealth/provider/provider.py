@@ -162,6 +162,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             "new_transactions_amount_sum": new_transactions_amount_sum,
             "new_transactions": [i.to_dict() for i in new_transactions],
             "portfolio_pre": portfolio.to_dict(),
+            "portfolio_status": portfolio_status.to_dict(),
         }
 
         if abs(new_transactions_amount_sum) < PRECISION:
