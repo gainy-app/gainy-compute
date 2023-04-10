@@ -192,7 +192,7 @@ class DriveWealthProviderBase:
         portfolio_status = DriveWealthPortfolioStatus()
         portfolio_status.set_from_response(data)
         if not portfolio_status.is_valid():
-            raise InvalidDriveWealthPortfolioStatusException()
+            raise InvalidDriveWealthPortfolioStatusException(portfolio_status)
         self.repository.persist(portfolio_status)
 
         self._create_portfolio_holdings_from_status(portfolio_status)

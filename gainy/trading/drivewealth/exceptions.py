@@ -1,4 +1,5 @@
 from gainy.exceptions import ApiException
+from gainy.trading.drivewealth.models import DriveWealthPortfolioStatus
 
 
 class DriveWealthApiException(ApiException):
@@ -42,4 +43,8 @@ class TradingAccountNotOpenException(Exception):
 
 
 class InvalidDriveWealthPortfolioStatusException(Exception):
-    pass
+    portfolio_status: DriveWealthPortfolioStatus
+
+    def __init__(self, portfolio_status: DriveWealthPortfolioStatus, *args):
+        self.portfolio_status = portfolio_status
+        super().__init__(*args)
