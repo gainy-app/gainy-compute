@@ -258,19 +258,19 @@ class RebalancePortfoliosJob:
         if self._pending_sell_orders_exist(profile_id):
             return False
 
-        trading_account_id = self._get_trading_account_id(portfolio)
-        portfolio_changed = False
+        amount_to_auto_sell = -self.repo.get_buying_power_minus_pending_fees(
+            profile_id)
+        if amount_to_auto_sell <= 0:
+            return False
+
         logging_extra = {
             "profile_id": profile_id,
+            "amount_to_auto_sell": amount_to_auto_sell,
         }
 
+        trading_account_id = self._get_trading_account_id(portfolio)
+        portfolio_changed = False
         try:
-            amount_to_auto_sell = -self.repo.get_buying_power_minus_pending_fees(
-                profile_id)
-            if amount_to_auto_sell <= 0:
-                return False
-            logging_extra["amount_to_auto_sell"] = amount_to_auto_sell
-
             weight_sum = Decimal(0)
             fund_weights = {}
             for fund_ref_id in portfolio_status.holdings.keys():
