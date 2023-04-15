@@ -51,7 +51,7 @@ class OperatorGt(ComparisonOperator):
 
 class OperatorIn(OperatorInterface):
 
-    def __init__(self, param):
+    def __init__(self, param: list):
         self.param = param
 
     def to_sql(self, field_name: str) -> Tuple[sql.Composable, Dict[str, Any]]:

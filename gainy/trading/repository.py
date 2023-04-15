@@ -5,9 +5,13 @@ import datetime
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Any, Tuple, Iterable, Optional
 
+from gainy.billing.models import Invoice, PaymentTransaction, InvoiceStatus, PaymentTransactionStatus
 from gainy.data_access.operators import OperatorLte
 from gainy.data_access.repository import Repository
 from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder
+from gainy.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class TradingRepository(Repository):
@@ -86,6 +90,20 @@ class TradingRepository(Repository):
                 "select buying_power from trading_account_status where trading_account_id = %(trading_account_id)s",
                 {
                     "trading_account_id": trading_account_id,
+                })
+            row = cursor.fetchone()
+
+        if row:
+            return Decimal(row[0])
+
+        return Decimal(0)
+
+    def get_buying_power_minus_pending_fees(self, profile_id: int) -> Decimal:
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(
+                "select buying_power_minus_pending_fees from trading_profile_status where profile_id = %(profile_id)s",
+                {
+                    "profile_id": profile_id,
                 })
             row = cursor.fetchone()
 

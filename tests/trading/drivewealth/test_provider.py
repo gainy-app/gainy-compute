@@ -369,6 +369,7 @@ def test_reconfigure_collection_holdings(monkeypatch):
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
     assert collection_version in persisted_objects[TradingCollectionVersion]
+    assert collection_version.status == TradingOrderStatus.PENDING_EXECUTION
 
 
 def test_execute_order_in_portfolio(monkeypatch):
@@ -420,6 +421,7 @@ def test_execute_order_in_portfolio(monkeypatch):
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
     assert trading_order in persisted_objects[TradingOrder]
+    assert trading_order.status == TradingOrderStatus.PENDING_EXECUTION
 
 
 def test_actualize_portfolio(monkeypatch):

@@ -68,7 +68,7 @@ class TradingAccount(BaseModel):
     name = None
     cash_available_for_trade = None
     cash_available_for_withdrawal = None
-    cash_balance = None
+    cash_balance: float = None
     equity_value = None
     account_no = None
     is_artificial: bool = None

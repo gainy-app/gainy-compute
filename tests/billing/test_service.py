@@ -1,5 +1,5 @@
 from gainy.analytics.service import AnalyticsService
-from gainy.billing.models import InvoiceStatus, Invoice, PaymentMethod, PaymentTransaction, TransactionStatus
+from gainy.billing.models import InvoiceStatus, Invoice, PaymentMethod, PaymentTransaction, PaymentTransactionStatus
 from gainy.billing.repository import BillingRepository
 from gainy.billing.service import BillingService
 from gainy.billing.stripe.provider import StripePaymentProvider
@@ -55,7 +55,8 @@ def test_charge(monkeypatch):
     amount = 2
 
     transaction = PaymentTransaction()
-    monkeypatch.setattr(transaction, "status", TransactionStatus.SUCCESS)
+    monkeypatch.setattr(transaction, "status",
+                        PaymentTransactionStatus.SUCCESS)
 
     invoice = Invoice()
     monkeypatch.setattr(invoice, "can_charge", lambda: True)

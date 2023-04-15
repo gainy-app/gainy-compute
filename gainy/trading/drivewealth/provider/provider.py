@@ -13,7 +13,7 @@ from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealt
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import SymbolIsNotTradeableException
-from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder
+from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -217,6 +217,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         chosen_fund = helper.upsert_fund(profile_id, collection_version)
         helper.handle_cash_amount_change(collection_version, portfolio,
                                          chosen_fund, is_pending_rebalance)
+        collection_version.status = TradingOrderStatus.PENDING_EXECUTION
+        collection_version.pending_execution_since = datetime.datetime.now()
         self.repository.persist(collection_version)
         portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
@@ -230,6 +232,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         chosen_fund = helper.upsert_stock_fund(profile_id, trading_order)
         helper.handle_cash_amount_change(trading_order, portfolio, chosen_fund,
                                          is_pending_rebalance)
+        trading_order.status = TradingOrderStatus.PENDING_EXECUTION
+        trading_order.pending_execution_since = datetime.datetime.now()
         self.repository.persist(trading_order)
         portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)

@@ -116,6 +116,7 @@ class DriveWealthProviderRebalanceHelper:
             "fund_actual_weight": fund_actual_weight,
             "fund_value": fund_value,
             "portfolio_pre": portfolio.to_dict(),
+            "order": order.to_dict(),
         }
         try:
             if target_amount_delta_relative is not None:
@@ -133,10 +134,12 @@ class DriveWealthProviderRebalanceHelper:
                     raise InsufficientFundsException()
                 weight_delta = target_amount_delta / cash_value * cash_actual_weight
             else:
-                # if target_amount_delta < -fund_value, then sell all
-                weight_delta = max(
-                    target_amount_delta / fund_value * fund_actual_weight,
-                    -fund_actual_weight)
+                weight_delta = target_amount_delta / fund_value * fund_actual_weight
+                if weight_delta < -fund_actual_weight:
+                    # if target_amount_delta < -fund_value, then sell all
+                    weight_delta = -fund_actual_weight
+                    order.target_amount_delta = -fund_value
+                    order.target_amount_delta_relative = -1
 
             logging_extra["weight_delta"] = weight_delta
 
