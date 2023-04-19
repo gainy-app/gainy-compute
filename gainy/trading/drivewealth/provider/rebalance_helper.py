@@ -117,10 +117,12 @@ class DriveWealthProviderRebalanceHelper:
                     raise InsufficientFundsException()
                 weight_delta = target_amount_delta / cash_value * cash_weight
             else:
-                # if target_amount_delta < -fund_value, then sell all
-                weight_delta = max(
-                    target_amount_delta / fund_value * fund_weight,
-                    -fund_weight)
+                weight_delta = target_amount_delta / fund_value * fund_weight
+                if weight_delta < -fund_weight:
+                    # if target_amount_delta < -fund_value, then sell all
+                    weight_delta = -fund_weight
+                    order.target_amount_delta = -fund_value
+                    order.target_amount_delta_relative = -1
 
             logging_extra["weight_delta"] = weight_delta
 

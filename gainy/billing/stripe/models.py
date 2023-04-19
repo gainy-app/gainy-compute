@@ -4,7 +4,7 @@ import stripe
 from stripe.api_resources.payment_intent import PaymentIntent
 from stripe.api_resources.payment_method import PaymentMethod
 
-from gainy.billing.models import TransactionStatus, PaymentTransaction
+from gainy.billing.models import PaymentTransactionStatus, PaymentTransaction
 from gainy.data_access.models import BaseModel, classproperty
 
 
@@ -62,7 +62,7 @@ class StripePaymentMethod(BaseStripeModel):
 
 class StripePaymentIntent(BaseStripeModel):
     ref_id = None
-    status: TransactionStatus = None
+    status: PaymentTransactionStatus = None
     authentication_client_secret: str = None
     to_refund = None
     is_refunded = None,
@@ -81,7 +81,7 @@ class StripePaymentIntent(BaseStripeModel):
         super().set_from_dict(row)
 
         if row and row["status"]:
-            self.status = TransactionStatus(row["status"])
+            self.status = PaymentTransactionStatus(row["status"])
         return self
 
     def set_from_response(self, data: PaymentIntent):
@@ -89,9 +89,9 @@ class StripePaymentIntent(BaseStripeModel):
         self.data = stripe.util.convert_to_dict(data)
 
         if data.status == 'succeeded':
-            self.status = TransactionStatus.SUCCESS
+            self.status = PaymentTransactionStatus.SUCCESS
         elif data.status == 'requires_action':
-            self.status = TransactionStatus.REQUIRES_AUTHENTICATION
+            self.status = PaymentTransactionStatus.REQUIRES_AUTHENTICATION
             self.authentication_client_secret = data.client_secret
 
             # TODO notify the app?

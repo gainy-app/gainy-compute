@@ -1,4 +1,4 @@
-from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, TransactionStatus
+from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, PaymentTransactionStatus
 from gainy.billing.stripe.api import StripeApi
 from gainy.billing.stripe.models import StripePaymentMethod, StripePaymentIntent
 from gainy.billing.stripe.provider import StripePaymentProvider
@@ -13,7 +13,7 @@ def test_charge(monkeypatch):
     profile_id = 3
     amount = 4
     transaction_id = 5
-    transaction_status = TransactionStatus.SUCCESS
+    transaction_status = PaymentTransactionStatus.SUCCESS
 
     invoice = Invoice()
     monkeypatch.setattr(invoice, "id", invoice_id)

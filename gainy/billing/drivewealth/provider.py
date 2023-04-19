@@ -30,8 +30,16 @@ class DriveWealthPaymentProvider(AbstractPaymentProvider):
         if not account:
             raise Exception('DriveWealthAccount not found')
 
-        account_money = self.provider.sync_account_money(account.ref_id)
-        if Decimal(account_money.cash_balance) < invoice.amount:
+        portfolio = self.provider.ensure_portfolio(payment_method.profile_id,
+                                                   account.trading_account_id)
+        portfolio_status = self.provider.sync_portfolio_status(portfolio, True)
+        if portfolio_status.is_pending_rebalance():
+            cash_actual_weight = portfolio.cash_target_weight
+            cash_value = cash_actual_weight * portfolio_status.equity_value
+        else:
+            cash_value = portfolio_status.cash_value
+
+        if Decimal(cash_value) < invoice.amount:
             raise InsufficientFundsException()
 
         transaction = self._create_transaction(invoice, payment_method)

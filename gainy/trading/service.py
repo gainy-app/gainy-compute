@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from typing import Iterable, Dict, List, Any
 
+from gainy.billing.models import Invoice, InvoiceStatus, PaymentTransaction, PaymentTransactionStatus
 from gainy.exceptions import EntityNotFoundException
 from gainy.plaid.exceptions import AccessTokenLoginRequiredException
 from gainy.plaid.models import PlaidAccessToken
@@ -209,10 +210,7 @@ class TradingService:
         if collection_id is None and symbol is None:
             raise Exception('You must specify either collection_id or symbol.')
 
-        trading_account: TradingAccount = self.trading_repository.find_one(
-            TradingAccount, {"id": trading_account_id})
-        if not trading_account:
-            return EntityNotFoundException(TradingAccount)
+        trading_account = self.get_trading_account(trading_account_id)
 
         profile_id = trading_account.profile_id
         if collection_id is not None:
@@ -249,14 +247,8 @@ class TradingService:
 
     def check_enough_withdrawable_cash(self, trading_account_id: int,
                                        needed_amount: Decimal):
-        trading_account = self.trading_repository.find_one(
-            TradingAccount, {"id": trading_account_id})
-        if not trading_account:
-            return EntityNotFoundException(TradingAccount)
-
-        self.sync_balances(trading_account)
-        trading_account: TradingAccount = self.trading_repository.refresh(
-            trading_account)
+        trading_account = self.get_trading_account(trading_account_id,
+                                                   refresh=True)
 
         if Decimal(trading_account.cash_available_for_withdrawal
                    or 0) < needed_amount:
@@ -264,6 +256,20 @@ class TradingService:
 
     def check_tradeable_symbol(self, symbol: str):
         return self._get_provider_service().check_tradeable_symbol(symbol)
+
+    def get_trading_account(self,
+                            trading_account_id: int,
+                            refresh: bool = False) -> TradingAccount:
+        trading_account = self.trading_repository.find_one(
+            TradingAccount, {"id": trading_account_id})
+        if not trading_account:
+            raise EntityNotFoundException(TradingAccount)
+
+        if not refresh:
+            return trading_account
+
+        self.sync_balances(trading_account)
+        return self.trading_repository.refresh(trading_account)
 
     def _get_provider_service(self):
         return self.drivewealth_provider

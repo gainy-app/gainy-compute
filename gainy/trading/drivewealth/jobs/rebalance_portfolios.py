@@ -1,3 +1,5 @@
+import os
+
 import psycopg2.errors
 from decimal import Decimal
 
@@ -9,7 +11,7 @@ from typing import Iterable, Tuple
 import time
 
 from gainy.context_container import ContextContainer
-from gainy.data_access.operators import OperatorIn
+from gainy.data_access.operators import OperatorLt, OperatorIn
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException, \
     InvalidDriveWealthPortfolioStatusException
@@ -23,6 +25,12 @@ from gainy.trading.service import TradingService
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
+
+BILLING_AUTOSELL_ENABLED_PROFILES = os.getenv(
+    "BILLING_AUTOSELL_ENABLED_PROFILES")
+BILLING_AUTOSELL_ENABLED_PROFILES = [
+    int(i) for i in BILLING_AUTOSELL_ENABLED_PROFILES.split(",")
+] if BILLING_AUTOSELL_ENABLED_PROFILES else None
 
 
 class RebalancePortfoliosJob:
@@ -90,6 +98,10 @@ class RebalancePortfoliosJob:
                 portfolio_changed = self.rebalance_existing_funds(
                     portfolio) or portfolio_changed
 
+                # 5. automatic sell
+                portfolio_changed = self.automatic_sell(
+                    portfolio) or portfolio_changed
+
                 if not portfolio_changed:
                     continue
 
@@ -111,7 +123,7 @@ class RebalancePortfoliosJob:
             except Exception as e:
                 logger.exception(e)
 
-        self.force_rebalance(force_rebalance_portfolios)
+        self._force_rebalance(force_rebalance_portfolios)
 
     def apply_trading_orders(
             self,
@@ -142,8 +154,6 @@ class RebalancePortfoliosJob:
                     portfolio, trading_order)
 
                 trading_orders.append(trading_order)
-                trading_order.status = TradingOrderStatus.PENDING_EXECUTION
-                trading_order.pending_execution_since = datetime.datetime.now()
                 self.repo.persist(trading_order)
             except InsufficientFundsException as e:
                 logger.info("Skipping order %s for profile %d account %d: %s",
@@ -163,8 +173,6 @@ class RebalancePortfoliosJob:
                                  portfolio: DriveWealthPortfolio) -> bool:
         """
         Automatically change portfolio weights according to the new collection weights
-        :param portfolio: DriveWealthPortfolio
-        :return:
         """
         profile_id = portfolio.profile_id
         portfolio_changed = False
@@ -175,15 +183,90 @@ class RebalancePortfoliosJob:
                     continue
 
                 if fund.trading_collection_version_id:
-                    result = self.rebalance_existing_collection_fund(
+                    result = self._rebalance_existing_collection_fund(
                         portfolio, fund)
                     portfolio_changed = portfolio_changed or result
                 if fund.trading_order_id:
-                    result = self.rebalance_existing_ticker_fund(
+                    result = self._rebalance_existing_ticker_fund(
                         portfolio, fund)
                     portfolio_changed = portfolio_changed or result
         except DriveWealthApiException as e:
             logger.exception(e)
+
+        return portfolio_changed
+
+    def automatic_sell(self, portfolio: DriveWealthPortfolio) -> bool:
+        """
+        Automatically sell portfolio assets in case of pending fees
+        """
+        profile_id = portfolio.profile_id
+        if BILLING_AUTOSELL_ENABLED_PROFILES is not None and profile_id not in BILLING_AUTOSELL_ENABLED_PROFILES:
+            return False
+
+        if self._pending_sell_orders_exist(profile_id):
+            return False
+
+        amount_to_auto_sell = -self.repo.get_buying_power_minus_pending_fees(
+            profile_id)
+        if amount_to_auto_sell <= 0:
+            return False
+
+        logging_extra = {
+            "profile_id": profile_id,
+            "amount_to_auto_sell": amount_to_auto_sell,
+        }
+
+        trading_account_id = self._get_trading_account_id(portfolio)
+        portfolio_changed = False
+        try:
+            weight_sum = Decimal(0)
+            fund_weights = {}
+            for fund_ref_id in portfolio.holdings.keys():
+                weight = portfolio.get_fund_weight(fund_ref_id)
+                weight_sum += weight
+                fund_weights[fund_ref_id] = weight
+            logging_extra["weight_sum"] = weight_sum
+            logging_extra["fund_weights"] = fund_weights
+
+            if weight_sum <= 0:
+                raise Exception('weight_sum can not be negative')
+
+            orders = []
+            for fund_ref_id, weight in fund_weights.items():
+                fund: DriveWealthFund = self.repo.find_one(
+                    DriveWealthFund, {"ref_id": fund_ref_id})
+                if not fund:
+                    raise Exception('Fund does not exist ' + fund_ref_id)
+
+                target_amount_delta = -amount_to_auto_sell * weight / weight_sum
+
+                if fund.collection_id:
+                    order = self.trading_service.create_collection_version(
+                        profile_id,
+                        TradingOrderSource.AUTOMATIC,
+                        fund.collection_id,
+                        trading_account_id,
+                        target_amount_delta=target_amount_delta)
+                elif fund.symbol:
+                    order = self.trading_service.create_stock_order(
+                        profile_id,
+                        TradingOrderSource.AUTOMATIC,
+                        fund.symbol,
+                        trading_account_id,
+                        target_amount_delta=target_amount_delta)
+                else:
+                    raise Exception('Unknown fund type ' + fund_ref_id)
+
+                self.provider.execute_order_in_portfolio(portfolio, order)
+
+                portfolio_changed = True
+                orders.append(order)
+            logging_extra["orders"] = [o.to_dict() for o in orders]
+
+        except Exception as e:
+            logger.exception(e, extra=logging_extra)
+        finally:
+            logger.info('automatic_sell', extra=logging_extra)
 
         return portfolio_changed
 
@@ -202,7 +285,7 @@ class RebalancePortfoliosJob:
             raise Exception('drivewealth_account not found')
         return drivewealth_account.trading_account_id
 
-    def force_rebalance(self, portfolios: list[DriveWealthPortfolio]):
+    def _force_rebalance(self, portfolios: list[DriveWealthPortfolio]):
         try:
             data = self.provider.api.create_autopilot_run(
                 [portfolio.drivewealth_account_id for portfolio in portfolios])
@@ -234,9 +317,9 @@ class RebalancePortfoliosJob:
                         })
             pass
 
-    def rebalance_existing_collection_fund(self,
-                                           portfolio: DriveWealthPortfolio,
-                                           fund: DriveWealthFund) -> bool:
+    def _rebalance_existing_collection_fund(self,
+                                            portfolio: DriveWealthPortfolio,
+                                            fund: DriveWealthFund) -> bool:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -296,8 +379,8 @@ class RebalancePortfoliosJob:
 
         return True
 
-    def rebalance_existing_ticker_fund(self, portfolio: DriveWealthPortfolio,
-                                       fund: DriveWealthFund) -> bool:
+    def _rebalance_existing_ticker_fund(self, portfolio: DriveWealthPortfolio,
+                                        fund: DriveWealthFund) -> bool:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -323,6 +406,42 @@ class RebalancePortfoliosJob:
 
         self.provider.execute_order_in_portfolio(portfolio, trading_order)
         return True
+
+    def _pending_sell_orders_exist(self, profile_id):
+        common_params = {
+            "profile_id":
+            profile_id,
+            "status":
+            OperatorIn([
+                TradingOrderStatus.PENDING.name,
+                TradingOrderStatus.PENDING_EXECUTION.name
+            ])
+        }
+        if self.repo.find_one(
+                TradingCollectionVersion, {
+                    **common_params,
+                    "target_amount_delta": OperatorLt(0),
+                }):
+            return True
+        if self.repo.find_one(
+                TradingOrder, {
+                    **common_params,
+                    "target_amount_delta": OperatorLt(0),
+                }):
+            return True
+        if self.repo.find_one(
+                TradingCollectionVersion, {
+                    **common_params,
+                    "target_amount_delta_relative": OperatorLt(0),
+                }):
+            return True
+        if self.repo.find_one(
+                TradingOrder, {
+                    **common_params,
+                    "target_amount_delta_relative": OperatorLt(0),
+                }):
+            return True
+        return False
 
 
 def cli():

@@ -384,6 +384,7 @@ def test_execute_order_in_portfolio(monkeypatch):
     ]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
     assert trading_order in persisted_objects[TradingOrder]
+    assert trading_order.status == TradingOrderStatus.PENDING_EXECUTION
 
 
 def test_actualize_portfolio(monkeypatch):

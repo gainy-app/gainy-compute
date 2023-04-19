@@ -7,7 +7,7 @@ from gainy.analytics.interfaces import AnalyticsSinkInterface, ProfileProperties
 from gainy.data_access.operators import OperatorLt, OperatorNot, OperatorEq
 from gainy.data_access.repository import Repository
 from gainy.trading.models import TradingOrder, TradingCollectionVersion, TradingMoneyFlow, TradingMoneyFlowStatus, \
-    AbstractTradingOrder, TradingOrderStatus
+    AbstractTradingOrder, TradingOrderStatus, TradingOrderSource
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -81,7 +81,7 @@ class AnalyticsService:
             **self._get_order_properties(order),
         }
 
-        if order.target_amount_delta is None:
+        if order.source == TradingOrderSource.AUTOMATIC:
             return
         elif order.target_amount_delta < 0:
             event_name = EVENT_SELL_COMPLETED

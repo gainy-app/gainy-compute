@@ -18,8 +18,9 @@ class PaymentMethodProvider(str, Enum):
     DRIVEWEALTH = 'DRIVEWEALTH'
 
 
-class TransactionStatus(str, Enum):
+class PaymentTransactionStatus(str, Enum):
     PENDING = 'PENDING'
+    PENDING_WITHDRAWN = 'PENDING_WITHDRAWN'  # money has been charged, but hasn't arrived
     REQUIRES_AUTHENTICATION = 'REQUIRES_AUTHENTICATION'
     SUCCESS = 'SUCCESS'
     FAILED = 'FAILED'
@@ -30,7 +31,7 @@ class PaymentTransaction(BaseModel):
     profile_id: int = None
     invoice_id: int = None
     payment_method_id: int = None
-    status: TransactionStatus = None
+    status: PaymentTransactionStatus = None
     metadata: Any = None
     created_at: datetime.datetime = None
 
@@ -42,9 +43,9 @@ class PaymentTransaction(BaseModel):
         super().set_from_dict(row)
 
         if row and row["status"]:
-            self.status = TransactionStatus(row["status"])
+            self.status = PaymentTransactionStatus(row["status"])
         else:
-            self.status = TransactionStatus.PENDING
+            self.status = PaymentTransactionStatus.PENDING
 
         return self
 
@@ -112,14 +113,14 @@ class Invoice(BaseModel, ResourceVersion):
         self.version = self.version + 1 if self.version else 1
 
     def on_new_transaction(self, transaction: PaymentTransaction):
-        if transaction.status == TransactionStatus.PENDING:
+        if transaction.status == PaymentTransactionStatus.PENDING:
             return
 
-        if transaction.status == TransactionStatus.SUCCESS and self.status == InvoiceStatus.PAID:
+        if transaction.status == PaymentTransactionStatus.SUCCESS and self.status == InvoiceStatus.PAID:
             return
 
         if self.status == InvoiceStatus.PENDING:
-            if transaction.status == TransactionStatus.SUCCESS:
+            if transaction.status == PaymentTransactionStatus.SUCCESS:
                 self.status = InvoiceStatus.PAID
         else:
             raise InvoiceSealedException()
