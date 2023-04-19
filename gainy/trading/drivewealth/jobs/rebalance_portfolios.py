@@ -82,11 +82,11 @@ class RebalancePortfoliosJob:
                 portfolio_status = self.provider.sync_portfolio_status(
                     portfolio, force=True)
 
-                # 0. update pending execution orders
+                # 1. update pending execution orders
                 self.provider.update_trading_orders_pending_execution_from_portfolio_status(
                     portfolio_status)
 
-                # 1. set target weights from actual weights and change cash weight in case of new transactions
+                # 2. set target weights from actual weights and change cash weight in case of new transactions
                 portfolio_changed = self.provider.actualize_portfolio(
                     portfolio, portfolio_status)
 
