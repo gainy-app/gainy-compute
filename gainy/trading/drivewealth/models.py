@@ -259,6 +259,14 @@ class DriveWealthPortfolioStatusFundHolding:
         self.data = data
 
     @property
+    def symbol(self) -> str:
+        return self.data["symbol"]
+
+    @property
+    def instrument_id(self) -> str:
+        return self.data["instrumentID"]
+
+    @property
     def value(self) -> Decimal:
         return Decimal(self.data["value"])
 
@@ -312,7 +320,7 @@ class DriveWealthPortfolioStatusHolding:
         return entity
 
     def is_valid(self) -> bool:
-        logger_extra = {"portfolio_status": self.data}
+        logger_extra = {"holding": self.data}
         weight_sum = Decimal(0)
         target_weight_sum = Decimal(0)
         value_sum = Decimal(0)
@@ -571,6 +579,25 @@ class DriveWealthFund(BaseDriveWealthModel):
                         "holdings": self.holdings,
                     })
 
+    def set_target_weights_from_status_actual_weights(
+            self, portfolio_status: DriveWealthPortfolioStatus):
+        holdings = portfolio_status.get_fund(self.ref_id)
+        if not holdings:
+            raise Exception("Fund not found in portfolio status.")
+        fund_holdings = holdings.holdings
+        if not fund_holdings:
+            raise Exception("Fund not found in portfolio status.")
+
+        self.holdings = []
+        self.weights = {}
+
+        for holding in fund_holdings:
+            self.weights[holding.symbol] = holding.actual_weight
+            self.holdings.append({
+                "instrumentID": holding.instrument_id,
+                "target": holding.actual_weight
+            })
+
 
 class DriveWealthPortfolio(BaseDriveWealthModel):
     ref_id = None
@@ -775,6 +802,12 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
                 portfolio_status.last_portfolio_rebalance_at)
         else:
             self.last_rebalance_at = portfolio_status.last_portfolio_rebalance_at
+
+    def get_fund_ref_ids(self) -> list:
+        if not self.holdings:
+            return []
+
+        return list(self.holdings.keys())
 
 
 class DriveWealthInstrumentStatus(str, enum.Enum):

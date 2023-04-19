@@ -61,6 +61,11 @@ class OperatorIn(OperatorInterface):
 
         return _sql, _params
 
+    def __eq__(self, other):
+        if isinstance(other, OperatorIn):
+            return self.param == other.param
+        return False
+
 
 class OperatorNot(OperatorInterface):
 

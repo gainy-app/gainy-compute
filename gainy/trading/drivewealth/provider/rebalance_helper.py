@@ -21,99 +21,83 @@ class DriveWealthProviderRebalanceHelper:
         self.trading_repository = trading_repository
         self.api = provider.api
 
-    def upsert_fund(
-            self, profile_id,
-            collection_version: TradingCollectionVersion) -> DriveWealthFund:
-        collection_id = collection_version.collection_id
-        weights = collection_version.weights
+    def ensure_fund(self, profile_id,
+                    trading_order: AbstractTradingOrder) -> DriveWealthFund:
         repository = self.repository
+        collection_id = None
+        symbol = None
 
-        fund = self.repository.get_profile_fund(
-            profile_id, collection_id=collection_id) or DriveWealthFund()
+        if isinstance(trading_order, TradingCollectionVersion):
+            collection_id = trading_order.collection_id
+            weights = trading_order.weights
+            fund = self.repository.get_profile_fund(
+                profile_id, collection_id=collection_id)
+        elif isinstance(trading_order, TradingOrder):
+            symbol = trading_order.symbol
+            weights = {symbol: Decimal(1)}
+            fund = self.repository.get_profile_fund(profile_id, symbol=symbol)
+        else:
+            raise Exception("Unsupported order class.")
+
+        if fund:
+            return fund
+
+        fund = DriveWealthFund()
         fund.profile_id = profile_id
-        fund.collection_id = collection_id
         fund.holdings = self._generate_new_fund_holdings(weights, fund)
+        fund.weights = weights
         fund.normalize_weights()
 
-        if fund.ref_id:
-            self.api.update_fund(fund)
-        else:
-            user = repository.get_user(profile_id)
-            user_id = user.ref_id
+        user = repository.get_user(profile_id)
+        user_id = user.ref_id
+
+        if isinstance(trading_order, TradingCollectionVersion):
+            fund.collection_id = collection_id
+            fund.trading_collection_version_id = trading_order.id
             name = f"Gainy {user_id}'s fund for collection {collection_id}"
             client_fund_id = f"{profile_id}_{collection_id}"
-            description = name
-            self.api.create_fund(fund, name, client_fund_id, description)
-
-        fund.weights = weights
-        fund.trading_collection_version_id = collection_version.id
-        repository.persist(fund)
-
-        return fund
-
-    def upsert_stock_fund(self, profile_id,
-                          trading_order: TradingOrder) -> DriveWealthFund:
-        symbol = trading_order.symbol
-        weights = {symbol: Decimal(1)}
-        repository = self.repository
-
-        fund = self.repository.get_profile_fund(
-            profile_id, symbol=symbol) or DriveWealthFund()
-        fund.profile_id = profile_id
-        fund.symbol = symbol
-        fund.holdings = self._generate_new_fund_holdings(weights, fund)
-        fund.normalize_weights()
-
-        if fund.ref_id:
-            self.api.update_fund(fund)
-        else:
-            user = repository.get_user(profile_id)
-            user_id = user.ref_id
+        elif isinstance(trading_order, TradingOrder):
+            fund.symbol = symbol
+            fund.trading_order_id = trading_order.id
             name = f"Gainy {user_id}'s fund for symbol {symbol}"
             client_fund_id = f"{profile_id}_{symbol}"
-            description = name
-            self.api.create_fund(fund, name, client_fund_id, description)
+        else:
+            raise Exception("Unsupported order class.")
 
-        fund.weights = weights
-        fund.trading_order_id = trading_order.id
+        description = name
+        self.api.create_fund(fund, name, client_fund_id, description)
+
         repository.persist(fund)
 
         return fund
 
     def handle_cash_amount_change(self, order: AbstractTradingOrder,
                                   portfolio: DriveWealthPortfolio,
-                                  chosen_fund: DriveWealthFund,
-                                  is_pending_rebalance: bool):
+                                  chosen_fund: DriveWealthFund):
 
         target_amount_delta = order.target_amount_delta
+        if order.executed_amount:
+            target_amount_delta -= order.executed_amount
         target_amount_delta_relative = order.target_amount_delta_relative
 
         if not target_amount_delta and not target_amount_delta_relative:
             return
 
         portfolio_status = self.provider.sync_portfolio_status(portfolio)
-        if is_pending_rebalance:
-            cash_actual_weight = portfolio.cash_target_weight
-            cash_value = cash_actual_weight * portfolio_status.equity_value
-            fund_actual_weight = portfolio.get_fund_weight(chosen_fund.ref_id)
-            fund_value = fund_actual_weight * portfolio_status.equity_value
-        else:
-            cash_value = portfolio_status.cash_value
-            cash_actual_weight = portfolio_status.cash_actual_weight
-            fund_actual_weight = portfolio_status.get_fund_actual_weight(
-                chosen_fund.ref_id)
-            fund_value = portfolio_status.get_fund_value(chosen_fund.ref_id)
+        cash_weight = portfolio.cash_target_weight
+        cash_value = cash_weight * portfolio_status.equity_value
+        fund_weight = portfolio.get_fund_weight(chosen_fund.ref_id)
+        fund_value = fund_weight * portfolio_status.equity_value
 
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "target_amount_delta": target_amount_delta,
             "target_amount_delta_relative": target_amount_delta_relative,
             "portfolio_status": portfolio_status.to_dict(),
-            "is_pending_rebalance": is_pending_rebalance,
             "chosen_fund": chosen_fund.to_dict(),
-            "cash_actual_weight": cash_actual_weight,
+            "cash_weight": cash_weight,
             "cash_value": cash_value,
-            "fund_actual_weight": fund_actual_weight,
+            "fund_weight": fund_weight,
             "fund_value": fund_value,
             "portfolio_pre": portfolio.to_dict(),
         }
@@ -124,19 +108,19 @@ class DriveWealthProviderRebalanceHelper:
                         'target_amount_delta_relative must be within [-1, 0).')
 
                 # negative target_amount_delta_relative - check fund_value is > 0
-                if fund_actual_weight < DW_WEIGHT_THRESHOLD:
+                if fund_weight < DW_WEIGHT_THRESHOLD:
                     raise InsufficientFundsException()
-                weight_delta = target_amount_delta_relative * fund_actual_weight
+                weight_delta = target_amount_delta_relative * fund_weight
                 order.target_amount_delta = target_amount_delta_relative * fund_value
             elif target_amount_delta > 0:
                 if cash_value - target_amount_delta < -PRECISION:
                     raise InsufficientFundsException()
-                weight_delta = target_amount_delta / cash_value * cash_actual_weight
+                weight_delta = target_amount_delta / cash_value * cash_weight
             else:
                 # if target_amount_delta < -fund_value, then sell all
                 weight_delta = max(
-                    target_amount_delta / fund_value * fund_actual_weight,
-                    -fund_actual_weight)
+                    target_amount_delta / fund_value * fund_weight,
+                    -fund_weight)
 
             logging_extra["weight_delta"] = weight_delta
 

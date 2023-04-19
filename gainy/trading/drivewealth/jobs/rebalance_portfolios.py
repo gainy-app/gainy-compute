@@ -9,13 +9,15 @@ from typing import Iterable, Tuple
 import time
 
 from gainy.context_container import ContextContainer
+from gainy.data_access.operators import OperatorIn
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException, \
     InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
     DriveWealthFund
 from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
-from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder
+from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder, \
+    AbstractTradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
 from gainy.utils import get_logger
@@ -56,6 +58,7 @@ class RebalancePortfoliosJob:
             except Exception as e:
                 logger.exception(e)
 
+        force_rebalance_portfolios = []
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
             portfolio: DriveWealthPortfolio
             if portfolio.is_artificial:
@@ -68,36 +71,30 @@ class RebalancePortfoliosJob:
                 if not account or not account.is_open():
                     continue
 
-                self.provider.sync_portfolio(portfolio)
                 portfolio_status = self.provider.sync_portfolio_status(
                     portfolio, force=True)
+
+                # 0. update pending execution orders
+                self.provider.update_trading_orders_pending_execution_from_portfolio_status(
+                    portfolio_status)
+
+                # 1. set target weights from actual weights and change cash weight in case of new transactions
                 portfolio_changed = self.provider.actualize_portfolio(
                     portfolio, portfolio_status)
-                is_pending_rebalance = portfolio_changed or portfolio_status.is_pending_rebalance(
-                )
 
-                trading_collection_versions = self.apply_trading_collection_versions(
-                    portfolio, is_pending_rebalance)
-                portfolio_changed = portfolio_changed or trading_collection_versions
+                # 3. apply all pending orders
+                trading_orders = self.apply_trading_orders(portfolio)
+                portfolio_changed = trading_orders or portfolio_changed
 
-                trading_orders = self.apply_trading_orders(
-                    portfolio, is_pending_rebalance or portfolio_changed)
-                portfolio_changed = portfolio_changed or trading_orders
+                # 4. rebalance collections automatically
+                portfolio_changed = self.rebalance_existing_funds(
+                    portfolio) or portfolio_changed
 
-                portfolio_changed = portfolio_changed or self.rebalance_existing_funds(
-                    portfolio, is_pending_rebalance or portfolio_changed)
+                if not portfolio_changed:
+                    continue
 
-                if portfolio_changed:
-                    portfolio.normalize_weights()
-                    self.provider.send_portfolio_to_api(portfolio)
-
-                portfolio_has_pending_orders = self.drivewealth_repository.portfolio_has_pending_orders(
-                    portfolio)
-                if portfolio_changed or portfolio_has_pending_orders:
-                    self.force_rebalance(
-                        portfolio,
-                        trading_collection_versions=trading_collection_versions,
-                        trading_orders=trading_orders)
+                self.provider.send_portfolio_to_api(portfolio)
+                force_rebalance_portfolios.append(portfolio)
 
                 self.repo.commit()
             except (psycopg2.errors.OperationalError,
@@ -114,8 +111,11 @@ class RebalancePortfoliosJob:
             except Exception as e:
                 logger.exception(e)
 
-    def apply_trading_orders(self, portfolio: DriveWealthPortfolio,
-                             is_pending_rebalance: bool) -> list[TradingOrder]:
+        self.force_rebalance(force_rebalance_portfolios)
+
+    def apply_trading_orders(
+            self,
+            portfolio: DriveWealthPortfolio) -> list[AbstractTradingOrder]:
         profile_id = portfolio.profile_id
         trading_account_id = self._get_trading_account_id(portfolio)
 
@@ -123,36 +123,35 @@ class RebalancePortfoliosJob:
         for trading_order in self.repo.iterate_trading_orders(
                 profile_id=profile_id,
                 trading_account_id=trading_account_id,
-                status=TradingOrderStatus.PENDING):
+                status=[
+                    TradingOrderStatus.PENDING,
+                    TradingOrderStatus.PENDING_EXECUTION
+                ]):
             start_time = time.time()
 
-            logger.info(
-                "Executing order %s for profile %d account %d, symbol %s in %fs",
-                trading_order.id,
-                profile_id,
-                trading_account_id,
-                trading_order.symbol,
-                time.time() - start_time,
-                extra={"profile_id": profile_id})
+            logger.info("Executing %s %d for profile %d account %d in %fs",
+                        trading_order.__class__.__name__,
+                        trading_order.id,
+                        profile_id,
+                        trading_account_id,
+                        time.time() - start_time,
+                        extra={"profile_id": profile_id})
 
             try:
                 self.provider.execute_order_in_portfolio(
-                    portfolio, trading_order, is_pending_rebalance)
-                is_pending_rebalance = True
+                    portfolio, trading_order)
 
                 trading_orders.append(trading_order)
                 trading_order.status = TradingOrderStatus.PENDING_EXECUTION
                 trading_order.pending_execution_since = datetime.datetime.now()
                 self.repo.persist(trading_order)
             except InsufficientFundsException as e:
-                logger.info(
-                    "Skipping order %s for profile %d account %d, symbol %s: %s",
-                    trading_order.id,
-                    profile_id,
-                    trading_account_id,
-                    trading_order.symbol,
-                    e.__class__.__name__,
-                    extra={"profile_id": profile_id})
+                logger.info("Skipping order %s for profile %d account %d: %s",
+                            trading_order.id,
+                            profile_id,
+                            trading_account_id,
+                            e.__class__.__name__,
+                            extra={"profile_id": profile_id})
                 # let it stay pending until there are money on the account
                 continue
             except DriveWealthApiException as e:
@@ -160,58 +159,8 @@ class RebalancePortfoliosJob:
 
         return trading_orders
 
-    def apply_trading_collection_versions(
-            self, portfolio: DriveWealthPortfolio,
-            is_pending_rebalance: bool) -> list[TradingCollectionVersion]:
-        profile_id = portfolio.profile_id
-        trading_account_id = self._get_trading_account_id(portfolio)
-
-        trading_collection_versions = []
-
-        for trading_collection_version in self.repo.iterate_trading_collection_versions(
-                profile_id=profile_id,
-                trading_account_id=trading_account_id,
-                status=TradingOrderStatus.PENDING):
-            start_time = time.time()
-
-            logger.info(
-                "Reconfiguring collection holdings %s for profile %d account %d, collections %s in %fs",
-                trading_collection_version.id,
-                profile_id,
-                trading_account_id,
-                trading_collection_version.collection_id,
-                time.time() - start_time,
-                extra={"profile_id": profile_id})
-
-            try:
-                self.provider.reconfigure_collection_holdings(
-                    portfolio, trading_collection_version,
-                    is_pending_rebalance)
-                is_pending_rebalance = True
-
-                trading_collection_versions.append(trading_collection_version)
-                trading_collection_version.status = TradingOrderStatus.PENDING_EXECUTION
-                trading_collection_version.pending_execution_since = datetime.datetime.now(
-                )
-                self.repo.persist(trading_collection_version)
-            except InsufficientFundsException as e:
-                logger.info(
-                    "Skipping trading_collection_version %s for profile %d account %d, collections %s: %s",
-                    trading_collection_version.id,
-                    profile_id,
-                    trading_account_id,
-                    trading_collection_version.collection_id,
-                    e.__class__.__name__,
-                    extra={"profile_id": profile_id})
-                # let it stay pending until there are money on the account
-                continue
-            except DriveWealthApiException as e:
-                logger.exception(e)
-
-        return trading_collection_versions
-
-    def rebalance_existing_funds(self, portfolio: DriveWealthPortfolio,
-                                 is_pending_rebalance: True) -> bool:
+    def rebalance_existing_funds(self,
+                                 portfolio: DriveWealthPortfolio) -> bool:
         """
         Automatically change portfolio weights according to the new collection weights
         :param portfolio: DriveWealthPortfolio
@@ -227,11 +176,11 @@ class RebalancePortfoliosJob:
 
                 if fund.trading_collection_version_id:
                     result = self.rebalance_existing_collection_fund(
-                        portfolio, fund, is_pending_rebalance)
+                        portfolio, fund)
                     portfolio_changed = portfolio_changed or result
                 if fund.trading_order_id:
                     result = self.rebalance_existing_ticker_fund(
-                        portfolio, fund, is_pending_rebalance)
+                        portfolio, fund)
                     portfolio_changed = portfolio_changed or result
         except DriveWealthApiException as e:
             logger.exception(e)
@@ -253,44 +202,41 @@ class RebalancePortfoliosJob:
             raise Exception('drivewealth_account not found')
         return drivewealth_account.trading_account_id
 
-    def force_rebalance(
-            self, portfolio: DriveWealthPortfolio,
-            trading_collection_versions: list[TradingCollectionVersion],
-            trading_orders: list[TradingOrder]):
+    def force_rebalance(self, portfolios: list[DriveWealthPortfolio]):
         try:
             data = self.provider.api.create_autopilot_run(
-                [portfolio.drivewealth_account_id])
+                [portfolio.drivewealth_account_id for portfolio in portfolios])
 
             d = dateutil.parser.parse(data["created"])
             d -= datetime.timedelta(microseconds=d.microsecond)
-            portfolio.waiting_rebalance_since = d
-            self.repo.persist(portfolio)
-
-            for trading_collection_version in trading_collection_versions:
-                trading_collection_version.pending_execution_since = d
-            self.repo.persist(trading_collection_versions)
-            for trading_order in trading_orders:
-                trading_order.pending_execution_since = d
-            self.repo.persist(trading_orders)
+            for portfolio in portfolios:
+                portfolio.waiting_rebalance_since = d
+            self.repo.persist(portfolios)
 
             logger.info("Forced portfolio rebalance",
                         extra={
-                            "portfolio_red_id": portfolio.ref_id,
-                            "profile_id": portfolio.profile_id,
-                            "data": data,
+                            "portfolios":
+                            [portfolio.ref_id for portfolio in portfolios],
+                            "profile_ids":
+                            [portfolio.profile_id for portfolio in portfolios],
+                            "data":
+                            data,
                         })
         except DriveWealthApiException as e:
             logger.info("Failed to force portfolio rebalance",
                         extra={
-                            "profile_id": portfolio.profile_id,
-                            "e": e,
+                            "portfolios":
+                            [portfolio.ref_id for portfolio in portfolios],
+                            "profile_ids":
+                            [portfolio.profile_id for portfolio in portfolios],
+                            "e":
+                            e,
                         })
             pass
 
     def rebalance_existing_collection_fund(self,
                                            portfolio: DriveWealthPortfolio,
-                                           fund: DriveWealthFund,
-                                           is_pending_rebalance: bool) -> bool:
+                                           fund: DriveWealthFund) -> bool:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -345,14 +291,13 @@ class RebalancePortfoliosJob:
             weights=weights,
             last_optimization_at=collection_last_optimization_at)
 
-        self.provider.reconfigure_collection_holdings(
-            portfolio, trading_collection_version, is_pending_rebalance)
+        self.provider.execute_order_in_portfolio(portfolio,
+                                                 trading_collection_version)
 
         return True
 
     def rebalance_existing_ticker_fund(self, portfolio: DriveWealthPortfolio,
-                                       fund: DriveWealthFund,
-                                       is_pending_rebalance: bool) -> bool:
+                                       fund: DriveWealthFund) -> bool:
         logging_extra = {
             "profile_id": portfolio.profile_id,
             "fund_ref_id": fund.ref_id,
@@ -376,8 +321,7 @@ class RebalancePortfoliosJob:
             trading_account_id,
             target_amount_delta_relative=Decimal(-1))
 
-        self.provider.execute_order_in_portfolio(portfolio, trading_order,
-                                                 is_pending_rebalance)
+        self.provider.execute_order_in_portfolio(portfolio, trading_order)
         return True
 
 
