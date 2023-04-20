@@ -30,10 +30,6 @@ class DriveWealthProviderRebalanceHelper:
         if isinstance(trading_order, TradingCollectionVersion):
             collection_id = trading_order.collection_id
             weights = trading_order.weights
-            if not weights:
-                weights, _ = self.trading_repository.get_collection_actual_weights(
-                    collection_id)
-            weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
 
             fund = self.repository.get_profile_fund(
                 profile_id, collection_id=collection_id)
@@ -42,6 +38,11 @@ class DriveWealthProviderRebalanceHelper:
             if fund and trading_order.weights:
                 fund.weights = weights
                 repository.persist(fund)
+
+            if not fund and not trading_order.weights:
+                weights, _ = self.trading_repository.get_collection_actual_weights(
+                    collection_id)
+                weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
 
         elif isinstance(trading_order, TradingOrder):
             symbol = trading_order.symbol
