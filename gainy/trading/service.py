@@ -98,11 +98,11 @@ class TradingService:
                                   target_amount_delta_relative: Decimal = None,
                                   last_optimization_at: datetime.date = None):
 
-        if not weights:
-            weights, last_optimization_at = self.trading_repository.get_collection_actual_weights(
+        if weights:
+            weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
+        else:
+            _, last_optimization_at = self.trading_repository.get_collection_actual_weights(
                 collection_id)
-
-        weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
 
         if target_amount_delta_relative:
             if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
