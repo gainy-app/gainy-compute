@@ -19,10 +19,13 @@ from gainy.billing.stripe.repository import StripeRepository
 from gainy.data_access.repository import Repository
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
 from gainy.plaid.service import PlaidService
+from gainy.queue_processing.aws_message_handler import AwsMessageHandler
+from gainy.queue_processing.dispatcher import QueueMessageDispatcher
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.serivce import RecommendationService
 from gainy.services.notification import NotificationService
 from gainy.services.sendgrid import SendGridService
+from gainy.trading.drivewealth.queue_message_handler import DriveWealthQueueMessageHandler
 from gainy.trading.service import TradingService
 from gainy.trading.repository import TradingRepository
 from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository, DriveWealthApi
@@ -150,6 +153,7 @@ class ContextContainer(AbstractContextManager):
         return DriveWealthProvider(self.drivewealth_repository,
                                    self.drivewealth_api,
                                    self.trading_repository,
+                                   self.notification_service,
                                    self.analytics_service)
 
     # trading
@@ -161,3 +165,22 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def trading_repository(self):
         return TradingRepository(self.db_conn)
+
+    # queues
+    @cached_property
+    def drivewealth_queue_message_handler(
+            self) -> DriveWealthQueueMessageHandler:
+        return DriveWealthQueueMessageHandler(self.drivewealth_repository,
+                                              self.drivewealth_provider,
+                                              self.trading_repository,
+                                              self.analytics_service,
+                                              self.notification_service)
+
+    @cached_property
+    def aws_message_handler(self) -> AwsMessageHandler:
+        return AwsMessageHandler()
+
+    @cached_property
+    def queue_message_dispatcher(self) -> QueueMessageDispatcher:
+        return QueueMessageDispatcher(
+            [self.drivewealth_queue_message_handler, self.aws_message_handler])

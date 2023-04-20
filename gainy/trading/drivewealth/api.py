@@ -9,13 +9,13 @@ from backoff import full_jitter
 from gainy.data_access.db_lock import LockAcquisitionTimeout
 from gainy.data_access.models import DecimalEncoder
 from gainy.trading.drivewealth.config import DRIVEWEALTH_APP_KEY, DRIVEWEALTH_RIA_ID, DRIVEWEALTH_API_USERNAME, \
-    DRIVEWEALTH_API_PASSWORD, DRIVEWEALTH_API_URL
+    DRIVEWEALTH_API_PASSWORD, DRIVEWEALTH_API_URL, DRIVEWEALTH_RIA_PRODUCT_ID
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund, \
     DriveWealthAccount, DriveWealthBankAccount, DriveWealthRedemption
 from gainy.trading.drivewealth.repository import DriveWealthRepository
-from gainy.utils import get_logger
+from gainy.utils import get_logger, ENV_PRODUCTION, env
 
 logger = get_logger(__name__)
 
@@ -58,6 +58,20 @@ class DriveWealthApi:
         entity.set_from_response(response)
         return entity
 
+    def get_redemption(self, redemption_id):
+        return self._make_request("GET",
+                                  f"/funding/redemptions/{redemption_id}")
+
+    def update_redemption(self, redemption: DriveWealthRedemption,
+                          status: str):
+        data = self._make_request("PATCH",
+                                  f"/funding/redemptions/{redemption.ref_id}",
+                                  {
+                                      'status': status,
+                                      'statusComment': 'Updated by Gainy',
+                                  })
+        redemption.set_from_response(data)
+
     def get_countries(self, status: str = None):
         get_data = {}
         if status:
@@ -65,6 +79,20 @@ class DriveWealthApi:
         return self._make_request("GET", "/countries", get_data=get_data)
 
     # Accounts
+
+    def create_account(self, user_id: str):
+        params = {
+            "userID": user_id,
+            "accountType": "LIVE",
+            "accountManagementType": "RIA_MANAGED",
+            "tradingType": "CASH",
+            "riaUserID": DRIVEWEALTH_RIA_ID,
+            "riaProductID": DRIVEWEALTH_RIA_PRODUCT_ID,
+        }
+        if env() != ENV_PRODUCTION:
+            params["ignoreMarketHoursForTest"] = True
+
+        return self._make_request("POST", "/accounts", params)
 
     def get_account(self, account_id: str):
         return self._make_request("GET", f"/accounts/{account_id}")["account"]
