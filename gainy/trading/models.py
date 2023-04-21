@@ -38,6 +38,7 @@ class FundingAccount(BaseModel):
     name = None
     balance = None
     mask: str = None
+    needs_reauth: bool = None
     created_at = None
     updated_at = None
 
