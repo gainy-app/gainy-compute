@@ -660,6 +660,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         old_cash_weight = cash_weight = self.cash_target_weight
         funds_weight_sum = 1 - self.cash_target_weight
 
+        if funds_weight_sum < PRECISION:
+            return
+
         if cash_weight + weight_delta < -PRECISION:
             raise Exception('cash weight can not be negative')
         if cash_weight + weight_delta > 1 + PRECISION:
@@ -670,9 +673,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         self.cash_target_weight = min(ONE, max(ZERO, cash_weight))
         logger.debug('Change cash weight from %f to %f', old_cash_weight,
                      self.cash_target_weight)
-
-        if funds_weight_sum < PRECISION:
-            return
 
         for fund_ref_id in self.holdings.keys():
             old_fund_weight = fund_weight = self.get_fund_weight(fund_ref_id)
@@ -1032,10 +1032,8 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
 
     def update_payment_transaction(self,
                                    payment_transaction: PaymentTransaction):
-        if self.is_pending():
+        if self.is_pending() or self.is_approved():
             status = PaymentTransactionStatus.PENDING
-        elif self.is_approved():
-            status = PaymentTransactionStatus.PENDING_WITHDRAWN
         elif self.is_successful():
             status = PaymentTransactionStatus.SUCCESS
         else:
