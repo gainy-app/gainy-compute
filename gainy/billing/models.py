@@ -20,7 +20,6 @@ class PaymentMethodProvider(str, Enum):
 
 class PaymentTransactionStatus(str, Enum):
     PENDING = 'PENDING'
-    PENDING_WITHDRAWN = 'PENDING_WITHDRAWN'  # money has been charged, but hasn't arrived
     REQUIRES_AUTHENTICATION = 'REQUIRES_AUTHENTICATION'
     SUCCESS = 'SUCCESS'
     FAILED = 'FAILED'
