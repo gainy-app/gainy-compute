@@ -70,8 +70,8 @@ class IndustryAssignmentRunner:
         ]].groupby("industry_id").count()
         industry_counts.reset_index(inplace=True)
 
-        selected_industry_counts = industry_counts[
-            industry_counts["symbol"] >= n_splits]
+        selected_industry_counts = industry_counts[industry_counts["symbol"] >=
+                                                   n_splits]
         selected_industries = selected_industry_counts[["industry_id"]]
 
         tickers_with_industries = tickers_with_industries.merge(
