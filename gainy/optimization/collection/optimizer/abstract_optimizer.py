@@ -95,8 +95,8 @@ class AbstractCollectionOptimizer(ABC):
 
             coef = LinearRegression(fit_intercept=True).fit(X, y).coef_[0]
             truncate = (-3, 3)  # Truncate betas in case of crazy numbers
-            coef = truncate[0] if coef < truncate[0] else truncate[
-                1] if coef > truncate[1] else coef
+            coef = truncate[0] if coef < truncate[
+                0] else truncate[1] if coef > truncate[1] else coef
             betas[ticker] = coef
 
         logger.info('betas', extra={"betas": betas})
