@@ -7,8 +7,6 @@ from gainy.queue_processing.abstract_event_handler import EventHandlerInterface
 from gainy.queue_processing.exceptions import UnsupportedMessageException
 from gainy.queue_processing.interfaces import QueueMessageHandlerInterface
 
-AWS_EVENTS_SQS_ARN = os.getenv("AWS_EVENTS_SQS_ARN")
-
 
 class AbstractMessageHandler(QueueMessageHandlerInterface, ABC):
     handlers: List[EventHandlerInterface]
