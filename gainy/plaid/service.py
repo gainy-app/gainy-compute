@@ -1,3 +1,4 @@
+import datetime
 import json
 
 from gainy.plaid.client import PlaidClient
@@ -32,6 +33,26 @@ class PlaidService:
         except plaid.ApiException as e:
             self._handle_api_exception(e, access_token)
 
+    def set_access_token_reauth(self,
+                                access_token: PlaidAccessToken,
+                                needs_reauth: bool = True):
+        query = """
+            update app.profile_plaid_access_tokens set needs_reauth_since = %(needs_reauth_since)s where id = %(access_token_id)s;
+            update app.trading_funding_accounts set needs_reauth = %(needs_reauth)s where plaid_access_token_id = %(access_token_id)s;
+        """
+        params = {
+            "access_token_id":
+            access_token.id,
+            "needs_reauth_since":
+            datetime.datetime.now(
+                tz=datetime.timezone.utc) if needs_reauth else None,
+            "needs_reauth":
+            needs_reauth,
+        }
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+
     def _handle_api_exception(self, exc: plaid.ApiException,
                               access_token: PlaidAccessToken):
 
@@ -43,14 +64,8 @@ class PlaidService:
             body = {}
 
         if body.get("error_code") == "ITEM_LOGIN_REQUIRED":
-            self._set_access_token_reauth(access_token)
+            self.set_access_token_reauth(access_token)
             raise AccessTokenLoginRequiredException(exc,
                                                     access_token.to_dict())
 
         raise AccessTokenApiException(exc, access_token.to_dict())
-
-    def _set_access_token_reauth(self, access_token: PlaidAccessToken):
-        with self.db_conn.cursor() as cursor:
-            cursor.execute(
-                "update app.profile_plaid_access_tokens set needs_reauth_since = now() where id = %(access_token_id)s",
-                {"access_token_id": access_token.id})
