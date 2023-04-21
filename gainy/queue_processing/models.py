@@ -17,6 +17,7 @@ class QueueMessage(BaseModel, ResourceVersion):
     created_at: datetime.datetime = None
     updated_at: datetime.datetime = None
     version: int = 0
+    retries: int = 0
 
     key_fields = ["id"]
 
