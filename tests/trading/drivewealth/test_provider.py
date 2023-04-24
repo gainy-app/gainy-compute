@@ -299,9 +299,6 @@ def test_ensure_portfolio(monkeypatch):
 def test_send_portfolio_to_api(monkeypatch):
     portfolio = DriveWealthPortfolio()
     portfolio.set_from_response(PORTFOLIO)
-    set_pending_rebalance_calls = []
-    monkeypatch.setattr(portfolio, "set_pending_rebalance",
-                        mock_record_calls(set_pending_rebalance_calls))
 
     drivewealth_repository = DriveWealthRepository(None)
     persisted_objects = {}
@@ -331,7 +328,6 @@ def test_send_portfolio_to_api(monkeypatch):
     provider = DriveWealthProvider(drivewealth_repository, api, None, None)
     provider.send_portfolio_to_api(portfolio)
 
-    assert len(set_pending_rebalance_calls) == 1
     assert portfolio in [args[0] for args, kwargs in update_portfolio_calls]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
     assert set(funds) == set([args[0] for args, kwargs in update_fund_calls])

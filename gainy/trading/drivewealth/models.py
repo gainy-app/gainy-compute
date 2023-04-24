@@ -791,10 +791,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     def table_name(self) -> str:
         return "drivewealth_portfolios"
 
-    def set_pending_rebalance(self):
-        self.waiting_rebalance_since = datetime.datetime.now(
-            tz=datetime.timezone.utc)
-
     def update_from_status(self, portfolio_status: DriveWealthPortfolioStatus):
         if self.last_rebalance_at:
             self.last_rebalance_at = max(

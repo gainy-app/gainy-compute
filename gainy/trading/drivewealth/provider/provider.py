@@ -230,7 +230,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         trading_order.status = TradingOrderStatus.PENDING_EXECUTION
         trading_order.pending_execution_since = datetime.datetime.now()
         self.repository.persist(trading_order)
-        portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
     def ensure_portfolio(self, profile_id, trading_account_id):
@@ -276,7 +275,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         portfolio.normalize_weights()
         self.api.update_portfolio(portfolio)
-        portfolio.set_pending_rebalance()
         self.repository.persist(portfolio)
 
     def sync_account_money(self,

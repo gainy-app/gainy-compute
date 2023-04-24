@@ -286,34 +286,24 @@ class RebalancePortfoliosJob:
         return drivewealth_account.trading_account_id
 
     def _force_rebalance(self, portfolios: list[DriveWealthPortfolio]):
+        logger_extra = {
+            "portfolios": [portfolio.ref_id for portfolio in portfolios],
+            "profile_ids": [portfolio.profile_id for portfolio in portfolios],
+        }
         try:
             data = self.provider.api.create_autopilot_run(
                 [portfolio.drivewealth_account_id for portfolio in portfolios])
 
-            d = dateutil.parser.parse(data["created"])
-            d -= datetime.timedelta(microseconds=d.microsecond)
-            for portfolio in portfolios:
-                portfolio.waiting_rebalance_since = d
-            self.repo.persist(portfolios)
-
             logger.info("Forced portfolio rebalance",
                         extra={
-                            "portfolios":
-                            [portfolio.ref_id for portfolio in portfolios],
-                            "profile_ids":
-                            [portfolio.profile_id for portfolio in portfolios],
-                            "data":
-                            data,
+                            **logger_extra,
+                            "data": data,
                         })
         except DriveWealthApiException as e:
             logger.info("Failed to force portfolio rebalance",
                         extra={
-                            "portfolios":
-                            [portfolio.ref_id for portfolio in portfolios],
-                            "profile_ids":
-                            [portfolio.profile_id for portfolio in portfolios],
-                            "e":
-                            e,
+                            **logger_extra,
+                            "e": e,
                         })
             pass
 
