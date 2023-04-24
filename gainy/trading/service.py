@@ -50,7 +50,13 @@ class TradingService:
         for plaid_access_token_id, funding_accounts in by_at_id.items():
             access_token: PlaidAccessToken = self.trading_repository.find_one(
                 PlaidAccessToken, {"id": plaid_access_token_id})
+
+            for funding_account in funding_accounts:
+                funding_account.needs_reauth = bool(
+                    access_token.needs_reauth_since)
+
             if access_token.needs_reauth_since:
+                self.trading_repository.persist(funding_accounts)
                 continue
 
             funding_accounts_by_account_id: Dict[int, FundingAccount] = {
@@ -85,8 +91,7 @@ class TradingService:
                                 for plaid_account in plaid_accounts
                             ],
                         })
-            self.trading_repository.persist(
-                funding_accounts_by_account_id.values())
+            self.trading_repository.persist(funding_accounts)
 
     def create_collection_version(self,
                                   profile_id: int,
