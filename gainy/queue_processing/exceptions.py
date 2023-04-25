@@ -1,0 +1,2 @@
+class UnsupportedMessageException(Exception):
+    pass

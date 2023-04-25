@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gainy-compute"
-version = "0.5.28"
+version = "0.5.29"
 description = "All stuff related to data computations and ML models in Python"
 authors = [
     "Vasilii Khomutov <vasilii@gainy.app>",
@@ -30,6 +30,7 @@ amplitude-analytics = "^1.1.1"
 pytz = "^2022.7.1"
 sendgrid = "^6.9.7"
 appsflyer = "^0.1.0"
+slack-sdk = "^3.21.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"
@@ -57,3 +58,4 @@ gainy_charge_invoices = "gainy.billing.jobs.charge_invoices:cli"
 # Misc
 gainy_github_update_file = "gainy.github.update_file_job:cli"
 gainy_sync_profiles_analytics_attributes = "gainy.analytics.jobs.sync_profiles_attributes:cli"
+gainy_rehandle_failed_events = "gainy.queue_processing.jobs.rehandle_failed_events:cli"

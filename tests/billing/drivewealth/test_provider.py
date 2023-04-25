@@ -3,9 +3,9 @@ from _decimal import Decimal
 import pytest
 
 from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
-from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, PaymentTransactionStatus
+from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction
 
-from gainy.tests.mocks.repository_mocks import mock_persist as base_mock_persist, mock_find, mock_record_calls
+from gainy.tests.mocks.repository_mocks import mock_persist as base_mock_persist, mock_find
 from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
 from gainy.trading.drivewealth.config import DRIVEWEALTH_HOUSE_ACCOUNT_NO
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthRedemption, DriveWealthAccountMoney, \
@@ -73,7 +73,7 @@ def test_charge(monkeypatch, is_pending_rebalance, sufficient_funds):
 
     redemption = DriveWealthRedemption()
 
-    provider = DriveWealthProvider(None, None, None, None)
+    provider = DriveWealthProvider(None, None, None, None, None)
 
     def mock_ensure_portfolio(_profile_id, _trading_account_id):
         assert _profile_id == profile_id

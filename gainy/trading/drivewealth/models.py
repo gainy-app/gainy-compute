@@ -12,7 +12,9 @@ import pytz
 from gainy.billing.models import PaymentTransaction, PaymentTransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
-from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount
+from gainy.trading.drivewealth.provider.misc import normalize_symbol
+from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount, \
+    ProfileKycStatus, KycStatus, TradingStatementType
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -1047,3 +1049,136 @@ class DriveWealthRedemption(BaseDriveWealthMoneyFlowModel):
             return Decimal(self.data["amount"])
 
         return None
+
+
+class DriveWealthKycStatus:
+    data = None
+
+    def __init__(self, data: dict):
+        self.data = data
+
+    def get_profile_kyc_status(self) -> ProfileKycStatus:
+        kyc = self.data["kyc"]
+        kyc_status = self.map_dw_kyc_status(kyc["status"]["name"])
+        message = kyc["status"].get("name") or kyc.get("statusComment")
+
+        errors = kyc.get("errors", [])
+        error_messages = list(map(lambda e: e['description'], errors))
+
+        entity = ProfileKycStatus()
+        entity.status = kyc_status
+        entity.message = message
+        entity.error_messages = error_messages
+        entity.created_at = dateutil.parser.parse(kyc["updated"])
+        return entity
+
+    @staticmethod
+    def map_dw_kyc_status(kyc_status):
+        if kyc_status == "KYC_NOT_READY":
+            return KycStatus.NOT_READY
+        if kyc_status == "KYC_READY":
+            return KycStatus.READY
+        if kyc_status == "KYC_PROCESSING":
+            return KycStatus.PROCESSING
+        if kyc_status == "KYC_APPROVED":
+            return KycStatus.APPROVED
+        if kyc_status == "KYC_INFO_REQUIRED":
+            return KycStatus.INFO_REQUIRED
+        if kyc_status == "KYC_DOC_REQUIRED":
+            return KycStatus.DOC_REQUIRED
+        if kyc_status == "KYC_MANUAL_REVIEW":
+            return KycStatus.MANUAL_REVIEW
+        if kyc_status == "KYC_DENIED":
+            return KycStatus.DENIED
+        raise Exception('Unknown kyc status %s' % kyc_status)
+
+
+class DriveWealthOrder(BaseDriveWealthModel):
+    ref_id = None
+    status = None  # NEW, PARTIAL_FILL, CANCELLED, REJECTED, FILLED
+    account_id = None
+    symbol = None
+    symbol_normalized = None
+    data = None
+    last_executed_at = None
+    total_order_amount_normalized: Decimal = None
+    date: datetime.date = None
+    created_at = None
+    updated_at = None
+
+    key_fields = ["ref_id"]
+
+    db_excluded_fields = ["created_at", "updated_at"]
+    non_persistent_fields = ["created_at", "updated_at"]
+
+    def set_from_response(self, data: dict = None):
+        if not data:
+            return
+        self.ref_id = data["id"]
+        self.status = data["status"]
+        self.account_id = data["accountID"]
+        self.symbol = data["symbol"]
+        self.symbol_normalized = normalize_symbol(data["symbol"])
+        if "lastExecuted" in data:
+            self.last_executed_at = dateutil.parser.parse(data["lastExecuted"])
+            self.date = self.last_executed_at.astimezone(
+                pytz.timezone('America/New_York')).date()
+        self.total_order_amount_normalized = abs(
+            Decimal(data['totalOrderAmount'])) * (-1 if data['side'] == 'SELL'
+                                                  else 1)
+        self.data = data
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_orders"
+
+    def is_filled(self) -> bool:
+        return self.status == "FILLED"
+
+    def is_rejected(self):
+        return self.status == "REJECTED"
+
+
+class DriveWealthStatement(BaseDriveWealthModel):
+    file_key: str = None
+    trading_statement_id: int = None
+    type: TradingStatementType = None
+    display_name: str = None
+    account_id: str = None
+    user_id: str = None
+    created_at: datetime.datetime = None
+
+    key_fields = ["account_id", "type", "file_key"]
+
+    db_excluded_fields = ["created_at"]
+    non_persistent_fields = ["created_at"]
+
+    def set_from_dict(self, row: dict = None):
+        super().set_from_dict(row)
+
+        if row and row["type"]:
+            self.type = TradingStatementType(row["type"])
+        return self
+
+    def set_from_response(self, data: dict = None):
+        if not data:
+            return
+        self.display_name = data["displayName"]
+        self.file_key = data["fileKey"]
+        self.data = data
+
+    @classproperty
+    def table_name(self) -> str:
+        return "drivewealth_statements"
+
+    @property
+    def date(self) -> Optional[datetime.date]:
+        if not self.file_key:
+            return None
+
+        try:
+            return datetime.datetime.strptime(self.file_key[:8],
+                                              "%Y%m%d").date()
+        except Exception as e:
+            logger.exception(e, extra={"file_key": self.file_key})
+            return None

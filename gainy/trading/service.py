@@ -12,7 +12,7 @@ from gainy.plaid.service import PlaidService
 from gainy.trading.drivewealth.models import PRECISION
 from gainy.trading.exceptions import InsufficientFundsException, InsufficientHoldingValueException
 from gainy.trading.repository import TradingRepository
-from gainy.trading.drivewealth.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
     TradingOrderStatus, TradingOrderSource, TradingOrder
 from gainy.utils import get_logger

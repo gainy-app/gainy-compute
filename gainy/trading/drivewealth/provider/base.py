@@ -1,4 +1,3 @@
-import regex
 from decimal import Decimal
 
 import datetime
@@ -7,11 +6,13 @@ from typing import List, Iterable, Dict, Optional
 from gainy.analytics.service import AnalyticsService
 from gainy.data_access.operators import OperatorNot, OperatorIn
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
+from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
     PRECISION
+from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
     AbstractTradingOrder
@@ -23,23 +24,18 @@ logger = get_logger(__name__)
 DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
 
 
-# also in https://github.com/gainy-app/gainy-app/blob/main/src/meltano/meltano/seed/00_functions.sql
-# also in https://github.com/gainy-app/gainy-compute/blob/main/fixtures/functions.sql
-def normalize_symbol(s: str):
-    s = regex.sub(r'\.([AB])$', '-\\1', s)
-    return regex.sub(r'\.(.*)$', '', s)
-
-
 class DriveWealthProviderBase:
     repository: DriveWealthRepository = None
     trading_repository: TradingRepository = None
 
     def __init__(self, repository: DriveWealthRepository, api: DriveWealthApi,
                  trading_repository: TradingRepository,
+                 notification_service: NotificationService,
                  analytics_service: AnalyticsService):
         self.repository = repository
         self.trading_repository = trading_repository
         self.api = api
+        self.notification_service = notification_service
         self.analytics_service = analytics_service
 
     def sync_portfolios(self, profile_id: int, force: bool = False):
