@@ -104,11 +104,13 @@ class TradingService:
                                   last_optimization_at: datetime.date = None):
 
         if weights:
-            weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
+            # todo mark the newly created collection_version for rebalance job to take these weights into account
+            pass
         else:
-            weights = None
-            _, last_optimization_at = self.trading_repository.get_collection_actual_weights(
+            weights, last_optimization_at = self.trading_repository.get_collection_actual_weights(
                 collection_id)
+
+        weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
 
         if target_amount_delta_relative:
             if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
