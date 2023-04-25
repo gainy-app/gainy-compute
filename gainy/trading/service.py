@@ -106,6 +106,7 @@ class TradingService:
         if weights:
             weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
         else:
+            weights = None
             _, last_optimization_at = self.trading_repository.get_collection_actual_weights(
                 collection_id)
 
