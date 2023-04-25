@@ -1,3 +1,4 @@
+import os
 from math import trunc
 from typing import Iterable, List, Any
 import logging
@@ -9,6 +10,9 @@ import psycopg2
 from psycopg2._psycopg import connection
 import numpy as np
 from pythonjsonlogger import jsonlogger
+
+PUBLIC_SCHEMA_NAME = os.getenv('PUBLIC_SCHEMA_NAME') or os.getenv(
+    "DBT_TARGET_SCHEMA")
 
 DATE_ISO8601_FORMAT = '%Y-%m-%d'
 DATETIME_ISO8601_FORMAT = '%Y-%m-%dT%H:%M:%S'
@@ -117,15 +121,11 @@ def current_version() -> str:
 
 
 def db_connect() -> connection:
-    import os
-
     HOST = os.getenv("PG_HOST")
     PORT = os.getenv("PG_PORT")
     USERNAME = os.getenv("PG_USERNAME")
     PASSWORD = os.getenv("PG_PASSWORD")
     DB_NAME = os.getenv('PG_DBNAME')
-    PUBLIC_SCHEMA_NAME = os.getenv('PUBLIC_SCHEMA_NAME') or os.getenv(
-        "DBT_TARGET_SCHEMA")
 
     if not PUBLIC_SCHEMA_NAME or not HOST or not PORT or not DB_NAME or not USERNAME or not PASSWORD:
         raise Exception('Missing db connection env variables')

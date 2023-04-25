@@ -6,7 +6,7 @@ import pandas as pd
 from psycopg2._psycopg import connection
 from psycopg2.extras import RealDictCursor
 
-from gainy.trading.drivewealth.provider.base import normalize_symbol
+from gainy.trading.drivewealth.provider.misc import normalize_symbol
 
 
 class CollectionOptimizerRepository:

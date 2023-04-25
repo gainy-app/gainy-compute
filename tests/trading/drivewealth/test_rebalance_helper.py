@@ -12,11 +12,10 @@ from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthInstrument, DriveWealthPortfolioStatus, PRECISION
-from gainy.trading.drivewealth.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
 
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthFund
-from gainy.trading.repository import TradingRepository
 
 _FUND_WEIGHTS = {
     "symbol_B": Decimal(0.3),
@@ -72,7 +71,7 @@ def get_test_upsert_fund_types():
 
 @pytest.mark.parametrize("fund_exists", get_test_upsert_fund_fund_exists())
 @pytest.mark.parametrize("type", get_test_upsert_fund_types())
-def test_upsert_fund(fund_exists, type, monkeypatch):
+def test_ensure_fund(fund_exists, type, monkeypatch):
     profile_id = 1
     trading_collection_version_id = 3
     trading_order_id = 4
@@ -153,7 +152,8 @@ def test_upsert_fund(fund_exists, type, monkeypatch):
     trading_order.weights = weights
     trading_order.target_amount_delta = Decimal(0)
 
-    provider = DriveWealthProvider(drivewealth_repository, api, None, None)
+    provider = DriveWealthProvider(drivewealth_repository, api, None, None,
+                                   None)
     helper = DriveWealthProviderRebalanceHelper(provider, None)
     _mock_get_instrument(monkeypatch, drivewealth_repository)
     fund = helper.ensure_fund(profile_id, trading_order)
@@ -174,7 +174,8 @@ def test_generate_new_fund_holdings(monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     api = DriveWealthApi(None)
 
-    provider = DriveWealthProvider(drivewealth_repository, api, None, None)
+    provider = DriveWealthProvider(drivewealth_repository, api, None, None,
+                                   None)
     helper = DriveWealthProviderRebalanceHelper(provider, None)
     fund = DriveWealthFund()
     monkeypatch.setattr(DriveWealthFund, "holdings", _FUND_HOLDINGS)
@@ -216,7 +217,8 @@ def test_handle_cash_amount_change_ok(amount, monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
 
-    provider = DriveWealthProvider(drivewealth_repository, None, None, None)
+    provider = DriveWealthProvider(drivewealth_repository, None, None, None,
+                                   None)
 
     def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
@@ -275,7 +277,8 @@ def test_handle_cash_amount_change_ok_relative(type, monkeypatch):
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
 
-    provider = DriveWealthProvider(drivewealth_repository, None, None, None)
+    provider = DriveWealthProvider(drivewealth_repository, None, None, None,
+                                   None)
 
     def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio
@@ -316,7 +319,8 @@ def test_handle_cash_amount_change_ko(amount, monkeypatch):
     monkeypatch.setattr(drivewealth_repository, "portfolio_has_pending_orders",
                         lambda portfolio: False)
 
-    provider = DriveWealthProvider(drivewealth_repository, None, None, None)
+    provider = DriveWealthProvider(drivewealth_repository, None, None, None,
+                                   None)
 
     def mock_sync_portfolio_status(_portfolio):
         assert _portfolio == portfolio

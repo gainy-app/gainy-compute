@@ -1,4 +1,4 @@
-from gainy.trading.drivewealth.provider.base import normalize_symbol
+from gainy.trading.drivewealth.provider.misc import normalize_symbol
 
 
 def test_normalize_symbol():

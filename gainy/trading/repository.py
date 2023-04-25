@@ -7,10 +7,10 @@ import datetime
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Any, Tuple, Iterable, Optional
 
-from gainy.billing.models import Invoice, PaymentTransaction, InvoiceStatus, PaymentTransactionStatus
 from gainy.data_access.operators import OperatorLte, OperatorIn
 from gainy.data_access.repository import Repository
-from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, AbstractTradingOrder
+from gainy.exceptions import NotFoundException
+from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, ProfileKycStatus, KycForm, AbstractTradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -288,3 +288,19 @@ class TradingRepository(Repository):
             return row[0]
 
         return None
+
+    def get_actual_kyc_status(self, profile_id: int) -> ProfileKycStatus:
+        status = self.find_one(ProfileKycStatus, {"profile_id": profile_id},
+                               order_by=[("created_at", "desc")])
+        if status:
+            return status
+
+        raise NotFoundException()
+
+    def update_kyc_form(self, profile_id: int, status: str):
+        entity: KycForm = self.find_one(KycForm, {"profile_id": profile_id})
+        if not entity:
+            return
+
+        entity.status = status
+        self.persist(entity)
