@@ -1,4 +1,5 @@
-from gainy.data_access.models import BaseModel, classproperty
+from gainy.data_access.db_lock import ResourceType
+from gainy.data_access.models import BaseModel, classproperty, ResourceVersion
 
 
 class Profile(BaseModel):
@@ -25,3 +26,42 @@ class Profile(BaseModel):
     @classproperty
     def table_name(self) -> str:
         return "profiles"
+
+
+class AbstractEntityLock(BaseModel, ResourceVersion):
+    id = None
+    class_name = None
+    object_id = None
+    version = None
+
+    key_fields = ["class_name", "object_id"]
+
+    db_excluded_fields = []
+    non_persistent_fields = ["id", "version"]
+
+    def __init__(self, cls: type, object_id):
+        self.class_name = cls.__qualname__
+        self.object_id = str(object_id)
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "abstract_entity_lock"
+
+    @property
+    def resource_type(self) -> ResourceType:
+        return ResourceType.ABSTRACT_ENTITY_LOCK
+
+    @property
+    def resource_id(self) -> int:
+        return self.id
+
+    @property
+    def resource_version(self):
+        return self.version
+
+    def update_version(self):
+        self.version += 1
