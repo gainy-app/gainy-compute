@@ -77,48 +77,7 @@ class DriveWealthProviderBase:
         portfolio_status = self._get_portfolio_status(portfolio, force=force)
         portfolio.update_from_status(portfolio_status)
         self.repository.persist(portfolio)
-        self.update_trading_collection_versions_pending_execution_from_portfolio_status(
-            portfolio_status)
-        self.update_trading_orders_pending_execution_from_portfolio_status(
-            portfolio_status)
         return portfolio_status
-
-    def update_trading_collection_versions_pending_execution_from_portfolio_status(
-            self, portfolio_status: DriveWealthPortfolioStatus):
-        if portfolio_status.last_portfolio_rebalance_at is None:
-            return
-
-        try:
-            trading_account = self._get_trading_account_by_portfolio_status(
-                portfolio_status)
-        except EntityNotFoundException:
-            return
-
-        profile_id = trading_account.profile_id
-
-        by_collection: Dict[int, list[TradingCollectionVersion]] = {}
-        for trading_collection_version in self.trading_repository.iterate_trading_collection_versions(
-                profile_id=trading_account.profile_id,
-                trading_account_id=trading_account.id,
-                status=TradingOrderStatus.PENDING_EXECUTION,
-                pending_execution_to=portfolio_status.
-                last_portfolio_rebalance_at):
-
-            collection_id = trading_collection_version.collection_id
-            if collection_id not in by_collection:
-                by_collection[collection_id] = []
-            by_collection[collection_id].append(trading_collection_version)
-
-        for collection_id, trading_collection_versions in by_collection.items(
-        ):
-            self._fill_executed_amount(profile_id,
-                                       trading_collection_versions,
-                                       portfolio_status,
-                                       collection_id=collection_id)
-            for tcv in trading_collection_versions:
-                if not tcv.is_executed():
-                    continue
-                self.analytics_service.on_order_executed(tcv)
 
     def update_trading_orders_pending_execution_from_portfolio_status(
             self, portfolio_status: DriveWealthPortfolioStatus):
@@ -133,6 +92,7 @@ class DriveWealthProviderBase:
 
         profile_id = trading_account.profile_id
 
+        by_collection: Dict[int, list[TradingCollectionVersion]] = {}
         by_symbol: Dict[str, list[TradingOrder]] = {}
         for trading_order in self.trading_repository.iterate_trading_orders(
                 profile_id=trading_account.profile_id,
@@ -141,10 +101,29 @@ class DriveWealthProviderBase:
                 pending_execution_to=portfolio_status.
                 last_portfolio_rebalance_at):
 
-            symbol = trading_order.symbol
-            if symbol not in by_symbol:
-                by_symbol[symbol] = []
-            by_symbol[symbol].append(trading_order)
+            if isinstance(trading_order, TradingCollectionVersion):
+                collection_id = trading_order.collection_id
+                if collection_id not in by_collection:
+                    by_collection[collection_id] = []
+                by_collection[collection_id].append(trading_order)
+            elif isinstance(trading_order, TradingOrder):
+                symbol = trading_order.symbol
+                if symbol not in by_symbol:
+                    by_symbol[symbol] = []
+                by_symbol[symbol].append(trading_order)
+            else:
+                raise Exception("Unsupported order class.")
+
+        for collection_id, trading_collection_versions in by_collection.items(
+        ):
+            self._fill_executed_amount(profile_id,
+                                       trading_collection_versions,
+                                       portfolio_status,
+                                       collection_id=collection_id)
+            for tcv in trading_collection_versions:
+                if not tcv.is_executed():
+                    continue
+                self.analytics_service.on_order_executed(tcv)
 
         for symbol, trading_orders in by_symbol.items():
             self._fill_executed_amount(profile_id,

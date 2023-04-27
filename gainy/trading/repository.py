@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from decimal import Decimal
 
 import datetime
@@ -5,11 +7,10 @@ import datetime
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Any, Tuple, Iterable, Optional
 
-from gainy.billing.models import Invoice, PaymentTransaction, InvoiceStatus, PaymentTransactionStatus
-from gainy.data_access.operators import OperatorLte
+from gainy.data_access.operators import OperatorLte, OperatorIn
 from gainy.data_access.repository import Repository
 from gainy.exceptions import NotFoundException
-from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, ProfileKycStatus, KycForm
+from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, ProfileKycStatus, KycForm, AbstractTradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -41,13 +42,13 @@ class TradingRepository(Repository):
 
         return weights, last_optimization_at
 
-    def iterate_trading_collection_versions(
+    def iterate_trading_orders(
         self,
         profile_id: int = None,
         trading_account_id: int = None,
-        status: TradingOrderStatus = None,
+        status: TradingOrderStatus | list[TradingOrderStatus] = None,
         pending_execution_to: datetime.datetime = None
-    ) -> Iterable[TradingCollectionVersion]:
+    ) -> Iterable[AbstractTradingOrder]:
 
         params = {}
         if profile_id:
@@ -55,32 +56,20 @@ class TradingRepository(Repository):
         if trading_account_id:
             params["trading_account_id"] = trading_account_id
         if status:
-            params["status"] = status.name
+            if isinstance(status, TradingOrderStatus):
+                params["status"] = status.name
+            elif isinstance(status, Iterable):
+                params["status"] = OperatorIn(
+                    [status.name for status in status])
+            else:
+                raise Exception('Unsupported status type ' +
+                                status.__class__.__name__)
         if pending_execution_to:
             params["pending_execution_since"] = OperatorLte(
                 pending_execution_to)
 
         yield from self.iterate_all(TradingCollectionVersion, params,
                                     [("target_amount_delta", "asc")])
-
-    def iterate_trading_orders(
-        self,
-        profile_id: int = None,
-        trading_account_id: int = None,
-        status: TradingOrderStatus = None,
-        pending_execution_to: datetime.datetime = None
-    ) -> Iterable[TradingOrder]:
-
-        params = {}
-        if profile_id:
-            params["profile_id"] = profile_id
-        if trading_account_id:
-            params["trading_account_id"] = trading_account_id
-        if status:
-            params["status"] = status.name
-        if pending_execution_to:
-            params["pending_execution_since"] = OperatorLte(
-                pending_execution_to)
 
         yield from self.iterate_all(TradingOrder, params,
                                     [("target_amount_delta", "asc")])
