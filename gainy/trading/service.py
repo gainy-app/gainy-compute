@@ -6,7 +6,7 @@ from typing import Iterable, Dict, List, Any
 
 from gainy.billing.models import Invoice, InvoiceStatus, PaymentTransaction, PaymentTransactionStatus
 from gainy.exceptions import EntityNotFoundException
-from gainy.plaid.exceptions import AccessTokenLoginRequiredException
+from gainy.plaid.exceptions import AccessTokenLoginRequiredException, InvalidAccountIdException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
 from gainy.trading.drivewealth.models import PRECISION
@@ -51,6 +51,15 @@ class TradingService:
             access_token: PlaidAccessToken = self.trading_repository.find_one(
                 PlaidAccessToken, {"id": plaid_access_token_id})
 
+            logger_extra = {
+                "profile_id":
+                access_token.profile_id,
+                "funding_accounts": [
+                    funding_account.to_dict()
+                    for funding_account in funding_accounts
+                ],
+            }
+
             for funding_account in funding_accounts:
                 funding_account.needs_reauth = bool(
                     access_token.needs_reauth_since)
@@ -68,7 +77,18 @@ class TradingService:
             try:
                 plaid_accounts = self.plaid_service.get_item_accounts_balances(
                     access_token, list(funding_accounts_by_account_id.keys()))
-            except AccessTokenLoginRequiredException:
+            except InvalidAccountIdException as e:
+                for funding_account in funding_accounts:
+                    funding_account.needs_reauth = True
+                self.trading_repository.persist(funding_accounts)
+                logger.info('update_funding_accounts_balance: %s',
+                            e,
+                            extra=logger_extra)
+                return
+            except AccessTokenLoginRequiredException as e:
+                logger.info('update_funding_accounts_balance: %s',
+                            e,
+                            extra=logger_extra)
                 continue
 
             for plaid_account in plaid_accounts:
@@ -78,19 +98,10 @@ class TradingService:
                     plaid_account.
                     account_id].balance = plaid_account.balance_current
 
-            logger.info('update_funding_accounts_balance',
-                        extra={
-                            "profile_id":
-                            access_token.profile_id,
-                            "funding_accounts": [
-                                funding_account.to_dict()
-                                for funding_account in funding_accounts
-                            ],
-                            "plaid_accounts": [
-                                plaid_account.to_dict()
-                                for plaid_account in plaid_accounts
-                            ],
-                        })
+            logger_extra["plaid_accounts"] = [
+                plaid_account.to_dict() for plaid_account in plaid_accounts
+            ]
+            logger.info('update_funding_accounts_balance', extra=logger_extra)
             self.trading_repository.persist(funding_accounts)
 
     def create_collection_version(self,
