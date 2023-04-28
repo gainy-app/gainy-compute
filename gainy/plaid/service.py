@@ -5,7 +5,7 @@ from gainy.plaid.client import PlaidClient
 
 import plaid
 
-from gainy.plaid.exceptions import AccessTokenLoginRequiredException, AccessTokenApiException
+from gainy.plaid.exceptions import AccessTokenLoginRequiredException, AccessTokenApiException, InvalidAccountIdException
 from gainy.plaid.models import PlaidAccessToken
 
 
@@ -67,5 +67,8 @@ class PlaidService:
             self.set_access_token_reauth(access_token)
             raise AccessTokenLoginRequiredException(exc,
                                                     access_token.to_dict())
+
+        if body.get("error_code") == "INVALID_ACCOUNT_ID":
+            raise InvalidAccountIdException(exc, access_token.to_dict())
 
         raise AccessTokenApiException(exc, access_token.to_dict())

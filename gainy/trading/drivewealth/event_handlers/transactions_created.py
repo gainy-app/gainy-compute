@@ -20,5 +20,6 @@ class TransactionsCreatedEventHandler(AbstractDriveWealthEventHandler):
 
         trading_account = self.sync_trading_account_balances(
             transaction.account_id, force=True)
-        if trading_account:
-            self.provider.notify_low_balance(trading_account)
+        # disabled due to no min deposit limit
+        # if trading_account:
+        #     self.provider.notify_low_balance(trading_account)
