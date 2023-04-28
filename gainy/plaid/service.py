@@ -69,6 +69,6 @@ class PlaidService:
                                                     access_token.to_dict())
 
         if body.get("error_code") == "INVALID_ACCOUNT_ID":
-            raise InvalidAccountIdException(exc)
+            raise InvalidAccountIdException(exc, access_token.to_dict())
 
         raise AccessTokenApiException(exc, access_token.to_dict())

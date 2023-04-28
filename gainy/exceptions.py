@@ -41,11 +41,7 @@ class EmailNotSentException(Exception):
 
 
 class AccountNeedsReauthException(Exception):
-
-    def __init__(self,
-                 message='You need to reconnect selected bank account.',
-                 *args):
-        super().__init__(message, *args)
+    pass
 
 
 class AccountNeedsReauthHttpException(BadRequestException):
