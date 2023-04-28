@@ -15,12 +15,6 @@ with profiles as materialized
              where tickers.type in ('preferred stock', 'common stock', 'crypto', 'etf')
                and tickers.ms_enabled
      ),
-     p_rsk as
-         (
-             select profile_id, risk_score, (risk_score::double precision - 1) / 2 as value
-             from profiles
-                      join app.profile_scoring_settings using (profile_id)
-         ),
      p_cat as
          (
              select profile_id, category_id
@@ -45,33 +39,21 @@ with profiles as materialized
              from ticker_interests
                       join tickers using (symbol)
          ),
-     t_risk_score as
-         (
-             select symbol, risk_score
-             from ticker_risk_scores
-                      join tickers using (symbol)
-         ),
-     const as
-         (
-             select *
-             from (values (3.8, 6.53, 3.38)) t ("d", "sr", "sc")
-         ),
      risk_similarity as
          (
              select profile_id,
                     symbol,
                     case
-                        when p_rsk.risk_score = 3
-                            then 1 - abs(t_risk_score.risk_score - 0.75)
-                        when p_rsk.risk_score = 2
-                            then 1 - abs(t_risk_score.risk_score - 0.5) * 1.5
-                        when p_rsk.risk_score = 1
-                            then 1 - abs(t_risk_score.risk_score - 0.25)
+                        when profile_scoring_settings.risk_score = 3
+                            then 1 - abs(ticker_risk_scores.risk_score - 0.75)
+                        when profile_scoring_settings.risk_score = 2
+                            then 1 - abs(ticker_risk_scores.risk_score - 0.5) * 1.5
+                        when profile_scoring_settings.risk_score = 1
+                            then 1 - abs(ticker_risk_scores.risk_score - 0.25)
                         end as match_comp_risk
              from profiles
-                      join p_rsk using (profile_id)
-                      join const on true
-                      left join t_risk_score on true
+                      join app.profile_scoring_settings using (profile_id)
+                      left join ticker_risk_scores on true
          ),
      category_similarity as
          (
