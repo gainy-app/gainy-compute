@@ -14,12 +14,12 @@ PORTFOLIO_STATUS_EQUITY_VALUE = Decimal(110045.62)
 FUND1_ID = "fund_b567f1d3-486e-4e5f-aacd-0d551113ebf6"
 FUND1_ACTUAL_WEIGHT = Decimal(0.3054)
 FUND1_TARGET_WEIGHT = Decimal(0.3)
-FUND1_ACTUAL_VALUE = Decimal(33604.12)
+FUND1_ACTUAL_VALUE = FUND1_ACTUAL_WEIGHT * PORTFOLIO_STATUS_EQUITY_VALUE
 FUND1_TARGET_VALUE = FUND1_ACTUAL_VALUE / FUND1_ACTUAL_WEIGHT * FUND1_TARGET_WEIGHT
 FUND2_ID = "fund_9a51b36f-faac-41a7-8c9d-b15bb29a05fc"
-FUND2_VALUE = Decimal(65440.5)
 FUND2_TARGET_WEIGHT = Decimal(0.59)
-FUND2_ACTUAL_WEIGHT = Decimal(0.5947)
+FUND2_ACTUAL_WEIGHT = Decimal(0.5946)
+FUND2_ACTUAL_VALUE = FUND2_ACTUAL_WEIGHT * PORTFOLIO_STATUS_EQUITY_VALUE
 PORTFOLIO_STATUS = {
     "id":
     PORTFOLIO_REF_ID,
@@ -52,14 +52,14 @@ PORTFOLIO_STATUS = {
             "target": 0.55,
             "actual": 0.6823,
             "openQty": 62.5213,
-            "value": 22928.9
+            "value": FUND1_ACTUAL_VALUE * Decimal(0.6823)
         }, {
             "instrumentID": "a67422af-8504-43df-9e63-7361eb0bd99e",
             "symbol": "AAPL",
             "target": 0.45,
             "actual": 0.3177,
             "openQty": 62.4942,
-            "value": 10675.22
+            "value": FUND1_ACTUAL_VALUE * Decimal(0.3177)
         }]
     }, {
         "id":
@@ -71,14 +71,14 @@ PORTFOLIO_STATUS = {
         "actual":
         FUND2_ACTUAL_WEIGHT,
         "value":
-        FUND2_VALUE,
+        FUND2_ACTUAL_VALUE,
         "holdings": [{
             "instrumentID": "a67422af-8504-43df-9e63-7361eb0bd99e",
             "symbol": "AAPL",
             "target": 1,
             "actual": 1,
             "openQty": 62.4942,
-            "value": FUND2_VALUE
+            "value": FUND2_ACTUAL_VALUE
         }]
     }]
 }

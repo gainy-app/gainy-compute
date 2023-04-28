@@ -4,7 +4,7 @@ import pytest
 from _decimal import Decimal
 
 from gainy.tests.mocks.trading.drivewealth.api_mocks import PORTFOLIO_STATUS, CASH_ACTUAL_VALUE, \
-    FUND1_ID, FUND2_ID, FUND2_VALUE, FUND1_ACTUAL_VALUE
+    FUND1_ID, FUND2_ID, FUND2_ACTUAL_VALUE, FUND1_ACTUAL_VALUE
 
 from gainy.trading.drivewealth.models import DriveWealthPortfolioStatus
 
@@ -14,7 +14,7 @@ def test_set_from_response(monkeypatch):
     portfolio_status.set_from_response(PORTFOLIO_STATUS)
     assert portfolio_status.cash_value == CASH_ACTUAL_VALUE
     assert portfolio_status.get_fund_value(FUND1_ID) == FUND1_ACTUAL_VALUE
-    assert portfolio_status.get_fund_value(FUND2_ID) == FUND2_VALUE
+    assert portfolio_status.get_fund_value(FUND2_ID) == FUND2_ACTUAL_VALUE
     assert portfolio_status.is_valid()
 
 
@@ -51,7 +51,7 @@ def test_invalid(monkeypatch, t, sign):
     elif t == 7:
         data["holdings"][1]["holdings"][0]["target"] += 0.01 * sign
     elif t == 8:
-        data["holdings"][1]["holdings"][0]["value"] += 1.01 * sign
+        data["holdings"][1]["holdings"][0]["value"] += Decimal(1.01 * sign)
 
     portfolio_status.set_from_response(data)
     assert not portfolio_status.is_valid()

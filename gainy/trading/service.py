@@ -103,7 +103,10 @@ class TradingService:
                                   target_amount_delta_relative: Decimal = None,
                                   last_optimization_at: datetime.date = None):
 
-        if not weights:
+        if weights:
+            # todo mark the newly created collection_version for rebalance job to take these weights into account
+            pass
+        else:
             weights, last_optimization_at = self.trading_repository.get_collection_actual_weights(
                 collection_id)
 

@@ -44,3 +44,15 @@ def mock_record_calls(calls: list = None):
         calls.append((args, kwargs))
 
     return mock
+
+
+def mock_calls_list(options):
+
+    def mock(*args, **kwargs):
+        for _args, _kwargs, result in options:
+            if args == _args and kwargs == _kwargs:
+                return result
+
+        raise Exception(f"unknown call: {args}, {kwargs}")
+
+    return mock
