@@ -604,7 +604,7 @@ class DriveWealthFund(BaseDriveWealthModel):
             })
 
     def has_valid_weights(self) -> bool:
-        return any(filter(lambda x: x > ZERO, self.weights.values()))
+        return any(filter(lambda x: Decimal(x) > ZERO, self.weights.values()))
 
 
 class DriveWealthPortfolio(BaseDriveWealthModel):
