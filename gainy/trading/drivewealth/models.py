@@ -559,7 +559,7 @@ class DriveWealthFund(BaseDriveWealthModel):
                         "holdings": self.holdings,
                     })
 
-        if weight_sum < DW_WEIGHT_PRECISION:
+        if weight_sum < DW_WEIGHT_THRESHOLD:
             return
 
         for k, i in enumerate(self.holdings):
