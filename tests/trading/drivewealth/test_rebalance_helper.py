@@ -108,6 +108,7 @@ def test_ensure_fund(fund_exists, type, monkeypatch):
 
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", fund_ref_id)
+    monkeypatch.setattr(fund, "weights", weights)
 
     def mock_get_user(_profile_id):
         assert _profile_id == profile_id

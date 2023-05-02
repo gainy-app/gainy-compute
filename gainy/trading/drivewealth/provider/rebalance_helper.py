@@ -46,10 +46,11 @@ class DriveWealthProviderRebalanceHelper:
         else:
             raise Exception("Unsupported order class.")
 
-        if fund:
+        if fund and fund.has_valid_weights():
             return fund
 
-        fund = DriveWealthFund()
+        if not fund:
+            fund = DriveWealthFund()
         fund.profile_id = profile_id
         fund.holdings = self._generate_new_fund_holdings(weights, fund)
         fund.weights = weights
