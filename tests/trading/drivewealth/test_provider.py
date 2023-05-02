@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from gainy.analytics.service import AnalyticsService
 from gainy.data_access.operators import OperatorIn, OperatorNot
+from gainy.models import AbstractEntityLock
 from gainy.services.notification import NotificationService
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
@@ -1123,62 +1124,29 @@ def test_handle_order(monkeypatch):
     assert portfolio.last_order_executed_at == order_executed_at
 
 
-def get_test_on_new_transaction_portfolio_changed():
-    return [True, False]
-
-
-@pytest.mark.parametrize("portfolio_changed",
-                         get_test_on_new_transaction_portfolio_changed())
-def test_on_new_transaction(monkeypatch, portfolio_changed):
+def test_on_new_transaction(monkeypatch):
     account_ref_id = "account_ref_id"
 
-    portfolio_status = DriveWealthPortfolioStatus()
-
-    portfolio = DriveWealthPortfolio()
-    normalize_weights_calls = []
-    monkeypatch.setattr(portfolio, "normalize_weights",
-                        mock_record_calls(normalize_weights_calls))
-
     repository = DriveWealthRepository(None)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
+    provider = DriveWealthProvider(None, None, None, None, None)
+
+    execute_calls = []
+
+    def mock_execute(self):
+        assert self.provider == provider
+        assert self.entity_lock in persisted_objects[AbstractEntityLock]
+        assert isinstance(self.entity_lock, AbstractEntityLock)
+        assert self.entity_lock.object_id == account_ref_id
+        assert self.account_ref_id == account_ref_id
+        mock_record_calls(execute_calls)()
+
     monkeypatch.setattr(
-        repository, "find_one",
-        mock_find([
-            (DriveWealthPortfolio, {
-                "drivewealth_account_id": account_ref_id
-            }, portfolio),
-        ]))
+        "gainy.trading.drivewealth.locking_functions.handle_new_transaction.HandleNewTransaction.execute",
+        mock_execute)
 
     provider = DriveWealthProvider(repository, None, None, None, None)
-
-    def mock_sync_portfolio_status(_portfolio, force=None):
-        assert _portfolio == portfolio
-        assert force
-        return portfolio_status
-
-    monkeypatch.setattr(provider, "sync_portfolio_status",
-                        mock_sync_portfolio_status)
-
-    def mock_actualize_portfolio(_portfolio, _portfolio_status):
-        assert _portfolio == portfolio
-        assert _portfolio_status == portfolio_status
-        return portfolio_changed
-
-    monkeypatch.setattr(provider, "actualize_portfolio",
-                        mock_actualize_portfolio)
-
-    send_portfolio_to_api_calls = []
-    monkeypatch.setattr(provider, "send_portfolio_to_api",
-                        mock_record_calls(send_portfolio_to_api_calls))
-    sync_portfolio_calls = []
-    monkeypatch.setattr(provider, "sync_portfolio",
-                        mock_record_calls(sync_portfolio_calls))
-
     provider.on_new_transaction(account_ref_id)
 
-    assert ((portfolio, ), {}) in sync_portfolio_calls
-    if portfolio_changed:
-        assert normalize_weights_calls
-        assert ((portfolio, ), {}) in send_portfolio_to_api_calls
-    else:
-        assert not normalize_weights_calls
-        assert not send_portfolio_to_api_calls
+    assert execute_calls

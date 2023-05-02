@@ -352,3 +352,128 @@ class DriveWealthProviderBase:
             DriveWealthPortfolioStatus, {
                 "drivewealth_portfolio_id": portfolio_ref_id,
             }, [("created_at", "DESC")])
+
+    def actualize_portfolio(
+            self, portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus) -> bool:
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "portfolio_status": portfolio_status.to_dict(),
+            "portfolio_pre": portfolio.to_dict(),
+        }
+        portfolio.set_target_weights_from_status_actual_weights(
+            portfolio_status)
+        self.repository.persist(portfolio)
+
+        funds: list[DriveWealthFund] = self.repository.find_all(
+            DriveWealthFund,
+            {"ref_id": OperatorIn(portfolio_status.get_fund_ref_ids())})
+        logging_extra["funds_pre"] = [fund.to_dict() for fund in funds]
+        for fund in funds:
+            fund.set_target_weights_from_status_actual_weights(
+                portfolio_status)
+        self.repository.persist(funds)
+
+        logging_extra["portfolio_post"] = portfolio.to_dict()
+        logging_extra["funds_post"] = [fund.to_dict() for fund in funds]
+        logger.info('set_target_weights_from_status_actual_weights',
+                    extra=logging_extra)
+
+        return self.rebalance_portfolio_cash(portfolio, portfolio_status)
+
+    def rebalance_portfolio_cash(
+            self, portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus) -> bool:
+        new_equity_value = portfolio_status.equity_value
+
+        new_transactions_amount_sum = Decimal(0)
+        new_transactions = self.repository.get_new_transactions(
+            portfolio.drivewealth_account_id, portfolio.last_transaction_id)
+        for transaction in new_transactions:
+            if portfolio.last_transaction_id:
+                portfolio.last_transaction_id = max(
+                    portfolio.last_transaction_id, transaction.id)
+            else:
+                portfolio.last_transaction_id = transaction.id
+
+            new_transactions_amount_sum += transaction.account_amount_delta
+
+        # pending redemptions do not have transactions, but are already accounted in portfolio balance.
+        pending_redemptions_amount_sum = Decimal(0)
+        pending_redemptions = self.repository.get_pending_redemptions(
+            portfolio.drivewealth_account_id)
+        for redemption in pending_redemptions:
+            pending_redemptions_amount_sum += redemption.amount
+
+        new_transactions_amount_sum += pending_redemptions_amount_sum - portfolio.pending_redemptions_amount_sum
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "prev_pending_redemptions_amount_sum":
+            portfolio.pending_redemptions_amount_sum,
+            "new_pending_redemptions_amount_sum":
+            pending_redemptions_amount_sum,
+            "new_transactions_amount_sum": new_transactions_amount_sum,
+            "new_transactions": [i.to_dict() for i in new_transactions],
+            "portfolio_pre": portfolio.to_dict(),
+            "portfolio_status": portfolio_status.to_dict(),
+        }
+
+        if abs(new_transactions_amount_sum) < PRECISION:
+            portfolio.last_equity_value = new_equity_value
+            portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
+            self.repository.persist(portfolio)
+            return False
+
+        if not new_equity_value:
+            # todo handle?
+            return False
+        '''
+        new_transactions_amount_sum=200
+        cash_weight 0.5     0.8333
+        fund_weight 0.5     0.1667
+        equity_value 100    300
+        
+        cash_weight_delta = (0.5 * 100 + 200) / 300 - 0.5 = 0.3333
+        '''
+
+        if portfolio.last_equity_value:
+            last_equity_value = portfolio.last_equity_value
+        else:
+            last_equity_value = Decimal(0)
+
+        try:
+            cash_weight_delta = (
+                portfolio.cash_target_weight * last_equity_value +
+                new_transactions_amount_sum
+            ) / new_equity_value - portfolio.cash_target_weight
+            logging_extra["cash_weight_delta"] = cash_weight_delta
+            portfolio.rebalance_cash(cash_weight_delta)
+            portfolio.last_equity_value = new_equity_value
+            portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
+            logging_extra["portfolio_post"] = portfolio.to_dict()
+
+            logger.info('rebalance_portfolio_cash', extra=logging_extra)
+            self.repository.persist(portfolio)
+            return True
+        except Exception as e:
+            logging_extra["exc"] = e
+            logger.exception('rebalance_portfolio_cash', extra=logging_extra)
+            raise e
+
+    def send_portfolio_to_api(self, portfolio: DriveWealthPortfolio):
+        if portfolio.is_artificial:
+            return
+
+        funds: list[DriveWealthFund] = self.repository.find_all(
+            DriveWealthFund,
+            {"ref_id": OperatorIn(portfolio.get_fund_ref_ids())})
+        for fund in funds:
+            fund.normalize_weights()
+            self.api.update_fund(fund)
+        self.repository.persist(funds)
+
+        portfolio.normalize_weights()
+        self.api.update_portfolio(portfolio)
+        self.repository.persist(portfolio)
