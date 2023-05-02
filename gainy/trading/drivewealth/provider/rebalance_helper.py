@@ -72,8 +72,9 @@ class DriveWealthProviderRebalanceHelper:
         else:
             raise Exception("Unsupported order class.")
 
-        description = name
-        self.api.create_fund(fund, name, client_fund_id, description)
+        if not fund.ref_id:
+            description = name
+            self.api.create_fund(fund, name, client_fund_id, description)
 
         repository.persist(fund)
 
