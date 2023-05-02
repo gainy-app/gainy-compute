@@ -262,9 +262,9 @@ class DriveWealthProviderBase:
                 continue
 
             if order.target_amount_delta > 0:
-                error = max(Decimal(0), min(order.target_amount_delta, diff))
+                error = min(order.target_amount_delta, diff)
             else:
-                error = min(Decimal(0), max(order.target_amount_delta, diff))
+                error = max(order.target_amount_delta, diff)
 
             logger_extra["error"] = error
 
