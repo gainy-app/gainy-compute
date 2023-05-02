@@ -559,6 +559,9 @@ class DriveWealthFund(BaseDriveWealthModel):
                         "holdings": self.holdings,
                     })
 
+        if weight_sum < DW_WEIGHT_THRESHOLD:
+            return
+
         for k, i in enumerate(self.holdings):
             new_target = round(i['target'] / weight_sum, DW_WEIGHT_PRECISION)
             self.holdings[k]['target'] = new_target
@@ -599,6 +602,9 @@ class DriveWealthFund(BaseDriveWealthModel):
                 "instrumentID": holding.instrument_id,
                 "target": holding.actual_weight
             })
+
+    def has_valid_weights(self) -> bool:
+        return any(filter(lambda x: Decimal(x) > ZERO, self.weights.values()))
 
 
 class DriveWealthPortfolio(BaseDriveWealthModel):
