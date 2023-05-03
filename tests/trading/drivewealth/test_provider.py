@@ -369,7 +369,8 @@ def test_remove_inactive_instruments(monkeypatch):
     monkeypatch.setattr(
         repository, "find_all",
         mock_find([(DriveWealthInstrument, {
-            "ref_id": OperatorIn(fund_instrument_ids)
+            "ref_id": OperatorIn(fund_instrument_ids),
+            "status": DriveWealthInstrumentStatus.ACTIVE.name,
         }, active_instruments)]))
 
     provider = DriveWealthProvider(repository, None, None, None, None)

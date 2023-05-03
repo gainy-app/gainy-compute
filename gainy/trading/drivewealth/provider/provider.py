@@ -227,7 +227,10 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if env() != ENV_PRODUCTION:
             return
 
-        if old_status != DriveWealthAccountStatus.OPEN:
+        if old_status not in [
+                DriveWealthAccountStatus.OPEN,
+                DriveWealthAccountStatus.OPEN_NO_NEW_TRADES
+        ]:
             return
         if old_status == account.status:
             return

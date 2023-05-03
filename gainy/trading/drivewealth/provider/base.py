@@ -11,7 +11,7 @@ from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
-    PRECISION
+    PRECISION, DriveWealthInstrumentStatus
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
@@ -73,11 +73,31 @@ class DriveWealthProviderBase:
     def sync_portfolio_status(
             self,
             portfolio: DriveWealthPortfolio,
-            force: bool = False) -> DriveWealthPortfolioStatus:
-        portfolio_status = self._get_portfolio_status(portfolio, force=force)
-        portfolio.update_from_status(portfolio_status)
-        self.repository.persist(portfolio)
-        return portfolio_status
+            force: bool = False,
+            allow_invalid: bool = False) -> DriveWealthPortfolioStatus:
+
+        try:
+            portfolio_status = self._get_portfolio_status(portfolio,
+                                                          force=force)
+            portfolio.update_from_status(portfolio_status)
+            self.repository.persist(portfolio)
+
+            return portfolio_status
+        except InvalidDriveWealthPortfolioStatusException as e:
+            logger.exception(e)
+
+            if allow_invalid:
+                return e.portfolio_status
+
+            # in case we received an invalid portfolio status - look for a valid one, which is not more than an hour old
+            portfolio_status = self.get_latest_portfolio_status(
+                portfolio.ref_id)
+            min_created_at = datetime.datetime.now(
+                datetime.timezone.utc) - datetime.timedelta(hours=1)
+            if portfolio_status and portfolio_status.created_at > min_created_at:
+                return portfolio_status
+
+            raise e
 
     def update_trading_orders_pending_execution_from_portfolio_status(
             self, portfolio_status: DriveWealthPortfolioStatus):
@@ -531,6 +551,9 @@ class DriveWealthProviderBase:
         instrument_ids = fund.get_instrument_ids()
         active_instruments: list[
             DriveWealthInstrument] = self.repository.find_all(
-                DriveWealthInstrument, {"ref_id": OperatorIn(instrument_ids)})
+                DriveWealthInstrument, {
+                    "ref_id": OperatorIn(instrument_ids),
+                    "status": DriveWealthInstrumentStatus.ACTIVE.name,
+                })
         active_instrument_ids = set(i.ref_id for i in active_instruments)
         fund.remove_instrument_ids(set(instrument_ids) - active_instrument_ids)

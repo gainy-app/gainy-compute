@@ -112,6 +112,7 @@ class DriveWealthUser(BaseDriveWealthModel):
 
 class DriveWealthAccountStatus(str, enum.Enum):
     OPEN = "OPEN"
+    OPEN_NO_NEW_TRADES = "OPEN_NO_NEW_TRADES"
 
 
 class DriveWealthAccount(BaseDriveWealthModel):
@@ -162,7 +163,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         pass
 
     def is_open(self):
-        return self.status == DriveWealthAccountStatus.OPEN.name
+        return self.status == DriveWealthAccountStatus.OPEN
 
 
 class DriveWealthAccountMoney(BaseDriveWealthModel):
