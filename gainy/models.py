@@ -39,9 +39,11 @@ class AbstractEntityLock(BaseModel, ResourceVersion):
     db_excluded_fields = []
     non_persistent_fields = ["id", "version"]
 
-    def __init__(self, cls: type, object_id):
-        self.class_name = cls.__qualname__
-        self.object_id = str(object_id)
+    def __init__(self, cls: type = None, object_id=None):
+        if cls:
+            self.class_name = cls.__qualname__
+        if object_id:
+            self.object_id = str(object_id)
 
     @classproperty
     def schema_name(self) -> str:
