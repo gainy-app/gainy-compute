@@ -334,11 +334,46 @@ def test_send_portfolio_to_api(monkeypatch):
 
     provider = DriveWealthProvider(drivewealth_repository, api, None, None,
                                    None)
+    remove_inactive_instruments_calls = []
+    monkeypatch.setattr(provider, "remove_inactive_instruments",
+                        mock_record_calls(remove_inactive_instruments_calls))
     provider.send_portfolio_to_api(portfolio)
 
     assert portfolio in [args[0] for args, kwargs in update_portfolio_calls]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
     assert set(funds) == set([args[0] for args, kwargs in update_fund_calls])
+    assert set(funds) == set(
+        [args[0] for args, kwargs in remove_inactive_instruments_calls])
+
+
+def test_remove_inactive_instruments(monkeypatch):
+    active_instrument_id = "active_instrument_id"
+    inactive_instrument_id = "inactive_instrument_id"
+    fund_instrument_ids = [active_instrument_id, inactive_instrument_id]
+
+    active_instrument = DriveWealthInstrument()
+    active_instrument.ref_id = active_instrument_id
+    active_instruments = [active_instrument]
+
+    fund = DriveWealthFund()
+    monkeypatch.setattr(fund, "get_instrument_ids",
+                        lambda: fund_instrument_ids)
+    remove_instrument_ids_calls = []
+    monkeypatch.setattr(fund, "remove_instrument_ids",
+                        mock_record_calls(remove_instrument_ids_calls))
+
+    repository = DriveWealthRepository(None)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    monkeypatch.setattr(
+        repository, "find_all",
+        mock_find([(DriveWealthInstrument, {
+            "ref_id": OperatorIn(fund_instrument_ids)
+        }, active_instruments)]))
+
+    provider = DriveWealthProvider(repository, None, None, None, None)
+    provider.remove_inactive_instruments(fund)
 
 
 def test_execute_order_in_portfolio(monkeypatch):
@@ -841,7 +876,8 @@ def get_fill_executed_amount_data():
 
         def assert_func(persisted_objects):
             assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.PENDING_EXECUTION
+            assert trading_order2.executed_amount == Decimal(110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1160, orders, assert_func)
@@ -896,9 +932,9 @@ def get_fill_executed_amount_data():
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
-            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order1.executed_amount == Decimal(90)
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-60)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1040, orders, assert_func)
@@ -915,9 +951,9 @@ def get_fill_executed_amount_data():
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
-            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order1.executed_amount == Decimal(-40)
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1060, orders, assert_func)
@@ -954,7 +990,8 @@ def get_fill_executed_amount_data():
 
         def assert_func(persisted_objects):
             assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 840, orders, assert_func)

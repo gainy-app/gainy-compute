@@ -5,7 +5,7 @@ import datetime
 from abc import ABC
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 
 import pytz
 
@@ -605,6 +605,14 @@ class DriveWealthFund(BaseDriveWealthModel):
 
     def has_valid_weights(self) -> bool:
         return any(filter(lambda x: Decimal(x) > ZERO, self.weights.values()))
+
+    def get_instrument_ids(self) -> list[str]:
+        return [i["instrumentID"] for i in self.holdings]
+
+    def remove_instrument_ids(self, ref_ids: Iterable[str]):
+        self.holdings = [
+            i for i in self.holdings if i["instrumentID"] not in ref_ids
+        ]
 
 
 class DriveWealthPortfolio(BaseDriveWealthModel):
