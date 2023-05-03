@@ -72,8 +72,9 @@ class DriveWealthProviderRebalanceHelper:
         else:
             raise Exception("Unsupported order class.")
 
-        description = name
-        self.api.create_fund(fund, name, client_fund_id, description)
+        if not fund.ref_id:
+            description = name
+            self.api.create_fund(fund, name, client_fund_id, description)
 
         repository.persist(fund)
 
@@ -83,7 +84,8 @@ class DriveWealthProviderRebalanceHelper:
                                   portfolio: DriveWealthPortfolio,
                                   chosen_fund: DriveWealthFund):
 
-        target_amount_delta = order.target_amount_delta
+        target_amount_delta = Decimal(
+            order.target_amount_delta) if order.target_amount_delta else None
         if order.executed_amount:
             target_amount_delta -= order.executed_amount
         target_amount_delta_relative = order.target_amount_delta_relative
