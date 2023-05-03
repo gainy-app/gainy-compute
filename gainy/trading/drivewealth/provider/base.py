@@ -380,8 +380,56 @@ class DriveWealthProviderBase:
         logger.info('set_target_weights_from_status_actual_weights',
                     extra=logging_extra)
 
-        return self.rebalance_portfolio_cash(portfolio, portfolio_status)
+        return self.portfolio_has_new_transactions(portfolio, portfolio_status)
 
+    def portfolio_has_new_transactions(
+            self, portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus) -> bool:
+
+        result = False
+        new_transactions = self.repository.get_new_transactions(
+            portfolio.drivewealth_account_id, portfolio.last_transaction_id)
+        for transaction in new_transactions:
+            if portfolio.last_transaction_id:
+                portfolio.last_transaction_id = max(
+                    portfolio.last_transaction_id, transaction.id)
+            else:
+                portfolio.last_transaction_id = transaction.id
+
+            result = True
+
+        # pending redemptions do not have transactions, but are already accounted in portfolio balance.
+        pending_redemptions_amount_sum = Decimal(0)
+        pending_redemptions = self.repository.get_pending_redemptions(
+            portfolio.drivewealth_account_id)
+        for redemption in pending_redemptions:
+            pending_redemptions_amount_sum += redemption.amount
+
+        prev_pending_redemptions_amount_sum = portfolio.pending_redemptions_amount_sum
+        if abs(portfolio.pending_redemptions_amount_sum -
+               pending_redemptions_amount_sum) > PRECISION:
+            portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
+            result = True
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "prev_pending_redemptions_amount_sum":
+            prev_pending_redemptions_amount_sum,
+            "new_pending_redemptions_amount_sum":
+            pending_redemptions_amount_sum,
+            "new_transactions": [i.to_dict() for i in new_transactions],
+            "portfolio_pre": portfolio.to_dict(),
+            "portfolio_status": portfolio_status.to_dict(),
+            "result": result,
+        }
+        logger.info('portfolio_has_new_transactions', extra=logging_extra)
+
+        if result:
+            self.repository.persist(portfolio)
+
+        return result
+
+    #todo deprecated
     def rebalance_portfolio_cash(
             self, portfolio: DriveWealthPortfolio,
             portfolio_status: DriveWealthPortfolioStatus) -> bool:
