@@ -59,6 +59,7 @@ class CollectionOptimizerRepository:
                    ref_id
             FROM app.drivewealth_instruments
             WHERE symbol IN %(symbols)s
+              and status = 'ACTIVE'
         """
 
         params = {"symbols": tuple(symbols)}
