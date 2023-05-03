@@ -470,6 +470,7 @@ class DriveWealthProviderBase:
             DriveWealthFund,
             {"ref_id": OperatorIn(portfolio.get_fund_ref_ids())})
         for fund in funds:
+            self.remove_inactive_instruments(fund)
             fund.normalize_weights()
             self.api.update_fund(fund)
         self.repository.persist(funds)
@@ -477,3 +478,11 @@ class DriveWealthProviderBase:
         portfolio.normalize_weights()
         self.api.update_portfolio(portfolio)
         self.repository.persist(portfolio)
+
+    def remove_inactive_instruments(self, fund: DriveWealthFund):
+        instrument_ids = fund.get_instrument_ids()
+        active_instruments: list[
+            DriveWealthInstrument] = self.repository.find_all(
+                DriveWealthInstrument, {"ref_id": OperatorIn(instrument_ids)})
+        active_instrument_ids = set(i.ref_id for i in active_instruments)
+        fund.remove_instrument_ids(set(instrument_ids) - active_instrument_ids)
