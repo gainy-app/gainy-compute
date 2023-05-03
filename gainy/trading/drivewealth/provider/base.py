@@ -11,7 +11,7 @@ from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
-    PRECISION
+    PRECISION, DriveWealthInstrumentStatus
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
@@ -531,6 +531,9 @@ class DriveWealthProviderBase:
         instrument_ids = fund.get_instrument_ids()
         active_instruments: list[
             DriveWealthInstrument] = self.repository.find_all(
-                DriveWealthInstrument, {"ref_id": OperatorIn(instrument_ids)})
+                DriveWealthInstrument, {
+                    "ref_id": OperatorIn(instrument_ids),
+                    "status": DriveWealthInstrumentStatus.ACTIVE.name,
+                })
         active_instrument_ids = set(i.ref_id for i in active_instruments)
         fund.remove_instrument_ids(set(instrument_ids) - active_instrument_ids)

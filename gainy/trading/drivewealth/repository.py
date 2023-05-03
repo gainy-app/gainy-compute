@@ -1,6 +1,6 @@
 from psycopg2.extras import RealDictCursor
 
-from typing import List, Iterable, Optional
+from typing import List, Optional
 
 from gainy.data_access.operators import OperatorGt, OperatorIn
 from gainy.data_access.repository import Repository
@@ -82,10 +82,11 @@ class DriveWealthRepository(Repository):
             where public.normalize_drivewealth_symbol(symbol) = %(symbol)s 
               and status = %(status)s"""
         with self.db_conn.cursor() as cursor:
-            cursor.execute(query, {
-                "symbol": symbol,
-                "status": DriveWealthInstrumentStatus.ACTIVE
-            })
+            cursor.execute(
+                query, {
+                    "symbol": symbol,
+                    "status": DriveWealthInstrumentStatus.ACTIVE.name
+                })
             row = cursor.fetchone()
             if not row:
                 raise EntityNotFoundException(DriveWealthInstrument)
