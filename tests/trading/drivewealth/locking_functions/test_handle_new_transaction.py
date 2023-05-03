@@ -2,7 +2,7 @@ import pytest
 
 from gainy.tests.mocks.repository_mocks import mock_record_calls, mock_find
 from gainy.trading.drivewealth.locking_functions.handle_new_transaction import HandleNewTransaction
-from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthPortfolioStatus
+from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthPortfolioStatus, DriveWealthAccount
 from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
@@ -18,10 +18,10 @@ def test_on_new_transaction(monkeypatch, portfolio_changed):
 
     portfolio_status = DriveWealthPortfolioStatus()
 
+    account = DriveWealthAccount()
+    monkeypatch.setattr(account, "is_open", lambda: True)
+
     portfolio = DriveWealthPortfolio()
-    normalize_weights_calls = []
-    monkeypatch.setattr(portfolio, "normalize_weights",
-                        mock_record_calls(normalize_weights_calls))
 
     repository = DriveWealthRepository(None)
     monkeypatch.setattr(
@@ -30,13 +30,17 @@ def test_on_new_transaction(monkeypatch, portfolio_changed):
             (DriveWealthPortfolio, {
                 "drivewealth_account_id": account_ref_id
             }, portfolio),
+            (DriveWealthAccount, {
+                "ref_id": account_ref_id
+            }, account),
         ]))
 
     provider = DriveWealthProvider(repository, None, None, None, None)
 
-    def mock_sync_portfolio_status(_portfolio, force=None):
+    def mock_sync_portfolio_status(_portfolio, force=None, allow_invalid=None):
         assert _portfolio == portfolio
         assert force
+        assert allow_invalid
         return portfolio_status
 
     monkeypatch.setattr(provider, "sync_portfolio_status",
@@ -62,8 +66,6 @@ def test_on_new_transaction(monkeypatch, portfolio_changed):
 
     assert ((portfolio, ), {}) in sync_portfolio_calls
     if portfolio_changed:
-        assert normalize_weights_calls
         assert ((portfolio, ), {}) in send_portfolio_to_api_calls
     else:
-        assert not normalize_weights_calls
         assert not send_portfolio_to_api_calls

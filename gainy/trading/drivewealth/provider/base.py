@@ -73,11 +73,31 @@ class DriveWealthProviderBase:
     def sync_portfolio_status(
             self,
             portfolio: DriveWealthPortfolio,
-            force: bool = False) -> DriveWealthPortfolioStatus:
-        portfolio_status = self._get_portfolio_status(portfolio, force=force)
-        portfolio.update_from_status(portfolio_status)
-        self.repository.persist(portfolio)
-        return portfolio_status
+            force: bool = False,
+            allow_invalid: bool = False) -> DriveWealthPortfolioStatus:
+
+        try:
+            portfolio_status = self._get_portfolio_status(portfolio,
+                                                          force=force)
+            portfolio.update_from_status(portfolio_status)
+            self.repository.persist(portfolio)
+
+            return portfolio_status
+        except InvalidDriveWealthPortfolioStatusException as e:
+            logger.exception(e)
+
+            if allow_invalid:
+                return e.portfolio_status
+
+            # in case we received an invalid portfolio status - look for a valid one, which is not more than an hour old
+            portfolio_status = self.get_latest_portfolio_status(
+                portfolio.ref_id)
+            min_created_at = datetime.datetime.now(
+                datetime.timezone.utc) - datetime.timedelta(hours=1)
+            if portfolio_status and portfolio_status.created_at > min_created_at:
+                return portfolio_status
+
+            raise e
 
     def update_trading_orders_pending_execution_from_portfolio_status(
             self, portfolio_status: DriveWealthPortfolioStatus):
