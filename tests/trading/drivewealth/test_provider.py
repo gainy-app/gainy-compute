@@ -458,13 +458,13 @@ def test_actualize_portfolio(monkeypatch):
 
     provider = DriveWealthProvider(repository, None, None, None, None)
 
-    def mock_rebalance_portfolio_cash(_portfolio, _portfolio_status):
+    def mock_portfolio_has_new_transactions(_portfolio, _portfolio_status):
         assert _portfolio == portfolio
         assert _portfolio_status == portfolio_status
         return portfolio_changed
 
-    monkeypatch.setattr(provider, "rebalance_portfolio_cash",
-                        mock_rebalance_portfolio_cash)
+    monkeypatch.setattr(provider, "portfolio_has_new_transactions",
+                        mock_portfolio_has_new_transactions)
 
     _portfolio_changed = provider.actualize_portfolio(portfolio,
                                                       portfolio_status)
