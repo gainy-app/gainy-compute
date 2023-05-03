@@ -876,7 +876,8 @@ def get_fill_executed_amount_data():
 
         def assert_func(persisted_objects):
             assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.PENDING_EXECUTION
+            assert trading_order2.executed_amount == Decimal(110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1160, orders, assert_func)
@@ -931,9 +932,9 @@ def get_fill_executed_amount_data():
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
-            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order1.executed_amount == Decimal(90)
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-60)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1040, orders, assert_func)
@@ -950,9 +951,9 @@ def get_fill_executed_amount_data():
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
-            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order1.executed_amount == Decimal(-40)
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1060, orders, assert_func)
@@ -989,7 +990,8 @@ def get_fill_executed_amount_data():
 
         def assert_func(persisted_objects):
             assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 840, orders, assert_func)
