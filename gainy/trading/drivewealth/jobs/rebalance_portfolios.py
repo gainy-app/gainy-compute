@@ -16,7 +16,7 @@ from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException, \
     InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
-    DriveWealthFund
+    DriveWealthFund, DriveWealthPortfolioStatus
 from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
 from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder, \
     AbstractTradingOrder
@@ -70,6 +70,9 @@ class RebalancePortfoliosJob:
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
             portfolio: DriveWealthPortfolio
             if portfolio.is_artificial:
+                continue
+
+            if self._should_skip_portfolio(portfolio, portfolio_status):
                 continue
 
             try:
@@ -433,6 +436,44 @@ class RebalancePortfoliosJob:
                 }):
             return True
         return False
+
+    def _should_skip_portfolio(self, portfolio: DriveWealthPortfolio,
+                               portfolio_status: DriveWealthPortfolioStatus):
+        if portfolio_status.last_portfolio_rebalance_at is None:
+            return False
+
+        query = """
+            select max(last_portfolio_rebalance_at) as last_portfolio_rebalance_at
+            from drivewealth_portfolio_historical_holdings
+                     join app.drivewealth_portfolio_statuses on drivewealth_portfolio_statuses.id = portfolio_status_id
+            where profile_id = %(profile_id)s        
+        """
+        params = {
+            "profile_id": portfolio.profile_id,
+        }
+
+        with self.repo.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        last_portfolio_rebalance_at = row[0] if row else None
+
+        if last_portfolio_rebalance_at is None:
+            result = portfolio_status.last_portfolio_rebalance_at is not None
+        else:
+            result = portfolio_status.last_portfolio_rebalance_at > last_portfolio_rebalance_at
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "last_portfolio_rebalance_at_portfolio_status":
+            portfolio_status.last_portfolio_rebalance_at,
+            "last_portfolio_rebalance_at_db": last_portfolio_rebalance_at,
+            result: result
+        }
+
+        logger.info('_should_skip_portfolio', extra=logging_extra)
+
+        return result
 
 
 def cli():
