@@ -113,6 +113,9 @@ class TradingService:
                                   target_amount_delta: Decimal = None,
                                   target_amount_delta_relative: Decimal = None,
                                   last_optimization_at: datetime.date = None):
+        """
+        :raises InsufficientFundsException:
+        """
 
         if weights:
             # todo mark the newly created collection_version for rebalance job to take these weights into account
@@ -170,6 +173,9 @@ class TradingService:
                            trading_account_id: int,
                            target_amount_delta: Decimal = None,
                            target_amount_delta_relative: Decimal = None):
+        """
+        :raises InsufficientFundsException:
+        """
         self.check_tradeable_symbol(symbol)
 
         if target_amount_delta_relative:
