@@ -1080,6 +1080,7 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     provider = DriveWealthProvider(None, None, repository, None, None)
 
     portfolio_status = DriveWealthPortfolioStatus()
+    portfolio_status.equity_value = Decimal(100)
     portfolio_status.last_portfolio_rebalance_at = last_portfolio_rebalance_at
     monkeypatch.setattr(portfolio_status, "is_pending_rebalance", lambda: True)
 
