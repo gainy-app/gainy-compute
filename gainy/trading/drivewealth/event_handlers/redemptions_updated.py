@@ -15,15 +15,16 @@ class RedemptionUpdatedEventHandler(AbstractDriveWealthEventHandler):
         ref_id = event_payload["paymentID"]
         redemption: DriveWealthRedemption = self.repo.find_one(
             DriveWealthRedemption, {"ref_id": ref_id})
-        redemption_pre = redemption.to_dict()
 
         if redemption:
+            redemption_pre = redemption.to_dict()
             was_approved = redemption.is_approved()
             old_mf_status = redemption.get_money_flow_status()
             old_status = redemption.status
             redemption = self.provider.sync_redemption(redemption.ref_id)
         else:
             redemption = DriveWealthRedemption()
+            redemption_pre = redemption.to_dict()
             was_approved = redemption.is_approved()
             old_mf_status = redemption.get_money_flow_status()
             old_status = redemption.status
