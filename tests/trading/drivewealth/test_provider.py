@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from gainy.analytics.service import AnalyticsService
 from gainy.data_access.operators import OperatorIn, OperatorNot
+from gainy.models import AbstractEntityLock
 from gainy.services.notification import NotificationService
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
@@ -333,11 +334,47 @@ def test_send_portfolio_to_api(monkeypatch):
 
     provider = DriveWealthProvider(drivewealth_repository, api, None, None,
                                    None)
+    remove_inactive_instruments_calls = []
+    monkeypatch.setattr(provider, "remove_inactive_instruments",
+                        mock_record_calls(remove_inactive_instruments_calls))
     provider.send_portfolio_to_api(portfolio)
 
     assert portfolio in [args[0] for args, kwargs in update_portfolio_calls]
     assert portfolio in persisted_objects[DriveWealthPortfolio]
     assert set(funds) == set([args[0] for args, kwargs in update_fund_calls])
+    assert set(funds) == set(
+        [args[0] for args, kwargs in remove_inactive_instruments_calls])
+
+
+def test_remove_inactive_instruments(monkeypatch):
+    active_instrument_id = "active_instrument_id"
+    inactive_instrument_id = "inactive_instrument_id"
+    fund_instrument_ids = [active_instrument_id, inactive_instrument_id]
+
+    active_instrument = DriveWealthInstrument()
+    active_instrument.ref_id = active_instrument_id
+    active_instruments = [active_instrument]
+
+    fund = DriveWealthFund()
+    monkeypatch.setattr(fund, "get_instrument_ids",
+                        lambda: fund_instrument_ids)
+    remove_instrument_ids_calls = []
+    monkeypatch.setattr(fund, "remove_instrument_ids",
+                        mock_record_calls(remove_instrument_ids_calls))
+
+    repository = DriveWealthRepository(None)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
+
+    monkeypatch.setattr(
+        repository, "find_all",
+        mock_find([(DriveWealthInstrument, {
+            "ref_id": OperatorIn(fund_instrument_ids),
+            "status": DriveWealthInstrumentStatus.ACTIVE.name,
+        }, active_instruments)]))
+
+    provider = DriveWealthProvider(repository, None, None, None, None)
+    provider.remove_inactive_instruments(fund)
 
 
 def test_execute_order_in_portfolio(monkeypatch):
@@ -422,13 +459,13 @@ def test_actualize_portfolio(monkeypatch):
 
     provider = DriveWealthProvider(repository, None, None, None, None)
 
-    def mock_rebalance_portfolio_cash(_portfolio, _portfolio_status):
+    def mock_portfolio_has_new_transactions(_portfolio, _portfolio_status):
         assert _portfolio == portfolio
         assert _portfolio_status == portfolio_status
         return portfolio_changed
 
-    monkeypatch.setattr(provider, "rebalance_portfolio_cash",
-                        mock_rebalance_portfolio_cash)
+    monkeypatch.setattr(provider, "portfolio_has_new_transactions",
+                        mock_portfolio_has_new_transactions)
 
     _portfolio_changed = provider.actualize_portfolio(portfolio,
                                                       portfolio_status)
@@ -840,7 +877,8 @@ def get_fill_executed_amount_data():
 
         def assert_func(persisted_objects):
             assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.PENDING_EXECUTION
+            assert trading_order2.executed_amount == Decimal(110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1160, orders, assert_func)
@@ -895,9 +933,9 @@ def get_fill_executed_amount_data():
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
-            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order1.executed_amount == Decimal(90)
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-60)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1040, orders, assert_func)
@@ -914,9 +952,9 @@ def get_fill_executed_amount_data():
         orders = [trading_order1, trading_order2]
 
         def assert_func(persisted_objects):
-            assert trading_order1.status != TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order1.executed_amount == Decimal(-40)
+            assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 1060, orders, assert_func)
@@ -953,7 +991,8 @@ def get_fill_executed_amount_data():
 
         def assert_func(persisted_objects):
             assert trading_order1.status == TradingOrderStatus.EXECUTED_FULLY
-            assert trading_order2.status == TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.status != TradingOrderStatus.EXECUTED_FULLY
+            assert trading_order2.executed_amount == Decimal(-110)
             assert_persisted(orders, persisted_objects)
 
         return (1000, 840, orders, assert_func)
@@ -1123,62 +1162,29 @@ def test_handle_order(monkeypatch):
     assert portfolio.last_order_executed_at == order_executed_at
 
 
-def get_test_on_new_transaction_portfolio_changed():
-    return [True, False]
-
-
-@pytest.mark.parametrize("portfolio_changed",
-                         get_test_on_new_transaction_portfolio_changed())
-def test_on_new_transaction(monkeypatch, portfolio_changed):
+def test_on_new_transaction(monkeypatch):
     account_ref_id = "account_ref_id"
 
-    portfolio_status = DriveWealthPortfolioStatus()
-
-    portfolio = DriveWealthPortfolio()
-    normalize_weights_calls = []
-    monkeypatch.setattr(portfolio, "normalize_weights",
-                        mock_record_calls(normalize_weights_calls))
-
     repository = DriveWealthRepository(None)
+    persisted_objects = {}
+    monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
+    provider = DriveWealthProvider(None, None, None, None, None)
+
+    execute_calls = []
+
+    def mock_execute(self):
+        assert self.provider == provider
+        assert self.entity_lock in persisted_objects[AbstractEntityLock]
+        assert isinstance(self.entity_lock, AbstractEntityLock)
+        assert self.entity_lock.object_id == account_ref_id
+        assert self.account_ref_id == account_ref_id
+        mock_record_calls(execute_calls)()
+
     monkeypatch.setattr(
-        repository, "find_one",
-        mock_find([
-            (DriveWealthPortfolio, {
-                "drivewealth_account_id": account_ref_id
-            }, portfolio),
-        ]))
+        "gainy.trading.drivewealth.locking_functions.handle_new_transaction.HandleNewTransaction.execute",
+        mock_execute)
 
     provider = DriveWealthProvider(repository, None, None, None, None)
-
-    def mock_sync_portfolio_status(_portfolio, force=None):
-        assert _portfolio == portfolio
-        assert force
-        return portfolio_status
-
-    monkeypatch.setattr(provider, "sync_portfolio_status",
-                        mock_sync_portfolio_status)
-
-    def mock_actualize_portfolio(_portfolio, _portfolio_status):
-        assert _portfolio == portfolio
-        assert _portfolio_status == portfolio_status
-        return portfolio_changed
-
-    monkeypatch.setattr(provider, "actualize_portfolio",
-                        mock_actualize_portfolio)
-
-    send_portfolio_to_api_calls = []
-    monkeypatch.setattr(provider, "send_portfolio_to_api",
-                        mock_record_calls(send_portfolio_to_api_calls))
-    sync_portfolio_calls = []
-    monkeypatch.setattr(provider, "sync_portfolio",
-                        mock_record_calls(sync_portfolio_calls))
-
     provider.on_new_transaction(account_ref_id)
 
-    assert ((portfolio, ), {}) in sync_portfolio_calls
-    if portfolio_changed:
-        assert normalize_weights_calls
-        assert ((portfolio, ), {}) in send_portfolio_to_api_calls
-    else:
-        assert not normalize_weights_calls
-        assert not send_portfolio_to_api_calls
+    assert execute_calls

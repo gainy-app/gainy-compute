@@ -198,15 +198,20 @@ class TablePersist:
             key_field_names_escaped = self._escape_fields(key_fields)
 
             sql_string = sql_string + sql.SQL(
-                " ON CONFLICT({key_field_names}) DO UPDATE SET {set_clause}"
-            ).format(
-                key_field_names=key_field_names_escaped,
-                set_clause=sql.SQL(',').join([
-                    sql.SQL("{field_name} = excluded.{field_name}").format(
-                        field_name=sql.Identifier(field_name))
-                    for field_name in field_names
-                    if field_name not in key_fields
-                ]))
+                " ON CONFLICT({key_field_names}) DO").format(
+                    key_field_names=key_field_names_escaped)
+
+            update_fields = set(field_names) - set(key_fields)
+            if update_fields:
+                sql_string = sql_string + sql.SQL(
+                    " UPDATE SET {set_clause}").format(
+                        set_clause=sql.SQL(',').join([
+                            sql.SQL("{field_name} = excluded.{field_name}").
+                            format(field_name=sql.Identifier(field_name))
+                            for field_name in update_fields
+                        ]))
+            else:
+                sql_string = sql_string + sql.SQL(" NOTHING")
 
         non_persistent_fields = entities[0].non_persistent_fields
         if non_persistent_fields:
