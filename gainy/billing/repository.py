@@ -50,13 +50,13 @@ class BillingRepository(Repository):
                          )
                     select drivewealth_monthly_usage_extended.profile_id,
                            drivewealth_monthly_usage_extended.period_id,
-                           fee                                                                    as amount,
-                           drivewealth_monthly_usage_extended.period_end::date + interval '1 day' as due_date,
+                           fee                                                               as amount,
+                           drivewealth_monthly_usage_extended.period_end::date               as due_date,
                            'Invoice for Gainy services in ' ||
-                           TO_CHAR(drivewealth_monthly_usage_extended.period_start, 'Month')      as description,
+                           TO_CHAR(drivewealth_monthly_usage_extended.period_start, 'Month') as description,
                            drivewealth_monthly_usage_extended.period_start,
                            drivewealth_monthly_usage_extended.period_end,
-                           null                                                                   as metadata
+                           null                                                              as metadata
                     from drivewealth_monthly_usage_extended
                              left join app.invoices using (profile_id, period_id)
                     where drivewealth_monthly_usage_extended.period_end < now()

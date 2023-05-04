@@ -162,6 +162,7 @@ class TradingCollectionVersion(AbstractTradingOrder):
     last_optimization_at: datetime.date = None
     executed_amount: Decimal = None
     executed_at = None
+    use_static_weights: bool = False
     created_at = None
     updated_at = None
 
