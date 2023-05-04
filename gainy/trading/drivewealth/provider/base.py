@@ -84,7 +84,7 @@ class DriveWealthProviderBase:
 
             return portfolio_status
         except InvalidDriveWealthPortfolioStatusException as e:
-            logger.exception(e)
+            logger.warning(e)
 
             if allow_invalid:
                 return e.portfolio_status

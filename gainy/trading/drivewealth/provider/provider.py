@@ -236,7 +236,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             return
 
         self.notification_service.notify_dw_account_status_changed(
-            account.ref_id, old_status, account.status)
+            account.ref_no, old_status, account.status)
 
     def handle_money_flow_status_change(
             self, money_flow: BaseDriveWealthMoneyFlowModel,
@@ -320,11 +320,19 @@ class DriveWealthProvider(DriveWealthProviderBase):
         entity = repository.find_one(
             DriveWealthRedemption,
             {"ref_id": redemption_ref_id}) or DriveWealthRedemption()
+        redemption_pre = entity.to_dict()
 
         redemption_data = self.api.get_redemption(redemption_ref_id)
         entity.set_from_response(redemption_data)
         self.ensure_account_exists(entity.trading_account_ref_id)
         repository.persist(entity)
+
+        logger.info("Updated redemption",
+                    extra={
+                        "file": __file__,
+                        "redemption_pre": redemption_pre,
+                        "redemption": entity.to_dict(),
+                    })
 
         self.update_money_flow_from_dw(entity)
         return entity

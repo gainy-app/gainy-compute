@@ -18,6 +18,8 @@ class DepositsUpdatedEventHandler(AbstractDriveWealthEventHandler):
         if not deposit:
             deposit = DriveWealthDeposit()
 
+        deposit_pre = deposit.to_dict()
+
         old_mf_status = deposit.get_money_flow_status()
         old_status = deposit.status
         deposit.set_from_response(event_payload)
@@ -26,6 +28,13 @@ class DepositsUpdatedEventHandler(AbstractDriveWealthEventHandler):
 
         self.repo.persist(deposit)
         money_flow = self.provider.update_money_flow_from_dw(deposit)
+
+        logger.info("Updated deposit",
+                    extra={
+                        "file": __file__,
+                        "deposit_pre": deposit_pre,
+                        "deposit": deposit.to_dict(),
+                    })
 
         if money_flow:
             funding_account: FundingAccount = self.repo.find_one(

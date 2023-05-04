@@ -21,5 +21,10 @@ class RedemptionCreatedEventHandler(AbstractDriveWealthEventHandler):
             redemption = DriveWealthRedemption()
             redemption.set_from_response(event_payload)
             self.repo.persist(redemption)
+            logger.info("Updated redemption",
+                        extra={
+                            "file": __file__,
+                            "redemption": redemption.to_dict(),
+                        })
 
         self.provider.handle_redemption_status(redemption)
