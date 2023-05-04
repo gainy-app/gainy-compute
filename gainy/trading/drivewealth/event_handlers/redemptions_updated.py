@@ -15,6 +15,7 @@ class RedemptionUpdatedEventHandler(AbstractDriveWealthEventHandler):
         ref_id = event_payload["paymentID"]
         redemption: DriveWealthRedemption = self.repo.find_one(
             DriveWealthRedemption, {"ref_id": ref_id})
+        redemption_pre = redemption.to_dict()
 
         if redemption:
             was_approved = redemption.is_approved()
@@ -31,6 +32,12 @@ class RedemptionUpdatedEventHandler(AbstractDriveWealthEventHandler):
         self.provider.handle_money_flow_status_change(redemption, old_status)
         self.repo.persist(redemption)
         self.provider.handle_redemption_status(redemption)
+        logger.info("Updated redemption",
+                    extra={
+                        "file": __file__,
+                        "redemption_pre": redemption_pre,
+                        "redemption": redemption.to_dict(),
+                    })
 
         if redemption.is_approved() != was_approved:
             # update cash weight in linked portfolio
