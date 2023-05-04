@@ -362,6 +362,7 @@ class RebalancePortfoliosJob:
             trading_account_id,
             target_amount_delta_relative=target_amount_delta_relative,
             weights=weights,
+            use_static_weights=True,
             last_optimization_at=collection_last_optimization_at)
 
         self.provider.execute_order_in_portfolio(portfolio,

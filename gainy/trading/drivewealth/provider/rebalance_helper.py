@@ -26,6 +26,7 @@ class DriveWealthProviderRebalanceHelper:
         repository = self.repository
         collection_id = None
         symbol = None
+        should_update_weights = False
 
         if isinstance(trading_order, TradingCollectionVersion):
             collection_id = trading_order.collection_id
@@ -34,11 +35,7 @@ class DriveWealthProviderRebalanceHelper:
             fund = self.repository.get_profile_fund(
                 profile_id, collection_id=collection_id)
 
-            # todo only update weights if they were marked to be updated in the order
-            # if fund and trading_order.use_static_weights:
-            #     fund.weights = weights
-            #     repository.persist(fund)
-
+            should_update_weights = trading_order.use_static_weights
         elif isinstance(trading_order, TradingOrder):
             symbol = trading_order.symbol
             weights = {symbol: Decimal(1)}
@@ -46,7 +43,7 @@ class DriveWealthProviderRebalanceHelper:
         else:
             raise Exception("Unsupported order class.")
 
-        if fund and fund.has_valid_weights():
+        if fund and fund.has_valid_weights() and not should_update_weights:
             return fund
 
         if not fund:
@@ -54,7 +51,6 @@ class DriveWealthProviderRebalanceHelper:
         fund.profile_id = profile_id
         fund.holdings = self._generate_new_fund_holdings(weights, fund)
         fund.weights = weights
-        fund.normalize_weights()
 
         user = repository.get_user(profile_id)
         user_id = user.ref_id
