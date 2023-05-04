@@ -72,9 +72,6 @@ class RebalancePortfoliosJob:
             if portfolio.is_artificial:
                 continue
 
-            if self._should_skip_portfolio(portfolio, portfolio_status):
-                continue
-
             try:
                 account: DriveWealthAccount = self.repo.find_one(
                     DriveWealthAccount,
@@ -84,6 +81,9 @@ class RebalancePortfoliosJob:
 
                 portfolio_status = self.provider.sync_portfolio_status(
                     portfolio, force=True)
+
+                if self._should_skip_portfolio(portfolio, portfolio_status):
+                    continue
 
                 # 1. update pending execution orders
                 self.provider.update_trading_orders_pending_execution_from_portfolio_status(
