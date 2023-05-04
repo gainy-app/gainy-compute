@@ -101,7 +101,8 @@ class TradingService:
                                   weights: List[Dict[str, Any]] = None,
                                   target_amount_delta: Decimal = None,
                                   target_amount_delta_relative: Decimal = None,
-                                  last_optimization_at: datetime.date = None):
+                                  last_optimization_at: datetime.date = None,
+                                  use_static_weights: bool = False):
 
         if weights:
             # todo mark the newly created collection_version for rebalance job to take these weights into account
@@ -147,6 +148,7 @@ class TradingService:
         collection_version.target_amount_delta_relative = target_amount_delta_relative
         collection_version.trading_account_id = trading_account_id
         collection_version.last_optimization_at = last_optimization_at
+        collection_version.use_static_weights = use_static_weights
 
         self.trading_repository.persist(collection_version)
 
