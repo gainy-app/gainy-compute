@@ -468,7 +468,7 @@ class RebalancePortfoliosJob:
             "last_portfolio_rebalance_at_portfolio_status":
             portfolio_status.last_portfolio_rebalance_at,
             "last_portfolio_rebalance_at_db": last_portfolio_rebalance_at,
-            result: result
+            "result": result,
         }
 
         logger.info('_should_skip_portfolio', extra=logging_extra)
