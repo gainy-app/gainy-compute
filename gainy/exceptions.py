@@ -50,3 +50,9 @@ class AccountNeedsReauthHttpException(BadRequestException):
                  message='You need to reconnect selected bank account.',
                  *args):
         super().__init__(message, *args)
+
+
+class InsufficientFundsHttpException(BadRequestException):
+
+    def __init__(self, message='Insufficient funds.', *args):
+        super().__init__(message, *args)
