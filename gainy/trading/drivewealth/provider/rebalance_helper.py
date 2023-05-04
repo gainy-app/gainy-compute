@@ -51,6 +51,7 @@ class DriveWealthProviderRebalanceHelper:
         fund.profile_id = profile_id
         fund.holdings = self._generate_new_fund_holdings(weights, fund)
         fund.weights = weights
+        fund.normalize_weights()
 
         user = repository.get_user(profile_id)
         user_id = user.ref_id
