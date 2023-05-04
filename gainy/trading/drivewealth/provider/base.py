@@ -292,7 +292,9 @@ class DriveWealthProviderBase:
             order.executed_amount = order.target_amount_delta - error
             logger_extra["executed_amount"] = order.executed_amount
 
-            is_executed = abs(error) < EXECUTED_AMOUNT_PRECISION
+            is_executed = abs(error) < max(
+                EXECUTED_AMOUNT_PRECISION,
+                Decimal(0.0005) * portfolio_status.equity_value)
 
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
