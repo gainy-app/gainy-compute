@@ -293,7 +293,20 @@ def test_rebalance_existing_funds(monkeypatch):
     monkeypatch.setattr(provider, "execute_order_in_portfolio",
                         mock_record_calls(execute_order_in_portfolio_calls))
 
-    job = RebalancePortfoliosJob(repository, None, provider, trading_service)
+    drivewealth_repository = DriveWealthRepository(None)
+    filter_inactive_symbols_from_weights_calls = []
+
+    def mock_filter_inactive_symbols_from_weights(*args):
+        assert args[0] == weights
+        mock_record_calls(filter_inactive_symbols_from_weights_calls)(*args)
+        return weights
+
+    monkeypatch.setattr(drivewealth_repository,
+                        "filter_inactive_symbols_from_weights",
+                        mock_filter_inactive_symbols_from_weights)
+
+    job = RebalancePortfoliosJob(repository, drivewealth_repository, provider,
+                                 trading_service)
 
     def mock_get_trading_account_id(_portfolio):
         assert _portfolio == portfolio
@@ -307,6 +320,7 @@ def test_rebalance_existing_funds(monkeypatch):
     assert (portfolio, new_trading_collection_version) in [
         args for args, kwargs in execute_order_in_portfolio_calls
     ]
+    assert filter_inactive_symbols_from_weights_calls
 
 
 def test_automatic_sell(monkeypatch):
