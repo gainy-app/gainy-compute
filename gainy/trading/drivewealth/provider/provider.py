@@ -12,7 +12,7 @@ from gainy.trading.drivewealth.locking_functions.handle_new_transaction import H
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
     DriveWealthAccountStatus, BaseDriveWealthMoneyFlowModel, DriveWealthRedemptionStatus, DriveWealthInstrument, \
-    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement
+    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthTransactionInterface
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -355,12 +355,12 @@ class DriveWealthProvider(DriveWealthProviderBase):
                     return
                 raise e
 
-    def on_new_transaction(self, account_ref_id: str):
-        entity_lock = AbstractEntityLock(DriveWealthAccount, account_ref_id)
+    def on_new_transaction(self, transaction: DriveWealthTransactionInterface):
+        entity_lock = AbstractEntityLock(DriveWealthAccount, transaction.account_id)
         self.repository.persist(entity_lock)
 
         func = HandleNewTransaction(self.repository, self, entity_lock,
-                                    account_ref_id)
+                                    transaction)
         func.execute()
 
     def update_payment_transaction_from_dw(self,

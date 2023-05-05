@@ -1,6 +1,6 @@
 from psycopg2.extras import RealDictCursor
 
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 
 from gainy.data_access.operators import OperatorGt, OperatorIn
 from gainy.data_access.repository import Repository
@@ -76,6 +76,9 @@ class DriveWealthRepository(Repository):
     # todo add to tests?
     def get_instrument_by_symbol(
             self, symbol: str) -> Optional[DriveWealthInstrument]:
+        """
+        :raises EntityNotFoundException:
+        """
         query = """
             select ref_id 
             from app.drivewealth_instruments 
@@ -162,3 +165,14 @@ class DriveWealthRepository(Repository):
                                    and _sdc_extracted_at > (select max(_sdc_extracted_at) from raw_data.ticker_collections_weights) - interval '1 hour') 
                 ''', {"symbol": symbol})
             return cursor.fetchone()[0]
+
+    def filter_inactive_symbols_from_weights(self, weights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        symbols = [i["symbol"] for i in weights]
+        tradeable_symbols = []
+        for symbol in symbols:
+            try:
+                self.get_instrument_by_symbol(symbol)
+                tradeable_symbols.append(symbol)
+            except EntityNotFoundException:
+                pass
+        return [i for i in weights if i["symbol"] in tradeable_symbols]

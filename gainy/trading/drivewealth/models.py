@@ -1,3 +1,4 @@
+import abc
 import enum
 
 import dateutil.parser
@@ -885,7 +886,18 @@ class DriveWealthCountry(BaseDriveWealthModel):
         return "drivewealth_countries"
 
 
-class DriveWealthTransaction(BaseDriveWealthModel):
+class DriveWealthTransactionInterface(abc.ABC):
+    account_id = None
+    type = None
+    data = None
+
+    @classmethod
+    @abc.abstractmethod
+    def supports(cls, tx_type: str) -> bool:
+        pass
+
+
+class DriveWealthTransaction(BaseDriveWealthModel, DriveWealthTransactionInterface):
     id = None
     ref_id = None
     account_id = None
@@ -924,6 +936,23 @@ class DriveWealthTransaction(BaseDriveWealthModel):
     @classproperty
     def table_name(self) -> str:
         return "drivewealth_transactions"
+
+    @classmethod
+    def create_typed_transaction(cls, transaction: DriveWealthTransactionInterface) -> DriveWealthTransactionInterface:
+        if DriveWealthSpinOffTransaction.supports(transaction.type):
+            transaction = DriveWealthSpinOffTransaction()
+        else:
+            transaction = DriveWealthTransaction()
+
+        transaction.account_id = transaction.account_id
+        transaction.set_from_response(transaction.data)
+        return transaction
+
+
+class DriveWealthSpinOffTransaction(DriveWealthTransaction, DriveWealthTransactionInterface):
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type == "SPINOFF"
 
 
 class DriveWealthBankAccount(AbstractProviderBankAccount,

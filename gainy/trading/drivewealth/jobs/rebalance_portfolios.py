@@ -323,6 +323,7 @@ class RebalancePortfoliosJob:
 
         weights, collection_last_optimization_at = self.repo.get_collection_actual_weights(
             fund.collection_id)
+        weights = self.drivewealth_repository.filter_inactive_symbols_from_weights(weights)
 
         tcv: TradingCollectionVersion = self.repo.find_one(
             TradingCollectionVersion,

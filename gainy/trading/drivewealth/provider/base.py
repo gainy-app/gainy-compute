@@ -11,7 +11,7 @@ from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
-    PRECISION, DriveWealthInstrumentStatus
+    PRECISION, DriveWealthInstrumentStatus, DriveWealthTransaction, DriveWealthSpinOffTransaction
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
@@ -402,15 +402,16 @@ class DriveWealthProviderBase:
         logger.info('set_target_weights_from_status_actual_weights',
                     extra=logging_extra)
 
-        return self.portfolio_has_new_transactions(portfolio, portfolio_status)
+        return self.handle_new_transactions(portfolio, portfolio_status)
 
-    def portfolio_has_new_transactions(
+    def handle_new_transactions(
             self, portfolio: DriveWealthPortfolio,
             portfolio_status: DriveWealthPortfolioStatus) -> bool:
 
         result = False
         new_transactions = self.repository.get_new_transactions(
             portfolio.drivewealth_account_id, portfolio.last_transaction_id)
+        self.handle_transaction(new_transactions, portfolio, portfolio_status)
         for transaction in new_transactions:
             if portfolio.last_transaction_id:
                 portfolio.last_transaction_id = max(
@@ -559,3 +560,37 @@ class DriveWealthProviderBase:
                 })
         active_instrument_ids = set(i.ref_id for i in active_instruments)
         fund.remove_instrument_ids(set(instrument_ids) - active_instrument_ids)
+
+    def handle_transaction(self, transactions: list[DriveWealthTransaction], portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus):
+        typed_transactions = {}
+        for transaction in transactions:
+            transaction = DriveWealthTransaction.create_typed_transaction(transaction)
+            if transaction.__class__ not in typed_transactions:
+                typed_transactions[transaction.__class__] = []
+            typed_transactions[transaction.__class__].append(transaction)
+
+        for cls, transactions in typed_transactions.items():
+            if cls == DriveWealthSpinOffTransaction:
+                self._handle_spinoff_transactions(transactions, portfolio, portfolio_status)
+
+    def _handle_spinoff_transactions(self, transactions: list[DriveWealthSpinOffTransaction], portfolio: DriveWealthPortfolio, portfolio_status: DriveWealthPortfolioStatus) -> bool:
+        """
+        At this point there is a certain amount of some new stock present on the account, we need to add it to the portfolio as a separate position.
+        """
+        logger_extra = {
+            "profile_id": portfolio.profile_id,
+            "portfolio": portfolio.to_dict(),
+            "portfolio_status": portfolio_status.to_dict(),
+            "transactions": [transaction.to_dict() for transaction in transactions],
+        }
+
+        try:
+            # 1. create a record of spinoff somewhere so that it's calculated along with orders executed_amount and not spoil next orders with this stock.
+            # 2. add it to portfolio
+            # 3. calculate gains appropriately
+            return False
+
+        finally:
+            logger.info("_handle_spinoff", extra=logger_extra)
+
