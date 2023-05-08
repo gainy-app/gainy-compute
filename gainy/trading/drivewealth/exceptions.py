@@ -14,6 +14,7 @@ class DriveWealthApiException(ApiException):
         error_code_to_exception_class = {
             "I050": InstrumentNotFoundException,
             "E032": BadMissingParametersBodyException,
+            "K110": PlaidProcessorTokenProvidedIsInvalidException,
         }
 
         message = "Failed: %d" % status_code
@@ -35,6 +36,10 @@ class InstrumentNotFoundException(DriveWealthApiException):
 
 
 class BadMissingParametersBodyException(DriveWealthApiException):
+    pass
+
+
+class PlaidProcessorTokenProvidedIsInvalidException(DriveWealthApiException):
     pass
 
 

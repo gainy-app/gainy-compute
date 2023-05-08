@@ -10,3 +10,7 @@ class AccessTokenApiException(Exception):
 
 class AccessTokenLoginRequiredException(AccessTokenApiException):
     pass
+
+
+class InvalidAccountIdException(AccessTokenApiException):
+    pass
