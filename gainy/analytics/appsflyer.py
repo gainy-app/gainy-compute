@@ -1,3 +1,4 @@
+import json
 import os
 
 from appsflyer.rest import Client
@@ -125,7 +126,7 @@ class AppsflyerService(AnalyticsSinkInterface):
             appsflyer_id=appsflyer_id,
             customer_user_id=_get_user_id(profile_id),
             event_name=event_name,
-            event_value=properties,
+            event_value=json.dumps(properties),
         )
 
     def _get_profile_app_instance_id(self, profile_id):
