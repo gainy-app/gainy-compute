@@ -166,7 +166,8 @@ class DriveWealthRepository(Repository):
                 ''', {"symbol": symbol})
             return cursor.fetchone()[0]
 
-    def filter_inactive_symbols_from_weights(self, weights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def filter_inactive_symbols_from_weights(
+            self, weights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         symbols = [i["symbol"] for i in weights]
         tradeable_symbols = []
         for symbol in symbols:

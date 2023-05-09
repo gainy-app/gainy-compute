@@ -4,7 +4,7 @@ from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_rec
 from gainy.trading.drivewealth.locking_functions.handle_accounts_updated_event import HandleAccountsUpdatedEvent
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser
 from gainy.trading.models import TradingAccount
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 

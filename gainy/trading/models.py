@@ -384,3 +384,25 @@ class ProfileKycStatus(BaseModel):
             **super().to_dict(), "error_messages":
             json.dumps(self.error_messages)
         }
+
+
+class CorporateActionAdjustment(BaseModel):
+    id: int = None
+    profile_id: int = None
+    trading_account_id: int = None
+    collection_id: int = None
+    symbol: str = None
+    amount: Decimal = None
+    created_at: datetime.datetime = None
+
+    key_fields = []
+    db_excluded_fields = ["created_at"]
+    non_persistent_fields = ["created_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "corporate_action_adjustments"

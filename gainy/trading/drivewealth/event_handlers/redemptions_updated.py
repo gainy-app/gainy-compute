@@ -39,10 +39,10 @@ class RedemptionUpdatedEventHandler(AbstractDriveWealthEventHandler):
                         "redemption_pre": redemption_pre,
                         "redemption": redemption.to_dict(),
                     })
-
-        if redemption.is_approved() != was_approved:
-            # update cash weight in linked portfolio
-            self.provider.on_new_transaction(redemption.trading_account_ref_id)
+        # disabled in favor of batch transaction handler in the rebalance job
+        # if redemption.is_approved() != was_approved:
+        #     # update cash weight in linked portfolio
+        #     self.provider.on_new_transaction(redemption.trading_account_ref_id)
 
         if redemption.is_approved() and redemption.fees_total_amount is None:
             self.provider.sync_redemption(redemption.ref_id)

@@ -4,27 +4,26 @@ from decimal import Decimal
 
 from typing import Iterable, Dict, List, Any
 
-from gainy.billing.models import Invoice, InvoiceStatus, PaymentTransaction, PaymentTransactionStatus
 from gainy.exceptions import EntityNotFoundException
 from gainy.plaid.exceptions import AccessTokenLoginRequiredException, InvalidAccountIdException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
-from gainy.trading.drivewealth.models import PRECISION
+from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
 from gainy.trading.exceptions import InsufficientFundsException, InsufficientHoldingValueException
 from gainy.trading.repository import TradingRepository
-from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
     TradingOrderStatus, TradingOrderSource, TradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
+PRECISION = Decimal(10)**-3
 
 
 class TradingService:
-    drivewealth_provider: DriveWealthProvider
+    drivewealth_provider: DriveWealthProviderInterface
 
     def __init__(self, trading_repository: TradingRepository,
-                 drivewealth_provider: DriveWealthProvider,
+                 drivewealth_provider: DriveWealthProviderInterface,
                  plaid_service: PlaidService):
         self.trading_repository = trading_repository
         self.drivewealth_provider = drivewealth_provider
@@ -113,7 +112,8 @@ class TradingService:
                                   target_amount_delta: Decimal = None,
                                   target_amount_delta_relative: Decimal = None,
                                   last_optimization_at: datetime.date = None,
-                                  use_static_weights: bool = False):
+                                  use_static_weights: bool = False,
+                                  note: str = None):
         """
         :raises InsufficientFundsException:
         """
@@ -163,6 +163,7 @@ class TradingService:
         collection_version.trading_account_id = trading_account_id
         collection_version.last_optimization_at = last_optimization_at
         collection_version.use_static_weights = use_static_weights
+        collection_version.note = note
 
         self.trading_repository.persist(collection_version)
 
@@ -174,7 +175,8 @@ class TradingService:
                            symbol: str,
                            trading_account_id: int,
                            target_amount_delta: Decimal = None,
-                           target_amount_delta_relative: Decimal = None):
+                           target_amount_delta_relative: Decimal = None,
+                           note: str = None):
         """
         :raises InsufficientFundsException:
         """
@@ -213,6 +215,7 @@ class TradingService:
         trading_order.target_amount_delta = target_amount_delta
         trading_order.target_amount_delta_relative = target_amount_delta_relative
         trading_order.trading_account_id = trading_account_id
+        trading_order.note = note
 
         self.trading_repository.persist(trading_order)
 

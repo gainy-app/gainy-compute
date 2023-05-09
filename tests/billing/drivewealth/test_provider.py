@@ -6,7 +6,8 @@ from gainy.billing.drivewealth.provider import DriveWealthPaymentProvider
 from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction
 
 from gainy.tests.mocks.repository_mocks import mock_persist as base_mock_persist, mock_find
-from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository
 from gainy.trading.drivewealth.config import DRIVEWEALTH_HOUSE_ACCOUNT_NO
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthRedemption, DriveWealthAccountMoney, \
     DriveWealthPortfolio, DriveWealthPortfolioStatus

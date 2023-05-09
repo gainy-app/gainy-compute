@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Tuple, Iterable, Optional
 
 from gainy.data_access.operators import OperatorLte, OperatorIn
 from gainy.data_access.repository import Repository
-from gainy.exceptions import NotFoundException
+from gainy.exceptions import NotFoundException, EntityNotFoundException
 from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, ProfileKycStatus, KycForm, AbstractTradingOrder
 from gainy.utils import get_logger
 
@@ -304,3 +304,21 @@ class TradingRepository(Repository):
 
         entity.status = status
         self.persist(entity)
+
+    def get_ticker_actual_price(self, symbol: str) -> Decimal:
+        """
+        :raises EntityNotFoundException:
+        """
+        query = "select actual_price from ticker_realtime_metrics where symbol = %(symbol)s"
+        params = {
+            "symbol": symbol,
+        }
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        if row and row[0] is not None:
+            return Decimal(row[0])
+
+        raise EntityNotFoundException("ticker_realtime_metrics")

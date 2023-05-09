@@ -25,10 +25,12 @@ from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.serivce import RecommendationService
 from gainy.services.notification import NotificationService
 from gainy.services.sendgrid import SendGridService
+from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
 from gainy.trading.drivewealth.queue_message_handler import DriveWealthQueueMessageHandler
 from gainy.trading.service import TradingService
 from gainy.trading.repository import TradingRepository
-from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository, DriveWealthApi
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthApi
 from gainy.utils import db_connect
 
 
@@ -155,6 +157,12 @@ class ContextContainer(AbstractContextManager):
                                    self.trading_repository,
                                    self.notification_service,
                                    self.analytics_service)
+
+    @cached_property
+    def drivewealth_transaction_handler(self):
+        return DriveWealthTransactionHandler(self.drivewealth_provider,
+                                             self.trading_repository,
+                                             self.trading_service)
 
     # trading
     @cached_property
