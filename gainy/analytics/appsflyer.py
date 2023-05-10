@@ -128,7 +128,7 @@ class AppsflyerService(AnalyticsSinkInterface):
                 appsflyer_id=appsflyer_id,
                 customer_user_id=_get_user_id(profile_id),
                 event_name=event_name,
-                event_value=json.dumps(properties),
+                event_value=properties,
             )
             logging_extra["status_code"] = response.status_code
             logging_extra["response"] = response.text
