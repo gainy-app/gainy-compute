@@ -4,7 +4,7 @@ from gainy.trading.drivewealth.models import DriveWealthDeposit
 from gainy.trading.models import TradingMoneyFlow, FundingAccount
 from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth.event_handlers import DepositsUpdatedEventHandler
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 message = {

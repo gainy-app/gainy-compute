@@ -6,7 +6,8 @@ from gainy.queue_processing.abstract_message_handler import AbstractMessageHandl
 from gainy.queue_processing.models import QueueMessage
 from gainy.services.notification import NotificationService
 import gainy.trading.drivewealth.event_handlers
-from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.abstract_event_handler import AbstractDriveWealthEventHandler
 from gainy.trading.repository import TradingRepository
 

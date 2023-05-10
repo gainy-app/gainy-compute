@@ -1,18 +1,22 @@
 from decimal import Decimal
 
 import datetime
+from itertools import groupby
 from typing import List, Iterable, Dict, Optional
 
 from gainy.analytics.service import AnalyticsService
-from gainy.data_access.operators import OperatorNot, OperatorIn
+from gainy.data_access.operators import OperatorNot, OperatorIn, OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth import DriveWealthApi
 from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
-    PRECISION, DriveWealthInstrumentStatus
+    PRECISION, DriveWealthInstrumentStatus, DriveWealthTransaction, DriveWealthSpinOffTransaction, \
+    DriveWealthAccountPositions
+from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
+from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.models import TradingOrderStatus, TradingAccount, TradingCollectionVersion, TradingOrder, \
     AbstractTradingOrder
@@ -22,9 +26,11 @@ from gainy.utils import get_logger
 logger = get_logger(__name__)
 
 DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
+DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
+DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 
-class DriveWealthProviderBase:
+class DriveWealthProviderBase(DriveWealthProviderInterface):
     repository: DriveWealthRepository = None
     trading_repository: TradingRepository = None
 
@@ -105,7 +111,7 @@ class DriveWealthProviderBase:
             return
 
         try:
-            trading_account = self._get_trading_account_by_portfolio_status(
+            trading_account = self.get_trading_account_by_portfolio_status(
                 portfolio_status)
         except EntityNotFoundException:
             return
@@ -201,11 +207,15 @@ class DriveWealthProviderBase:
             raise KYCFormHasNotBeenSentException("KYC form has not been sent")
         return user
 
-    def _get_trading_account_by_portfolio_status(
+    def get_trading_account_by_portfolio_status(
             self, portfolio_status) -> TradingAccount:
         portfolio: DriveWealthPortfolio = self.repository.find_one(
             DriveWealthPortfolio,
             {"ref_id": portfolio_status.drivewealth_portfolio_id})
+        return self.get_trading_account_by_portfolio(portfolio)
+
+    def get_trading_account_by_portfolio(
+            self, portfolio: DriveWealthPortfolio) -> TradingAccount:
         if not portfolio or not portfolio.drivewealth_account_id:
             raise EntityNotFoundException(DriveWealthPortfolio)
 
@@ -375,9 +385,8 @@ class DriveWealthProviderBase:
                 "drivewealth_portfolio_id": portfolio_ref_id,
             }, [("created_at", "DESC")])
 
-    def actualize_portfolio(
-            self, portfolio: DriveWealthPortfolio,
-            portfolio_status: DriveWealthPortfolioStatus) -> bool:
+    def actualize_portfolio(self, portfolio: DriveWealthPortfolio,
+                            portfolio_status: DriveWealthPortfolioStatus):
 
         logging_extra = {
             "profile_id": portfolio.profile_id,
@@ -401,55 +410,6 @@ class DriveWealthProviderBase:
         logging_extra["funds_post"] = [fund.to_dict() for fund in funds]
         logger.info('set_target_weights_from_status_actual_weights',
                     extra=logging_extra)
-
-        return self.portfolio_has_new_transactions(portfolio, portfolio_status)
-
-    def portfolio_has_new_transactions(
-            self, portfolio: DriveWealthPortfolio,
-            portfolio_status: DriveWealthPortfolioStatus) -> bool:
-
-        result = False
-        new_transactions = self.repository.get_new_transactions(
-            portfolio.drivewealth_account_id, portfolio.last_transaction_id)
-        for transaction in new_transactions:
-            if portfolio.last_transaction_id:
-                portfolio.last_transaction_id = max(
-                    portfolio.last_transaction_id, transaction.id)
-            else:
-                portfolio.last_transaction_id = transaction.id
-
-            result = True
-
-        # pending redemptions do not have transactions, but are already accounted in portfolio balance.
-        pending_redemptions_amount_sum = Decimal(0)
-        pending_redemptions = self.repository.get_pending_redemptions(
-            portfolio.drivewealth_account_id)
-        for redemption in pending_redemptions:
-            pending_redemptions_amount_sum += redemption.amount
-
-        prev_pending_redemptions_amount_sum = portfolio.pending_redemptions_amount_sum
-        if abs(portfolio.pending_redemptions_amount_sum -
-               pending_redemptions_amount_sum) > PRECISION:
-            portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
-            result = True
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "prev_pending_redemptions_amount_sum":
-            prev_pending_redemptions_amount_sum,
-            "new_pending_redemptions_amount_sum":
-            pending_redemptions_amount_sum,
-            "new_transactions": [i.to_dict() for i in new_transactions],
-            "portfolio_pre": portfolio.to_dict(),
-            "portfolio_status": portfolio_status.to_dict(),
-            "result": result,
-        }
-        logger.info('portfolio_has_new_transactions', extra=logging_extra)
-
-        if result:
-            self.repository.persist(portfolio)
-
-        return result
 
     #todo deprecated
     def rebalance_portfolio_cash(
@@ -559,3 +519,30 @@ class DriveWealthProviderBase:
                 })
         active_instrument_ids = set(i.ref_id for i in active_instruments)
         fund.remove_instrument_ids(set(instrument_ids) - active_instrument_ids)
+
+    def sync_account_positions(
+            self,
+            account_ref_id: str,
+            force: bool = False) -> DriveWealthAccountPositions:
+
+        if not force:
+            account_positions: DriveWealthAccountPositions = self.repository.find_one(
+                DriveWealthAccountPositions, {
+                    "drivewealth_account_id":
+                    account_ref_id,
+                    "created_at":
+                    OperatorGt(
+                        datetime.datetime.now(datetime.timezone.utc) -
+                        datetime.timedelta(
+                            seconds=DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL)
+                    ),
+                }, [("created_at", "DESC")])
+
+            if account_positions:
+                return account_positions
+
+        account_positions_data = self.api.get_account_positions(account_ref_id)
+        account_positions = DriveWealthAccountPositions()
+        account_positions.set_from_response(account_positions_data)
+        self.repository.persist(account_positions)
+        return account_positions

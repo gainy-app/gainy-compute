@@ -16,7 +16,8 @@ class TransactionsCreatedEventHandler(AbstractDriveWealthEventHandler):
         transaction.set_from_response(event_payload["transaction"])
         self.repo.persist(transaction)
 
-        self.provider.on_new_transaction(transaction.account_id)
+        # disabled in favor of batch transaction handler in the rebalance job
+        # self.provider.on_new_transaction(transaction.account_id)
 
         trading_account = self.sync_trading_account_balances(
             transaction.account_id, force=True)

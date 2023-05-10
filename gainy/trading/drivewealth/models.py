@@ -1,4 +1,6 @@
+import abc
 import enum
+import re
 
 import dateutil.parser
 import datetime
@@ -12,9 +14,10 @@ import pytz
 from gainy.billing.models import PaymentTransaction, PaymentTransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
+from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount, \
-    ProfileKycStatus, KycStatus, TradingStatementType
+    ProfileKycStatus, KycStatus, TradingStatementType, CorporateActionAdjustment
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -229,6 +232,19 @@ class DriveWealthAccountPositions(BaseDriveWealthModel):
         trading_account.equity_value = self.equity_value
         pass
 
+    def get_symbol_market_price(self, symbol: str) -> Decimal:
+        """
+        :raises EntityNotFoundException:
+        """
+        try:
+            position = next(
+                filter(lambda x: x["symbol"] == symbol,
+                       self.data["equityPositions"]))
+            return Decimal(position["mktPrice"])
+        except StopIteration as e:
+            raise EntityNotFoundException(
+                "drivewealth_accounts_positions position") from e
+
 
 class CollectionHoldingStatus:
     symbol = None
@@ -324,24 +340,35 @@ class DriveWealthPortfolioStatusHolding:
 
     def is_valid(self) -> bool:
         logger_extra = {"holding": self.data}
-        weight_sum = Decimal(0)
-        target_weight_sum = Decimal(0)
         value_sum = Decimal(0)
         for holding in self.holdings:
-            weight_sum += holding.actual_weight
-            target_weight_sum += holding.target_weight
             value_sum += holding.value
 
-        if abs(value_sum - self.value) > 1:
-            logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-            return False
-        if abs(weight_sum - 1) > 2e-3 and self.value > 0:
-            logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
-            return False
-        if abs(target_weight_sum - 1) > 2e-3 and self.value > 0:
-            logger.info(f'is_valid: target_weight_sum is invalid',
+        diff = abs(value_sum - self.value)
+        if diff > 1:
+            logger.info(f'is_valid: value_sum is invalid, diff: %.6f',
+                        diff,
                         extra=logger_extra)
             return False
+
+        return self.is_valid_weights()
+
+    def is_valid_weights(self) -> bool:
+        logger_extra = {"holding": self.data}
+        try:
+            weight_sum = sum(holding.actual_weight
+                             for holding in self.holdings)
+        except StopIteration:
+            # empty holdings: let's say it's correct
+            return True
+
+        diff = abs(weight_sum - 1)
+        if diff > 2e-3 and self.value > 0:
+            logger.info(f'is_valid: weight_sum is invalid, diff: %.6f',
+                        diff,
+                        extra=logger_extra)
+            return False
+
         return True
 
 
@@ -409,30 +436,35 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
     def is_valid(self) -> bool:
         logger_extra = {"portfolio_status": self.data}
-        weight_sum = Decimal(self.cash_actual_weight)
-        target_weight_sum = Decimal(self.cash_target_weight)
-        value_sum = Decimal(self.cash_value)
         for holding_id, holding in self.holdings.items():
-            if not holding.is_valid():
+            if holding.is_valid():
+                continue
+
+            logger.info(f'is_valid: holding {holding_id} is invalid',
+                        extra=logger_extra)
+            return False
+
+        return self.is_valid_weights()
+
+    def is_valid_weights(self) -> bool:
+        logger_extra = {"portfolio_status": self.data}
+        weight_sum = Decimal(self.cash_actual_weight)
+        for holding_id, holding in self.holdings.items():
+            if not holding.is_valid_weights():
                 logger.info(f'is_valid: holding {holding_id} is invalid',
                             extra=logger_extra)
                 return False
             weight_sum += holding.actual_weight
-            target_weight_sum += holding.target_weight
-            value_sum += holding.value
 
         equity_value = self.equity_value
-        # this is frequently false negative
-        # if abs(value_sum - equity_value) > 1:
-        #     logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-        #     return False
-        if abs(weight_sum - 1) > 2e-3 and equity_value > 0:
-            logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
-            return False
-        if abs(target_weight_sum - 1) > 2e-3 and equity_value > 0:
-            logger.info(f'is_valid: target_weight_sum is invalid',
+
+        diff = abs(weight_sum - 1)
+        if diff > 2e-3 and equity_value > 0:
+            logger.info(f'is_valid: weight_sum is invalid, diff: %6.f',
+                        diff,
                         extra=logger_extra)
             return False
+
         return True
 
     def get_fund_value(self, fund_ref_id) -> Decimal:
@@ -885,7 +917,20 @@ class DriveWealthCountry(BaseDriveWealthModel):
         return "drivewealth_countries"
 
 
-class DriveWealthTransaction(BaseDriveWealthModel):
+class DriveWealthTransactionInterface(abc.ABC):
+    id: int = None
+    account_id: str = None
+    type: str = None
+    data: dict = None
+
+    @classmethod
+    @abc.abstractmethod
+    def supports(cls, tx_type: str) -> bool:
+        pass
+
+
+class DriveWealthTransaction(BaseDriveWealthModel,
+                             DriveWealthTransactionInterface):
     id = None
     ref_id = None
     account_id = None
@@ -924,6 +969,100 @@ class DriveWealthTransaction(BaseDriveWealthModel):
     @classproperty
     def table_name(self) -> str:
         return "drivewealth_transactions"
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return True
+
+    @classmethod
+    def create_typed_transaction(
+        cls, transaction: DriveWealthTransactionInterface
+    ) -> DriveWealthTransactionInterface:
+        classes = [
+            DriveWealthDividendTransaction, DriveWealthSpinOffTransaction,
+            DriveWealthMergerAcquisitionTransaction
+        ]
+        typed_transaction = DriveWealthTransaction()
+        for _cls in classes:
+            if not _cls.supports(transaction.type):
+                continue
+            typed_transaction = _cls()
+            break
+
+        typed_transaction.account_id = transaction.account_id
+        typed_transaction.set_from_response(transaction.data)
+        return typed_transaction
+
+
+class DriveWealthDividendTransaction(DriveWealthTransaction,
+                                     DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type in ["DIVTAX", "DIV"]
+
+
+class DriveWealthSpinOffTransaction(DriveWealthTransaction,
+                                    DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type == "SPINOFF"
+
+    @property
+    def position_delta(self) -> Decimal:
+        return Decimal(self.data["positionDelta"])
+
+    @property
+    def from_symbol(self) -> str:
+        m = re.search(DriveWealthSpinOffTransaction.__comment_regex,
+                      self.data["comment"])
+        if not m:
+            raise Exception("Failed to parse transaction comment %s" %
+                            self.data["comment"])
+        return m[1]
+
+    @property
+    def to_symbol(self) -> str:
+        m = re.search(self.__comment_regex, self.data["comment"])
+        if not m:
+            raise Exception("Failed to parse transaction comment %s" %
+                            self.data["comment"])
+        return m[2]
+
+    @classproperty
+    def __comment_regex(cls):
+        return r"from (\w*) to (\w*)"
+
+
+class DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE(str, enum.Enum):
+    EXCHANGE_STOCK_CASH = "EXCHANGE_STOCK_CASH"
+    REMOVE_SHARES = "REMOVE_SHARES"
+    ADD_SHARES_CASH = "ADD_SHARES_CASH"
+
+
+class DriveWealthMergerAcquisitionTransaction(DriveWealthTransaction,
+                                              DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type == "MERGER_ACQUISITION"
+
+    @property
+    def position_delta(self) -> Decimal:
+        return Decimal(self.data["positionDelta"])
+
+    @property
+    def merger_transaction_type(self) -> str:
+        return self.data["mergerAcquisition"]["type"]
+
+    @property
+    def acquirer_symbol(self) -> str:
+        return self.data["mergerAcquisition"]["acquirer"]["symbol"]
+
+    @property
+    def acquiree_symbol(self) -> str:
+        return self.data["mergerAcquisition"]["acquiree"]["symbol"]
 
 
 class DriveWealthBankAccount(AbstractProviderBankAccount,
@@ -1226,3 +1365,23 @@ class DriveWealthStatement(BaseDriveWealthModel):
         except Exception as e:
             logger.exception(e, extra={"file_key": self.file_key})
             return None
+
+
+class DriveWealthCorporateActionTransactionLink(BaseModel):
+    corporate_action_adjustment_id: int = None
+    drivewealth_transaction_id: int = None
+    created_at: datetime.datetime = None
+
+    key_fields = [
+        "corporate_action_adjustment_id", "drivewealth_transaction_id"
+    ]
+    db_excluded_fields = ["created_at"]
+    non_persistent_fields = ["created_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "corporate_action_drivewealth_transaction_link"

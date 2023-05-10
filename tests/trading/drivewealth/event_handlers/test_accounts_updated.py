@@ -2,7 +2,7 @@ from gainy.analytics.service import AnalyticsService
 from gainy.models import AbstractEntityLock
 from gainy.tests.mocks.repository_mocks import mock_persist, mock_record_calls
 from gainy.trading.drivewealth.event_handlers.accounts_updated import AccountsUpdatedEventHandler
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 

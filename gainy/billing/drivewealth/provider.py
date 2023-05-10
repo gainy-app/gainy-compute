@@ -2,7 +2,8 @@ from _decimal import Decimal
 
 from gainy.billing.models import Invoice, PaymentMethod, PaymentTransaction, PaymentMethodProvider
 from gainy.billing.provider import AbstractPaymentProvider
-from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository, DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthApi, DriveWealthRepository
 from gainy.trading.drivewealth.config import DRIVEWEALTH_HOUSE_ACCOUNT_NO
 from gainy.trading.drivewealth.models import DriveWealthAccount
 from gainy.trading.exceptions import InsufficientFundsException
