@@ -420,3 +420,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]
+
+    def filter_inactive_symbols_from_weights(self, weights):
+        return self.repository.filter_inactive_symbols_from_weights(weights)
