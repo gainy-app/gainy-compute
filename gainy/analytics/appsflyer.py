@@ -108,6 +108,7 @@ class AppsflyerService(AnalyticsSinkInterface):
             event_name, properties = transform_event(event_name, properties)
         except UnsupportedEventException:
             return
+        properties = json.dumps(properties)
 
         try:
             appsflyer_id = self._get_profile_app_instance_id(profile_id)
@@ -117,17 +118,22 @@ class AppsflyerService(AnalyticsSinkInterface):
 
         logging_extra = {
             "profile_id": profile_id,
+            "appsflyer_id": appsflyer_id,
+            "customer_user_id": _get_user_id(profile_id),
             "event_name": event_name,
             "properties": properties,
         }
-        logger.info("Sending Appsflyer event", extra=logging_extra)
-
-        self.client.generate_event(
-            appsflyer_id=appsflyer_id,
-            customer_user_id=_get_user_id(profile_id),
-            event_name=event_name,
-            event_value=json.dumps(properties),
-        )
+        try:
+            response = self.client.generate_event(
+                appsflyer_id=appsflyer_id,
+                customer_user_id=_get_user_id(profile_id),
+                event_name=event_name,
+                event_value=properties,
+            )
+            logging_extra["status_code"] = response.status_code
+            logging_extra["response"] = response.text
+        finally:
+            logger.info("Sending Appsflyer event", extra=logging_extra)
 
     def _get_profile_app_instance_id(self, profile_id):
         metadata = self.repository.get_analytics_metadata(
