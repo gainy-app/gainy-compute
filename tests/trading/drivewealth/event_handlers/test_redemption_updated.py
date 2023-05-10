@@ -29,9 +29,11 @@ def test_exists(monkeypatch):
     handle_redemption_status_calls = []
     monkeypatch.setattr(provider, 'handle_redemption_status',
                         mock_record_calls(handle_redemption_status_calls))
-    on_new_transaction_calls = []
-    monkeypatch.setattr(provider, 'on_new_transaction',
-                        mock_record_calls(on_new_transaction_calls))
+
+    # disabled in favor of batch transaction handler in the rebalance job
+    # on_new_transaction_calls = []
+    # monkeypatch.setattr(provider, 'on_new_transaction',
+    #                     mock_record_calls(on_new_transaction_calls))
 
     def mock_update_money_flow_from_dw(_redemption):
         assert redemption == _redemption

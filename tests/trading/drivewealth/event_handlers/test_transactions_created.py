@@ -11,9 +11,10 @@ def test(monkeypatch):
     monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
 
     provider = DriveWealthProvider(None, None, None, None, None)
-    on_new_transaction_calls = []
-    monkeypatch.setattr(provider, "on_new_transaction",
-                        mock_record_calls(on_new_transaction_calls))
+    # disabled in favor of batch transaction handler in the rebalance job
+    # on_new_transaction_calls = []
+    # monkeypatch.setattr(provider, "on_new_transaction",
+    #                     mock_record_calls(on_new_transaction_calls))
     event_handler = TransactionsCreatedEventHandler(repository, provider, None,
                                                     None)
     sync_trading_account_balances_calls = []

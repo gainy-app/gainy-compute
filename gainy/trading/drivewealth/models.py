@@ -985,7 +985,7 @@ class DriveWealthTransaction(BaseDriveWealthModel,
         for _cls in classes:
             if not _cls.supports(transaction.type):
                 continue
-            typed_transaction = DriveWealthSpinOffTransaction()
+            typed_transaction = _cls()
             break
 
         typed_transaction.account_id = transaction.account_id
@@ -1008,19 +1008,20 @@ class DriveWealthSpinOffTransaction(DriveWealthTransaction,
     def supports(cls, tx_type) -> bool:
         return tx_type == "SPINOFF"
 
-    @classproperty
+    @property
     def position_delta(self) -> Decimal:
         return Decimal(self.data["positionDelta"])
 
-    @classproperty
+    @property
     def from_symbol(self) -> str:
-        m = re.search(self.__comment_regex, self.data["comment"])
+        m = re.search(DriveWealthSpinOffTransaction.__comment_regex,
+                      self.data["comment"])
         if not m:
             raise Exception("Failed to parse transaction comment %s" %
                             self.data["comment"])
         return m[1]
 
-    @classproperty
+    @property
     def to_symbol(self) -> str:
         m = re.search(self.__comment_regex, self.data["comment"])
         if not m:
@@ -1028,9 +1029,8 @@ class DriveWealthSpinOffTransaction(DriveWealthTransaction,
                             self.data["comment"])
         return m[2]
 
-    @staticmethod
     @classproperty
-    def __comment_regex():
+    def __comment_regex(cls):
         return r"from (\w*) to (\w*)"
 
 

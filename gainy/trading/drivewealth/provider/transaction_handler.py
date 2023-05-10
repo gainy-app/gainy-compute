@@ -8,7 +8,7 @@ from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, \
     DriveWealthSpinOffTransaction, DriveWealthPortfolioStatus, DriveWealthCorporateActionTransactionLink, \
     DriveWealthAccountPositions, DriveWealthDividendTransaction, \
-    DriveWealthTransactionInterface, PRECISION
+    DriveWealthTransactionInterface, PRECISION, DriveWealthTransaction
 from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
 from gainy.trading.models import CorporateActionAdjustment, AbstractTradingOrder, TradingOrderSource
 from gainy.trading.repository import TradingRepository
@@ -51,14 +51,15 @@ class DriveWealthTransactionHandler:
             portfolio.drivewealth_account_id, portfolio.last_transaction_id)
 
         def key_func(tx):
-            return tx.__class__
+            return str(tx.__class__)
 
         for cls, cls_transactions in groupby(
                 sorted(transactions, key=key_func), key_func):
-            if cls == DriveWealthSpinOffTransaction:
+            cls_transactions = list(cls_transactions)
+            if cls == str(DriveWealthSpinOffTransaction):
                 self._handle_spinoff_transactions(cls_transactions, portfolio,
                                                   portfolio_status)
-            elif cls == DriveWealthDividendTransaction:
+            elif cls == str(DriveWealthDividendTransaction):
                 self._handle_dividend_transactions(cls_transactions, portfolio,
                                                    portfolio_status)
 
@@ -108,7 +109,8 @@ class DriveWealthTransactionHandler:
 
             for symbol, symbol_transactions in groupby(
                     sorted(transactions, key=key_func), key_func):
-                symbol_transactions: list[DriveWealthDividendTransaction]
+                symbol_transactions: list[
+                    DriveWealthDividendTransaction] = list(symbol_transactions)
 
                 filtered_transactions = self._filter_linked_transactions(
                     symbol_transactions)
@@ -162,7 +164,8 @@ class DriveWealthTransactionHandler:
             for (from_symbol, to_symbol,
                  symbol), symbol_transactions in groupby(
                      sorted(transactions, key=key_func), key_func):
-                symbol_transactions: list[DriveWealthSpinOffTransaction]
+                symbol_transactions: list[
+                    DriveWealthSpinOffTransaction] = list(symbol_transactions)
 
                 filtered_transactions = self._filter_linked_transactions(
                     symbol_transactions)
@@ -218,7 +221,7 @@ class DriveWealthTransactionHandler:
                 if holding.symbol != symbol:
                     continue
 
-                fund = self.trading_repository.find_one(
+                fund = self.drivewealth_repository.find_one(
                     DriveWealthFund, {"ref_id": fund_id})
                 selected_holdings.append((fund.collection_id, holding.value))
                 value_sum += holding.value
@@ -228,7 +231,7 @@ class DriveWealthTransactionHandler:
 
     def _filter_linked_transactions(self, transactions: list[T]) -> list[T]:
         links: list[
-            DriveWealthCorporateActionTransactionLink] = self.trading_repository.find_one(
+            DriveWealthCorporateActionTransactionLink] = self.trading_repository.find_all(
                 DriveWealthCorporateActionTransactionLink, {
                     "drivewealth_transaction_id":
                     OperatorIn([tx.id for tx in transactions])
