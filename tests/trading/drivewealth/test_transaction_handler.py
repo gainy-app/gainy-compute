@@ -11,7 +11,7 @@ from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthPortfolioStatus, \
     DriveWealthRedemption, DriveWealthSpinOffTransaction, DriveWealthDividendTransaction, DriveWealthAccountPositions, \
     DriveWealthTransaction, DriveWealthCorporateActionTransactionLink, DriveWealthFund, \
-    DriveWealthPortfolioStatusHolding
+    DriveWealthPortfolioStatusHolding, DriveWealthMergerAcquisitionTransaction, DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE
 from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.models import TradingAccount, CorporateActionAdjustment, TradingOrderSource
 
@@ -434,6 +434,189 @@ def test_handle_dividend_transactions(monkeypatch):
 
         else:
             raise Exception("Wrong symbol %s" % symbol)
+
+    for i in link_caa_calls:
+        logging.debug(i[0])
+    assert len(link_caa_calls) == expected_number_of_caas
+    assert set(i[0][0] for i in link_caa_calls) == set(
+        persisted_objects[CorporateActionAdjustment])
+    linked_transactions = set()
+    for i in link_caa_calls:
+        linked_transactions.update(i[0][1])
+    assert linked_transactions == set(transactions)
+
+    for i in create_order_calls:
+        logging.debug(i[0])
+    assert len(create_order_calls) == expected_number_of_caas
+    assert set(i[0][0] for i in create_order_calls) == set(
+        persisted_objects[CorporateActionAdjustment])
+
+    filtered_transactions = set()
+    for i in filter_linked_transactions_calls:
+        filtered_transactions.update(i[0][0])
+    assert filtered_transactions == set(transactions)
+
+
+def test_handle_merger_acquisition_transactions(monkeypatch):
+    amount_delta1 = 1
+    amount_delta2 = 0
+    amount_delta3 = 10
+
+    symbol1 = "symbol1"
+    symbol2 = "symbol2"
+    symbol3 = "symbol3"
+
+    tx_data = {"finTranID": None, "finTranTypeID": None, "accountAmount": 0}
+    transaction1 = DriveWealthMergerAcquisitionTransaction()
+    transaction1.set_from_response({
+        **tx_data, "accountAmount": amount_delta1,
+        "instrument": {
+            "symbol": symbol1
+        },
+        "mergerAcquisition": {
+            "type": DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE.EXCHANGE_STOCK_CASH
+        }
+    })
+    transaction2 = DriveWealthMergerAcquisitionTransaction()
+    transaction2.set_from_response({
+        **tx_data, "accountAmount": amount_delta2,
+        "instrument": {
+            "symbol": symbol2
+        },
+        "mergerAcquisition": {
+            "type": DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE.REMOVE_SHARES
+        }
+    })
+    transaction3 = DriveWealthMergerAcquisitionTransaction()
+    transaction3.set_from_response({
+        **tx_data, "accountAmount": amount_delta3,
+        "instrument": {
+            "symbol": symbol3
+        },
+        "mergerAcquisition": {
+            "type": DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE.ADD_SHARES_CASH
+        }
+    })
+    transactions = [
+        transaction1,
+        transaction2,
+        transaction3,
+    ]
+
+    collection_id1 = 1
+    collection_id2 = 2
+    collection_none_weight = Decimal(0.5)
+    collection_1_weight = Decimal(0.2)
+    collection_2_weight = Decimal(0.3)
+    trading_account_id = 3
+    profile_id = 4
+
+    symbol_weights = [
+        (None, collection_none_weight),
+        (collection_id1, collection_1_weight),
+        (collection_id2, collection_2_weight),
+    ]
+
+    portfolio = DriveWealthPortfolio()
+    portfolio.profile_id = profile_id
+    portfolio_status = DriveWealthPortfolioStatus()
+    account_positions = DriveWealthAccountPositions()
+
+    trading_account = TradingAccount()
+    trading_account.id = trading_account_id
+
+    provider = DriveWealthProvider(None, None, None, None, None)
+
+    def mock_sync_account_positions(*args, **kwargs):
+        return account_positions
+
+    monkeypatch.setattr(provider, "sync_account_positions",
+                        mock_sync_account_positions)
+    monkeypatch.setattr(provider, "get_trading_account_by_portfolio",
+                        lambda x: trading_account)
+
+    drivewealth_repository = DriveWealthRepository(None)
+    persisted_objects = {}
+    caa_id = 0
+
+    def _mock_persist(entity):
+        nonlocal caa_id
+        mock_persist(persisted_objects)(entity)
+        if isinstance(entity, CorporateActionAdjustment):
+            caa_id += 1
+            entity.id = caa_id
+
+    monkeypatch.setattr(drivewealth_repository, "persist", _mock_persist)
+
+    handler = DriveWealthTransactionHandler(provider, drivewealth_repository,
+                                            None, None)
+
+    filter_linked_transactions_calls = []
+
+    def mock_filter_linked_transactions(transactions):
+        mock_record_calls(filter_linked_transactions_calls)(transactions)
+        return transactions
+
+    monkeypatch.setattr(handler, "_filter_linked_transactions",
+                        mock_filter_linked_transactions)
+
+    def mock_get_portfolio_symbol_weights(symbol, portfolio_status):
+        return symbol_weights
+
+    monkeypatch.setattr(handler, "_get_portfolio_symbol_weights",
+                        mock_get_portfolio_symbol_weights)
+
+    link_caa_calls = []
+    monkeypatch.setattr(handler, "_link_caa",
+                        mock_record_calls(link_caa_calls))
+
+    create_order_calls = []
+    monkeypatch.setattr(handler, "_create_order",
+                        mock_record_calls(create_order_calls))
+
+    handler._handle_dividend_transactions(transactions, portfolio,
+                                          portfolio_status)
+
+    for i in persisted_objects[CorporateActionAdjustment]:
+        logging.debug(i.to_dict())
+
+    expected_number_of_caas = 9
+    assert all(i.profile_id == profile_id
+               for i in persisted_objects[CorporateActionAdjustment])
+    assert all(i.trading_account_id == trading_account_id
+               for i in persisted_objects[CorporateActionAdjustment])
+    assert {symbol1, symbol2, symbol3} == {
+        i.symbol
+        for i in persisted_objects[CorporateActionAdjustment]
+    }
+    assert len(persisted_objects[CorporateActionAdjustment]
+               ) == expected_number_of_caas
+
+    def key_func(caa: CorporateActionAdjustment):
+        return caa.symbol
+
+    for symbol, caas in groupby(
+            sorted(persisted_objects[CorporateActionAdjustment], key=key_func),
+            key_func):
+        caas: list[CorporateActionAdjustment]
+
+        if symbol == symbol1:
+            expected_amount_sum = amount_delta1
+        elif symbol == symbol2:
+            expected_amount_sum = amount_delta2
+        elif symbol == symbol3:
+            expected_amount_sum = amount_delta3
+        else:
+            raise Exception("Wrong symbol " + symbol)
+
+        assert abs(sum(i.amount
+                       for i in caas) - expected_amount_sum) < Decimal(1e-10)
+        for caa in caas:
+            w = next(
+                filter(
+                    lambda x: x[0] is None and caa.collection_id is None or x[
+                        0] == caa.collection_id, symbol_weights))[1]
+            assert abs(caa.amount - expected_amount_sum * w) < Decimal(1e-10)
 
     for i in link_caa_calls:
         logging.debug(i[0])

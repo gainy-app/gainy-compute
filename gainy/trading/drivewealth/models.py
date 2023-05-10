@@ -979,7 +979,8 @@ class DriveWealthTransaction(BaseDriveWealthModel,
         cls, transaction: DriveWealthTransactionInterface
     ) -> DriveWealthTransactionInterface:
         classes = [
-            DriveWealthDividendTransaction, DriveWealthSpinOffTransaction
+            DriveWealthDividendTransaction, DriveWealthSpinOffTransaction,
+            DriveWealthMergerAcquisitionTransaction
         ]
         typed_transaction = DriveWealthTransaction()
         for _cls in classes:
@@ -1032,6 +1033,36 @@ class DriveWealthSpinOffTransaction(DriveWealthTransaction,
     @classproperty
     def __comment_regex(cls):
         return r"from (\w*) to (\w*)"
+
+
+class DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE(str, enum.Enum):
+    EXCHANGE_STOCK_CASH = "EXCHANGE_STOCK_CASH"
+    REMOVE_SHARES = "REMOVE_SHARES"
+    ADD_SHARES_CASH = "ADD_SHARES_CASH"
+
+
+class DriveWealthMergerAcquisitionTransaction(DriveWealthTransaction,
+                                              DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type == "MERGER_ACQUISITION"
+
+    @property
+    def position_delta(self) -> Decimal:
+        return Decimal(self.data["positionDelta"])
+
+    @property
+    def merger_transaction_type(self) -> str:
+        return self.data["mergerAcquisition"]["type"]
+
+    @property
+    def acquirer_symbol(self) -> str:
+        return self.data["mergerAcquisition"]["acquirer"]["symbol"]
+
+    @property
+    def acquiree_symbol(self) -> str:
+        return self.data["mergerAcquisition"]["acquiree"]["symbol"]
 
 
 class DriveWealthBankAccount(AbstractProviderBankAccount,

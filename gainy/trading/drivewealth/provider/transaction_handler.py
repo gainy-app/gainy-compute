@@ -8,7 +8,8 @@ from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFund, \
     DriveWealthSpinOffTransaction, DriveWealthPortfolioStatus, DriveWealthCorporateActionTransactionLink, \
     DriveWealthAccountPositions, DriveWealthDividendTransaction, \
-    DriveWealthTransactionInterface, PRECISION, DriveWealthTransaction
+    DriveWealthTransactionInterface, PRECISION, DriveWealthTransaction, DriveWealthMergerAcquisitionTransaction, \
+    DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE, EXECUTED_AMOUNT_PRECISION
 from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
 from gainy.trading.models import CorporateActionAdjustment, AbstractTradingOrder, TradingOrderSource
 from gainy.trading.repository import TradingRepository
@@ -62,6 +63,9 @@ class DriveWealthTransactionHandler:
             elif cls == str(DriveWealthDividendTransaction):
                 self._handle_dividend_transactions(cls_transactions, portfolio,
                                                    portfolio_status)
+            elif cls == str(DriveWealthMergerAcquisitionTransaction):
+                self._handle_merger_acquisition_transactions(
+                    cls_transactions, portfolio, portfolio_status)
 
         for transaction in transactions:
             if portfolio.last_transaction_id:
@@ -194,6 +198,81 @@ class DriveWealthTransactionHandler:
                 "DriveWealthTransactionHandler _handle_spinoff_transactions",
                 extra=logger_extra)
 
+    def _handle_merger_acquisition_transactions(
+            self, transactions: list[DriveWealthMergerAcquisitionTransaction],
+            portfolio: DriveWealthPortfolio,
+            portfolio_status: DriveWealthPortfolioStatus):
+        """
+        There are three types of actions taken in case of a merger:
+            - EXCHANGE_STOCK_CASH - stock removed, cash added
+            - REMOVE_SHARES - stock removed
+            - ADD_SHARES_CASH - cash added, new stock added
+        """
+
+        account_positions = self.provider.sync_account_positions(
+            portfolio.drivewealth_account_id, force=True)
+        logger_extra = {
+            "profile_id": portfolio.profile_id,
+            "portfolio": portfolio.to_dict(),
+            "portfolio_status": portfolio_status.to_dict(),
+            "account_positions": account_positions.to_dict(),
+            "transactions": [i.to_dict() for i in transactions],
+            "symbol_weights": {},
+        }
+
+        try:
+
+            def key_func(tx: DriveWealthMergerAcquisitionTransaction):
+                return tx.merger_transaction_type, tx.symbol
+
+            for (merger_transaction_type,
+                 symbol), symbol_transactions in groupby(
+                     sorted(transactions, key=key_func), key_func):
+                symbol_transactions: list[
+                    DriveWealthMergerAcquisitionTransaction] = list(
+                        symbol_transactions)
+
+                filtered_transactions = self._filter_linked_transactions(
+                    symbol_transactions)
+                position_delta_sum: Decimal = sum(
+                    tx.position_delta for tx in filtered_transactions)
+                account_amount_delta_sum: Decimal = sum(
+                    tx.account_amount_delta for tx in filtered_transactions)
+
+                if merger_transaction_type == DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE.EXCHANGE_STOCK_CASH:
+                    # TODO remove stock from portfolio
+                    # add cash proportionally to the positions within the portfolio
+                    amount = account_amount_delta_sum
+                elif merger_transaction_type == DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE.REMOVE_SHARES:
+                    # TODO remove stock from portfolio
+                    amount = 0
+                elif merger_transaction_type == DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE.ADD_SHARES_CASH:
+                    # TODO remove stock from portfolio
+                    # TODO add the new stock to the appropriate portfolio funds and cause automatic weight rebalance
+                    amount = account_amount_delta_sum
+                else:
+                    raise Exception("Unsupported merger_transaction_type " +
+                                    merger_transaction_type)
+
+                symbol_weights = self._get_portfolio_symbol_weights(
+                    symbol, portfolio_status)
+                logger_extra["symbol_weights"][symbol] = symbol_weights
+                for collection_id, weight in symbol_weights:
+                    caa = CorporateActionAdjustment()
+                    caa.profile_id = portfolio.profile_id
+                    caa.trading_account_id = self.provider.get_trading_account_by_portfolio(
+                        portfolio).id
+                    caa.collection_id = collection_id
+                    caa.symbol = symbol
+                    caa.amount = amount * weight
+                    self.drivewealth_repository.persist(caa)
+                    self._link_caa(caa, filtered_transactions)
+                    self._create_order(caa)
+        finally:
+            logger.error(
+                "DriveWealthTransactionHandler _handle_merger_acquisition_transactions",
+                extra=logger_extra)
+
     def _get_actual_price(
             self,
             symbol: str,
@@ -254,8 +333,12 @@ class DriveWealthTransactionHandler:
             links.append(dw_caa_tx_link)
         self.trading_repository.persist(links)
 
-    def _create_order(self,
-                      caa: CorporateActionAdjustment) -> AbstractTradingOrder:
+    def _create_order(
+            self,
+            caa: CorporateActionAdjustment) -> Optional[AbstractTradingOrder]:
+        if abs(caa.amount) < EXECUTED_AMOUNT_PRECISION:
+            return None
+
         note = "caa #%d" % caa.id
         if caa.collection_id:
             return self.trading_service.create_collection_version(
