@@ -14,7 +14,7 @@ from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount, \
-    ProfileKycStatus, KycStatus, TradingStatementType
+    ProfileKycStatus, KycStatus, TradingStatementType, KycErrorCode
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -25,6 +25,138 @@ ONE = Decimal(1)
 ZERO = Decimal(0)
 DW_WEIGHT_PRECISION = 4
 DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
+
+DW_ERRORS_MAPPING = [
+    {
+        "name": "AGE_VALIDATION",
+        "gainy_code": KycErrorCode.AGE_VALIDATION,
+        "code": "K001",
+    },
+    {
+        "name": "POOR_PHOTO_QUALITY",
+        "gainy_code": KycErrorCode.POOR_PHOTO_QUALITY,
+        "code": "K002",
+    },
+    {
+        "name": "POOR_DOC_QUALITY",
+        "gainy_code": KycErrorCode.POOR_DOC_QUALITY,
+        "code": "K003",
+    },
+    {
+        "name": "SUSPECTED_DOCUMENT_FRAUD",
+        "gainy_code": KycErrorCode.SUSPECTED_DOCUMENT_FRAUD,
+        "code": "K004",
+    },
+    {
+        "name": "INCORRECT_SIDE",
+        "gainy_code": KycErrorCode.INCORRECT_SIDE,
+        "code": "K005",
+    },
+    {
+        "name": "NO_DOC_IN_IMAGE",
+        "gainy_code": KycErrorCode.NO_DOC_IN_IMAGE,
+        "code": "K006",
+    },
+    {
+        "name": "TWO_DOCS_UPLOADED",
+        "gainy_code": KycErrorCode.TWO_DOCS_UPLOADED,
+        "code": "K007",
+    },
+    {
+        "name": "EXPIRED_DOCUMENT",
+        "gainy_code": KycErrorCode.EXPIRED_DOCUMENT,
+        "code": "K008",
+    },
+    {
+        "name": "MISSING_BACK",
+        "gainy_code": KycErrorCode.MISSING_BACK,
+        "code": "K009",
+    },
+    {
+        "name": "UNSUPPORTED_DOCUMENT",
+        "gainy_code": KycErrorCode.UNSUPPORTED_DOCUMENT,
+        "code": "K010",
+    },
+    {
+        "name": "DOB_NOT_MATCH_ON_DOC",
+        "gainy_code": KycErrorCode.DOB_NOT_MATCH_ON_DOC,
+        "code": "K011",
+    },
+    {
+        "name": "NAME_NOT_MATCH_ON_DOC",
+        "gainy_code": KycErrorCode.NAME_NOT_MATCH_ON_DOC,
+        "code": "K012",
+    },
+    {
+        "name": "INVALID_DOCUMENT",
+        "gainy_code": KycErrorCode.INVALID_DOCUMENT,
+        "code": "K050",
+    },
+    {
+        "name": "ADDRESS_NOT_MATCH",
+        "gainy_code": KycErrorCode.ADDRESS_NOT_MATCH,
+        "code": "K101",
+    },
+    {
+        "name": "SSN_NOT_MATCH",
+        "gainy_code": KycErrorCode.SSN_NOT_MATCH,
+        "code": "K102",
+    },
+    {
+        "name": "DOB_NOT_MATCH",
+        "gainy_code": KycErrorCode.DOB_NOT_MATCH,
+        "code": "K103",
+    },
+    {
+        "name": "NAME_NOT_MATCH",
+        "gainy_code": KycErrorCode.NAME_NOT_MATCH,
+        "code": "K104",
+    },
+    {
+        "name": "SANCTION_WATCHLIST",
+        "gainy_code": KycErrorCode.SANCTION_WATCHLIST,
+        "code": "K106",
+    },
+    {
+        "name": "SANCTION_OFAC",
+        "gainy_code": KycErrorCode.SANCTION_OFAC,
+        "code": "K107",
+    },
+    {
+        "name": "INVALID_PHONE_NUMBER",
+        "gainy_code": KycErrorCode.INVALID_PHONE_NUMBER,
+        "code": "K108",
+    },
+    {
+        "name": "INVALID_EMAIL_ADDRESS",
+        "gainy_code": KycErrorCode.INVALID_EMAIL_ADDRESS,
+        "code": "K109",
+    },
+    {
+        "name": "INVALID_NAME_TOO_LONG",
+        "gainy_code": KycErrorCode.INVALID_NAME_TOO_LONG,
+        "code": "K110",
+    },
+    {
+        "name": "UNSUPPORTED_COUNTRY",
+        "gainy_code": KycErrorCode.UNSUPPORTED_COUNTRY,
+        "code": "K111",
+    },
+    {
+        "name": "AGED_ACCOUNT",
+        "gainy_code": KycErrorCode.AGED_ACCOUNT,
+        "code": "K801",
+    },
+    {
+        "name": "ACCOUNT_INTEGRITY",
+        "gainy_code": KycErrorCode.ACCOUNT_INTEGRITY,
+        "code": "K802",
+    },
+    {
+        "name": "UNKNOWN",
+        "code": "U999",
+    },
+]
 
 
 class DriveWealthRedemptionStatus(str, enum.Enum):
@@ -1112,12 +1244,14 @@ class DriveWealthKycStatus:
         message = kyc["status"].get("name") or kyc.get("statusComment")
 
         errors = kyc.get("errors", [])
-        error_messages = list(map(lambda e: e['description'], errors))
+        error_codes = list(map(lambda e: e["code"], errors))
 
         entity = ProfileKycStatus()
         entity.status = kyc_status
         entity.message = message
-        entity.error_messages = error_messages
+        entity.error_codes = DriveWealthKycStatus.map_dw_error_codes(
+            error_codes)
+        entity.reset_error_messages()
         entity.created_at = dateutil.parser.parse(kyc["updated"])
         return entity
 
@@ -1140,6 +1274,14 @@ class DriveWealthKycStatus:
         if kyc_status == "KYC_DENIED":
             return KycStatus.DENIED
         raise Exception('Unknown kyc status %s' % kyc_status)
+
+    @staticmethod
+    def map_dw_error_codes(error_codes: list[str]) -> list[KycErrorCode]:
+        result = []
+        for i in DW_ERRORS_MAPPING:
+            if i["name"] in error_codes or i["code"] in error_codes:
+                result.append(i["gainy_code"])
+        return result
 
 
 class DriveWealthOrder(BaseDriveWealthModel):

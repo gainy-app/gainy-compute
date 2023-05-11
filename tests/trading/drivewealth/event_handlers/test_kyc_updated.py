@@ -4,7 +4,7 @@ from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth.event_handlers.kyc_updated import KycUpdatedEventHandler
 
-from gainy.trading.models import ProfileKycStatus, KycStatus
+from gainy.trading.models import ProfileKycStatus, KycStatus, KycErrorCode, KYC_ERROR_CODE_DESCRIPTION
 from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.repository import TradingRepository
 
@@ -77,8 +77,9 @@ def test(monkeypatch):
     assert entity.status == KycStatus.DENIED
     assert entity.message == message["current"]["statusMessage"]
     assert entity.error_messages == [
-        "No match found for Social Security Number"
+        KYC_ERROR_CODE_DESCRIPTION[KycErrorCode.SSN_NOT_MATCH]
     ]
+    assert entity.error_codes == [KycErrorCode.SSN_NOT_MATCH]
     assert (profile_id, KycStatus.DENIED) in [
         args for args, kwargs in update_kyc_form_calls
     ]
