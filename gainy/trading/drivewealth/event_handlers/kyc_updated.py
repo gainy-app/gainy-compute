@@ -10,8 +10,7 @@ logger = get_logger(__name__)
 def _get_profile_kyc_status(data) -> ProfileKycStatus:
     status = DriveWealthKycStatus.map_dw_kyc_status(data['status'])
     message = data['statusMessage']
-    details = data.get('details', [])
-    error_codes = list(map(lambda e: e['codes'], details))
+    error_codes = data.get('details', [])
 
     entity = ProfileKycStatus()
     entity.status = status

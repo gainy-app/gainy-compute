@@ -1239,7 +1239,7 @@ class DriveWealthKycStatus:
         message = kyc["status"].get("name") or kyc.get("statusComment")
 
         errors = kyc.get("errors", [])
-        error_codes = list(map(lambda e: e['codes'], errors))
+        error_codes = list(map(lambda e: e["code"], errors))
 
         entity = ProfileKycStatus()
         entity.status = kyc_status
