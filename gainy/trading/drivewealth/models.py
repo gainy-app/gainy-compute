@@ -1153,6 +1153,11 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
     def is_successful(self) -> bool:
         return self.status == DriveWealthRedemptionStatus.Successful.name
 
+    def get_error_message(self) -> Optional[str]:
+        if "status" in self.data and isinstance(self.data["status"], dict):
+            return self.data["status"].get("comment")
+        return self.data.get("statusComment")
+
     def get_money_flow_status(self) -> TradingMoneyFlowStatus:
         """
         Started	0	"STARTED"
@@ -1164,7 +1169,7 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
         RIA Approved	12	"RIA_Approved"
         RIA Rejected	13	"RIA_Rejected"
         Approved	14	"APPROVED"	Once marked as "Approved", the deposit will be processed.
-        Rejected	15	"REJECTED"	Updating a deposit to "Rejected" will immediately set it 's status to "Failed"
+        Rejected	15	"REJECTED"	Updating a deposit to "Rejected" will immediately set it's status to "Failed"
         On Hold	16	"ON_HOLD"	The "On Hold" status is reserved for deposits that aren't ready to be processed.
         Returned	5	"RETURNED"	A deposit is marked as returned if DW receives notification from our bank that the deposit had failed.
         Unknown	-1	–	Reserved for errors.
