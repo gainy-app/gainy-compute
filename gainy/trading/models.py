@@ -225,6 +225,7 @@ class TradingMoneyFlow(BaseModel):
     trading_account_id = None
     funding_account_id = None
     fees_total_amount: Decimal = None
+    error_message: str = None
     created_at = None
     updated_at = None
 
