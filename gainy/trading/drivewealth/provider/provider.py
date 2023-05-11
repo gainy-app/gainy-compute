@@ -267,6 +267,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             return
 
         money_flow.status = entity.get_money_flow_status()
+        money_flow.error_message = entity.get_error_message()
         money_flow.fees_total_amount = entity.fees_total_amount
         self.repository.persist(money_flow)
         return money_flow
