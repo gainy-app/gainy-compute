@@ -5,9 +5,11 @@ import datetime
 import enum
 import json
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, TypeVar
 
 from gainy.data_access.models import BaseModel, classproperty, DecimalEncoder
+
+T = TypeVar('T')
 
 
 class KycStatus(str, enum.Enum):
@@ -358,6 +360,7 @@ class ProfileKycStatus(BaseModel):
     status: KycStatus = None
     message: str = None
     error_messages: list[str] = None
+    error_codes: list[str] = None
     created_at: datetime.datetime = None
 
     key_fields = ["id"]
@@ -380,11 +383,93 @@ class ProfileKycStatus(BaseModel):
     def table_name(self) -> str:
         return "kyc_statuses"
 
+    def reset_error_messages(self):
+        self.error_messages = list(
+            map(lambda x: KYC_ERROR_CODE_DESCRIPTION[x], self.error_codes))
+
     def to_dict(self) -> dict:
         return {
-            **super().to_dict(), "error_messages":
-            json.dumps(self.error_messages)
+            **super().to_dict(),
+            "error_messages": json.dumps(self.error_messages),
+            "error_codes": json.dumps(self.error_codes),
         }
+
+
+class KycErrorCode(str, enum.Enum):
+    AGE_VALIDATION = "AGE_VALIDATION"
+    POOR_PHOTO_QUALITY = "POOR_PHOTO_QUALITY"
+    POOR_DOC_QUALITY = "POOR_DOC_QUALITY"
+    SUSPECTED_DOCUMENT_FRAUD = "SUSPECTED_DOCUMENT_FRAUD"
+    INCORRECT_SIDE = "INCORRECT_SIDE"
+    NO_DOC_IN_IMAGE = "NO_DOC_IN_IMAGE"
+    TWO_DOCS_UPLOADED = "TWO_DOCS_UPLOADED"
+    EXPIRED_DOCUMENT = "EXPIRED_DOCUMENT"
+    MISSING_BACK = "MISSING_BACK"
+    UNSUPPORTED_DOCUMENT = "UNSUPPORTED_DOCUMENT"
+    DOB_NOT_MATCH_ON_DOC = "DOB_NOT_MATCH_ON_DOC"
+    NAME_NOT_MATCH_ON_DOC = "NAME_NOT_MATCH_ON_DOC"
+    INVALID_DOCUMENT = "INVALID_DOCUMENT"
+    ADDRESS_NOT_MATCH = "ADDRESS_NOT_MATCH"
+    SSN_NOT_MATCH = "SSN_NOT_MATCH"
+    DOB_NOT_MATCH = "DOB_NOT_MATCH"
+    NAME_NOT_MATCH = "NAME_NOT_MATCH"
+    SANCTION_WATCHLIST = "SANCTION_WATCHLIST"
+    SANCTION_OFAC = "SANCTION_OFAC"
+    INVALID_PHONE_NUMBER = "INVALID_PHONE_NUMBER"
+    INVALID_EMAIL_ADDRESS = "INVALID_EMAIL_ADDRESS"
+    INVALID_NAME_TOO_LONG = "INVALID_NAME_TOO_LONG"
+    UNSUPPORTED_COUNTRY = "UNSUPPORTED_COUNTRY"
+    AGED_ACCOUNT = "AGED_ACCOUNT"
+    ACCOUNT_INTEGRITY = "ACCOUNT_INTEGRITY"
+    UNKNOWN = "UNKNOWN"
+
+
+KYC_ERROR_CODE_DESCRIPTION = {
+    KycErrorCode.AGE_VALIDATION:
+    "The age calculated from the documents date of birth point is greater than or equal to the minimum accepted age set at the account level",
+    KycErrorCode.POOR_PHOTO_QUALITY:
+    "Poor photo quality. ID may be too dark, damaged, blurry, cut off, or have a glare",
+    KycErrorCode.POOR_DOC_QUALITY:
+    "Abnormal document quality. ID may have obscured data points, obscured security features, a corner removed, punctures, or watermarks obscured by digital text overlay",
+    KycErrorCode.SUSPECTED_DOCUMENT_FRAUD:
+    "Tampering and forgery found on the document",
+    KycErrorCode.INCORRECT_SIDE:
+    "The incorrect side of the document had been uploaded. Choose the correct side of the document and re-upload",
+    KycErrorCode.NO_DOC_IN_IMAGE:
+    "No document was found in the image, or there is a blank image",
+    KycErrorCode.TWO_DOCS_UPLOADED:
+    "Two different documents were submitted as the same document type",
+    KycErrorCode.EXPIRED_DOCUMENT:
+    "Document is expired or invalid format of expiry date",
+    KycErrorCode.MISSING_BACK: "The back of the document is missing",
+    KycErrorCode.UNSUPPORTED_DOCUMENT: "Document is not supported",
+    KycErrorCode.DOB_NOT_MATCH_ON_DOC:
+    "The DOB listed on the customer’s ID is not the same DOB listed on the customer’s application",
+    KycErrorCode.NAME_NOT_MATCH_ON_DOC:
+    "The Name on the customer’s ID is not the same Name listed on the customer’s application",
+    KycErrorCode.INVALID_DOCUMENT:
+    "Unable to process your document. File is corrupted and can't be opened.",
+    KycErrorCode.ADDRESS_NOT_MATCH:
+    "No match found for address or invalid format in address",
+    KycErrorCode.SSN_NOT_MATCH: "No match found for Social Security Number",
+    KycErrorCode.DOB_NOT_MATCH: "No match found for Date of Birth",
+    KycErrorCode.NAME_NOT_MATCH:
+    "No match found for firstName / lastName or invalid characters found",
+    KycErrorCode.SANCTION_WATCHLIST: "User is under sanction watchlist",
+    KycErrorCode.SANCTION_OFAC: "User is found in OFAC SDN list",
+    KycErrorCode.INVALID_PHONE_NUMBER:
+    "The phone number listed on the customer’s application is not a valid number of digits for a phone number",
+    KycErrorCode.INVALID_EMAIL_ADDRESS:
+    "The emailID listed on the customer’s application is not valid or unable to verify in Watchlist.",
+    KycErrorCode.INVALID_NAME_TOO_LONG:
+    "The first name or last name listed on the customer's application is not valid. First name or last name should not be greater than 36 characters.",
+    KycErrorCode.UNSUPPORTED_COUNTRY:
+    "The KYC is not supported in the country.",
+    KycErrorCode.AGED_ACCOUNT: "KYC is not verified by user within 30 days",
+    KycErrorCode.ACCOUNT_INTEGRITY:
+    "Account information provided may not be legitimate and/or is being used by multiple account holders",
+    KycErrorCode.UNKNOWN: "Unrecognized error",
+}
 
 
 class CorporateActionAdjustment(BaseModel):
