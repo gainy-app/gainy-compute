@@ -83,12 +83,10 @@ class PlaidClient:
             logging_extra["response_data"] = response.to_dict()
             logging_extra["requestId"] = response.request_id
         except plaid.ApiException as e:
-            logger.exception("[PLAID] get_item_accounts",
-                             e,
-                             extra=logging_extra)
+            logger.exception("[PLAID] get_identity", e, extra=logging_extra)
             raise e
 
-        logger.info("[PLAID] get_item_accounts", extra=logging_extra)
+        logger.info("[PLAID] get_identity", extra=logging_extra)
 
         return [PlaidAccount(i) for i in response['accounts']]
 
