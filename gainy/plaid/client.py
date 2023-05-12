@@ -78,7 +78,7 @@ class PlaidClient:
         }
 
         try:
-            response = self.get_client(access_token).accounts_get(request)
+            response = self.get_client(access_token).identity_get(request)
 
             logging_extra["response_data"] = response.to_dict()
             logging_extra["requestId"] = response.request_id
