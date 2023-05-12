@@ -43,7 +43,7 @@ def get_purpose_products(purpose):
     if purpose == PURPOSE_PORTFOLIO:
         return ['investments']
     elif purpose == PURPOSE_TRADING:
-        return ['auth']
+        return ['auth', 'identity']
     else:
         raise Exception('Wrong purpose')
 
