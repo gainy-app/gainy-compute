@@ -161,6 +161,7 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def drivewealth_transaction_handler(self):
         return DriveWealthTransactionHandler(self.drivewealth_provider,
+                                             self.drivewealth_repository,
                                              self.trading_repository,
                                              self.trading_service)
 
