@@ -32,7 +32,8 @@ class PlaidAccount:
         self.official_name = data["official_name"]
         self.subtype = str(data["subtype"])
         self.type = str(data["type"])
-        self.owners = data.get("owners")
+        if "owners" in data:
+            self.owners = data["owners"].to_dict()
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__
