@@ -14,7 +14,6 @@ class PlaidAccount:
     official_name = None
     subtype = None
     type = None
-    owners = None
 
     def __init__(self, data=None):
         if not data:
@@ -32,8 +31,6 @@ class PlaidAccount:
         self.official_name = data["official_name"]
         self.subtype = str(data["subtype"])
         self.type = str(data["type"])
-        if "owners" in data:
-            self.owners = [i.to_dict() for i in data["owners"]]
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__
