@@ -2,7 +2,8 @@ from decimal import Decimal
 
 from gainy.analytics.constants import EVENT_DW_BROKERAGE_ACCOUNT_OPENED, EVENT_DW_KYC_STATUS_REJECTED, \
     EVENT_DEPOSIT_SUCCESS, EVENT_WITHDRAW_SUCCESS, EVENT_PURCHASE_COMPLETED, EVENT_SELL_COMPLETED, \
-    EVENT_COMMISSION_WITHDRAWN, EVENT_DW_KYC_STATUS_INFO_REQUIRED, EVENT_DW_KYC_STATUS_DOC_REQUIRED
+    EVENT_COMMISSION_WITHDRAWN, EVENT_DW_KYC_STATUS_INFO_REQUIRED, EVENT_DW_KYC_STATUS_DOC_REQUIRED, \
+    EVENT_DW_KYC_STATUS_MANUAL_REVIEW
 from gainy.analytics.interfaces import AnalyticsSinkInterface, ProfilePropertiesSourceInterface
 from gainy.data_access.operators import OperatorLt, OperatorNot, OperatorEq
 from gainy.data_access.repository import Repository
@@ -49,14 +50,21 @@ class AnalyticsService:
         properties = {}
         self._emit(profile_id, event_name, properties)
 
-    def on_kyc_status_info_required(self, profile_id: int):
+    def on_kyc_status_info_required(self, profile_id: int,
+                                    error_codes: list[str]):
         event_name = EVENT_DW_KYC_STATUS_INFO_REQUIRED
+        properties = {"error_codes": error_codes}
+        self._emit(profile_id, event_name, properties)
+
+    def on_kyc_status_manual_review(self, profile_id: int):
+        event_name = EVENT_DW_KYC_STATUS_MANUAL_REVIEW
         properties = {}
         self._emit(profile_id, event_name, properties)
 
-    def on_kyc_status_doc_required(self, profile_id: int):
+    def on_kyc_status_doc_required(self, profile_id: int,
+                                   error_codes: list[str]):
         event_name = EVENT_DW_KYC_STATUS_DOC_REQUIRED
-        properties = {}
+        properties = {"error_codes": error_codes}
         self._emit(profile_id, event_name, properties)
 
     def on_deposit_success(self, money_flow: TradingMoneyFlow):
