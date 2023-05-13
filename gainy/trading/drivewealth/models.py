@@ -17,7 +17,7 @@ from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, 
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount, \
-    ProfileKycStatus, KycStatus, TradingStatementType, CorporateActionAdjustment, KycErrorCode
+    ProfileKycStatus, KycStatus, TradingStatementType, KycErrorCode, CorporateActionAdjustment
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
