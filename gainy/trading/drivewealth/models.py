@@ -882,6 +882,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
             self.holdings[k] = round(i, DW_WEIGHT_PRECISION)
             weight_sum += i
 
+        if weight_sum < DW_WEIGHT_THRESHOLD:
+            return
+
         logger.info('DriveWealthPortfolio normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
