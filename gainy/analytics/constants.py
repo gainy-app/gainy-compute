@@ -44,6 +44,7 @@ PROPERTY_TRADING_EXPERIENCE = "trading_experience"
 
 EVENT_DW_BROKERAGE_ACCOUNT_OPENED = "dw_brokerage_account_opened"
 EVENT_DW_KYC_STATUS_REJECTED = "dw_kyc_status_rejected"
+EVENT_DW_KYC_STATUS_MANUAL_REVIEW = "dw_kyc_status_manual_review"
 EVENT_DW_KYC_STATUS_INFO_REQUIRED = "dw_kyc_status_info"
 EVENT_DW_KYC_STATUS_DOC_REQUIRED = "dw_kyc_status_doc"
 EVENT_DEPOSIT_SUCCESS = "deposit_success"

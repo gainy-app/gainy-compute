@@ -914,6 +914,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
             self.holdings[k] = round(i, DW_WEIGHT_PRECISION)
             weight_sum += i
 
+        if weight_sum < DW_WEIGHT_THRESHOLD:
+            return
+
         logger.info('DriveWealthPortfolio normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
@@ -1379,11 +1382,10 @@ class DriveWealthKycStatus:
 
     def get_profile_kyc_status(self) -> ProfileKycStatus:
         kyc = self.data["kyc"]
-        kyc_status = self.map_dw_kyc_status(kyc["status"]["name"])
         message = kyc["status"].get("name") or kyc.get("statusComment")
-
         errors = kyc.get("errors", [])
         error_codes = list(map(lambda e: e["code"], errors))
+        kyc_status = self.map_dw_kyc_status(kyc["status"]["name"], error_codes)
 
         entity = ProfileKycStatus()
         entity.status = kyc_status
@@ -1395,7 +1397,7 @@ class DriveWealthKycStatus:
         return entity
 
     @staticmethod
-    def map_dw_kyc_status(kyc_status):
+    def map_dw_kyc_status(kyc_status, error_codes=None):
         if kyc_status == "KYC_NOT_READY":
             return KycStatus.NOT_READY
         if kyc_status == "KYC_READY":
@@ -1409,7 +1411,10 @@ class DriveWealthKycStatus:
         if kyc_status == "KYC_DOC_REQUIRED":
             return KycStatus.DOC_REQUIRED
         if kyc_status == "KYC_MANUAL_REVIEW":
-            return KycStatus.MANUAL_REVIEW
+            if error_codes:
+                return KycStatus.INFO_REQUIRED
+            else:
+                return KycStatus.MANUAL_REVIEW
         if kyc_status == "KYC_DENIED":
             return KycStatus.DENIED
         raise Exception('Unknown kyc status %s' % kyc_status)
