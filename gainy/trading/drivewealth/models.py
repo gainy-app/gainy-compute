@@ -1080,7 +1080,7 @@ class DriveWealthTransaction(BaseDriveWealthModel,
     key_fields = ["ref_id"]
 
     db_excluded_fields = ["created_at"]
-    non_persistent_fields = ["created_at"]
+    non_persistent_fields = ["id", "created_at"]
 
     def set_from_response(self, data: dict = None):
         if not data:
@@ -1124,6 +1124,7 @@ class DriveWealthTransaction(BaseDriveWealthModel,
             typed_transaction = _cls()
             break
 
+        typed_transaction.id = transaction.id
         typed_transaction.account_id = transaction.account_id
         typed_transaction.set_from_response(transaction.data)
         return typed_transaction
