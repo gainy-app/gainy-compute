@@ -1,5 +1,6 @@
 from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls
-from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount
 from gainy.trading.service import TradingService
 from gainy.trading.jobs.update_account_balances import UpdateAccountBalancesJob

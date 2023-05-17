@@ -1,7 +1,7 @@
 from gainy.trading.drivewealth.models import DriveWealthRedemptionStatus, DriveWealthRedemption
 from gainy.tests.mocks.repository_mocks import mock_persist, mock_record_calls, mock_find
 from gainy.trading.drivewealth.event_handlers import RedemptionCreatedEventHandler
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 message = {

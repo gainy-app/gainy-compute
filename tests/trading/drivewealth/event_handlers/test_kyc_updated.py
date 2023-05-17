@@ -5,7 +5,7 @@ from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth.event_handlers.kyc_updated import KycUpdatedEventHandler
 
 from gainy.trading.models import ProfileKycStatus, KycStatus, KycErrorCode, KYC_ERROR_CODE_DESCRIPTION
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.repository import TradingRepository
 
 

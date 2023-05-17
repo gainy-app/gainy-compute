@@ -9,21 +9,18 @@ from gainy.models import AbstractEntityLock
 from gainy.trading import MIN_FIRST_DEPOSIT_AMOUNT
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException, BadMissingParametersBodyException
 from gainy.trading.drivewealth.locking_functions.handle_new_transaction import HandleNewTransaction
-from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
+from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
     DriveWealthAccountStatus, BaseDriveWealthMoneyFlowModel, DriveWealthRedemptionStatus, DriveWealthInstrument, \
-    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement
+    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthTransactionInterface
 
-from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
+from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase, DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import SymbolIsNotTradeableException
 from gainy.trading.models import TradingAccount, TradingOrderStatus, TradingMoneyFlow, TradingStatement, AbstractTradingOrder
 from gainy.utils import get_logger, ENV_PRODUCTION, env
 
 logger = get_logger(__name__)
-
-DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
-DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
@@ -179,31 +176,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.repository.persist(account_money)
         return account_money
 
-    def sync_account_positions(
-            self,
-            account_ref_id: str,
-            force: bool = False) -> DriveWealthAccountPositions:
-
-        account_positions: DriveWealthAccountPositions = self.repository.find_one(
-            DriveWealthAccountPositions, {
-                "drivewealth_account_id":
-                account_ref_id,
-                "created_at":
-                OperatorGt(
-                    datetime.datetime.now(datetime.timezone.utc) -
-                    datetime.timedelta(
-                        seconds=DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL)),
-            }, [("created_at", "DESC")])
-
-        if not force and account_positions:
-            return account_positions
-
-        account_positions_data = self.api.get_account_positions(account_ref_id)
-        account_positions = DriveWealthAccountPositions()
-        account_positions.set_from_response(account_positions_data)
-        self.repository.persist(account_positions)
-        return account_positions
-
     def check_tradeable_symbol(self, symbol: str):
         try:
             instrument = self.repository.get_instrument_by_symbol(symbol)
@@ -356,13 +328,15 @@ class DriveWealthProvider(DriveWealthProviderBase):
                     return
                 raise e
 
-    def on_new_transaction(self, account_ref_id: str):
-        entity_lock = AbstractEntityLock(DriveWealthAccount, account_ref_id)
-        self.repository.persist(entity_lock)
-
-        func = HandleNewTransaction(self.repository, self, entity_lock,
-                                    account_ref_id)
-        func.execute()
+    # disabled in favor of batch transaction handler in the rebalance job
+    # def on_new_transaction(self, transaction: DriveWealthTransactionInterface):
+    #     entity_lock = AbstractEntityLock(DriveWealthAccount,
+    #                                      transaction.account_id)
+    #     self.repository.persist(entity_lock)
+    #
+    #     func = HandleNewTransaction(self.repository, self, entity_lock,
+    #                                 transaction)
+    #     func.execute()
 
     def update_payment_transaction_from_dw(self,
                                            redemption: DriveWealthRedemption):

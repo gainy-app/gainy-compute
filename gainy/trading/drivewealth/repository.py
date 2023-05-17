@@ -7,7 +7,7 @@ from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthTransaction, \
-    DriveWealthRedemption, DriveWealthRedemptionStatus
+    DriveWealthRedemption, DriveWealthRedemptionStatus, DriveWealthTransactionInterface
 from gainy.trading.models import TradingOrderStatus
 from gainy.utils import get_logger
 
@@ -131,8 +131,8 @@ class DriveWealthRepository(Repository):
         return row[0]
 
     def get_new_transactions(
-            self, account_id: str, last_transaction_id: Optional[int]
-    ) -> list[DriveWealthTransaction]:
+        self, account_id: str, last_transaction_id: Optional[int]
+    ) -> list[DriveWealthTransactionInterface]:
 
         params = {
             "account_id": account_id,
@@ -140,7 +140,12 @@ class DriveWealthRepository(Repository):
         if last_transaction_id:
             params["id"] = OperatorGt(last_transaction_id)
 
-        return self.find_all(DriveWealthTransaction, params)
+        transactions = self.find_all(DriveWealthTransaction, params)
+        transactions = [
+            DriveWealthTransaction.create_typed_transaction(tx)
+            for tx in transactions
+        ]
+        return transactions
 
     def get_pending_redemptions(
             self, account_id: str) -> list[DriveWealthRedemption]:

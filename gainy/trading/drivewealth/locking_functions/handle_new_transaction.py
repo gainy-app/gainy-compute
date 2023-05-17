@@ -26,6 +26,7 @@ class HandleNewTransaction(AbstractPessimisticLockingFunction):
         return self.repo.refresh(self.entity_lock)
 
     def _do(self, entity_lock: AbstractEntityLock):
+        raise Exception('deprecated')
         account: DriveWealthAccount = self.repo.find_one(
             DriveWealthAccount, {"ref_id": self.account_ref_id})
         if not account or not account.is_open():

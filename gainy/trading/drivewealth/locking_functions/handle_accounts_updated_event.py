@@ -5,7 +5,7 @@ from gainy.analytics.service import AnalyticsService
 from gainy.billing.models import PaymentMethod, PaymentMethodProvider
 from gainy.data_access.pessimistic_lock import AbstractPessimisticLockingFunction
 from gainy.models import AbstractEntityLock
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountStatus, \
     DriveWealthPortfolio

@@ -12,7 +12,7 @@ from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthInstrument, DriveWealthPortfolioStatus, PRECISION
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
 
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthFund

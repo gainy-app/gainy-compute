@@ -3,20 +3,19 @@ import os
 import psycopg2.errors
 from decimal import Decimal
 
-import datetime
-import dateutil.parser
-
 from typing import Iterable, Tuple
 
 import time
 
 from gainy.context_container import ContextContainer
 from gainy.data_access.operators import OperatorLt, OperatorIn
-from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException, \
     InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
     DriveWealthFund, DriveWealthPortfolioStatus
+from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
 from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
 from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder, \
     AbstractTradingOrder
@@ -38,10 +37,12 @@ class RebalancePortfoliosJob:
     def __init__(self, trading_repository: TradingRepository,
                  drivewealth_repository: DriveWealthRepository,
                  provider: DriveWealthProvider,
+                 transaction_handler: DriveWealthTransactionHandler,
                  trading_service: TradingService):
         self.repo = trading_repository
         self.drivewealth_repository = drivewealth_repository
         self.provider = provider
+        self.transaction_handler = transaction_handler
         self.trading_service = trading_service
 
     def run(self):
@@ -80,7 +81,7 @@ class RebalancePortfoliosJob:
                     continue
 
                 portfolio_status = self.provider.sync_portfolio_status(
-                    portfolio, force=True)
+                    portfolio, force=True, allow_invalid=True)
 
                 if self._should_skip_portfolio(portfolio, portfolio_status):
                     continue
@@ -90,18 +91,28 @@ class RebalancePortfoliosJob:
                     portfolio_status)
 
                 # 2. set target weights from actual weights and change cash weight in case of new transactions
-                portfolio_changed = self.provider.actualize_portfolio(
+                self.provider.actualize_portfolio(portfolio, portfolio_status)
+
+                # 3. apply new transactions
+                portfolio_changed = self.transaction_handler.handle_new_transactions(
                     portfolio, portfolio_status)
 
-                # 3. apply all pending orders
+                if not portfolio_status.is_valid_weights():
+                    # At the moment there are sporadic problems with DW portfolio statuses, which we can't handle.
+                    # However, we need to observe portfolio statuses around particular transactions to be able to
+                    # reverse-engineer these errors.
+                    raise InvalidDriveWealthPortfolioStatusException(
+                        portfolio_status)
+
+                # 4. apply all pending orders
                 trading_orders = self.apply_trading_orders(portfolio)
                 portfolio_changed = trading_orders or portfolio_changed
 
-                # 4. rebalance collections automatically
+                # 5. rebalance collections automatically
                 portfolio_changed = self.rebalance_existing_funds(
                     portfolio) or portfolio_changed
 
-                # 5. automatic sell
+                # 6. automatic sell
                 portfolio_changed = self.automatic_sell(
                     portfolio) or portfolio_changed
 
@@ -116,12 +127,13 @@ class RebalancePortfoliosJob:
                     DriveWealthApiException) as e:
                 logger.exception(e)
                 self.repo.rollback()
-            except InvalidDriveWealthPortfolioStatusException:
+            except InvalidDriveWealthPortfolioStatusException as e:
                 logger.info(
                     f"Skipping portfolio {portfolio.ref_id} due to invalid status",
                     extra={
                         "profile_id": portfolio.profile_id,
-                        "account_id": portfolio.drivewealth_account_id
+                        "account_id": portfolio.drivewealth_account_id,
+                        "portfolio_status": e.portfolio_status.to_dict(),
                     })
             except Exception as e:
                 logger.exception(e)
@@ -485,6 +497,7 @@ def cli():
                 context_container.trading_repository,
                 context_container.drivewealth_repository,
                 context_container.drivewealth_provider,
+                context_container.drivewealth_transaction_handler,
                 context_container.trading_service)
             job.run()
 
