@@ -8,8 +8,6 @@ from typing import List
 
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.accounts_get_request_options import AccountsGetRequestOptions
-from plaid.model.identity_get_request import IdentityGetRequest
-from plaid.model.identity_get_request_options import IdentityGetRequestOptions
 
 from gainy.plaid.common import get_plaid_client
 from gainy.plaid.models import PlaidAccount
@@ -59,34 +57,6 @@ class PlaidClient:
             raise e
 
         logger.info("[PLAID] get_item_accounts", extra=logging_extra)
-
-        return [PlaidAccount(i) for i in response['accounts']]
-
-    def get_identity(self,
-                     access_token: str,
-                     account_ids: List = None) -> List[PlaidAccount]:
-        if account_ids:
-            options = IdentityGetRequestOptions(account_ids=account_ids)
-            request = IdentityGetRequest(access_token=access_token,
-                                         options=options)
-        else:
-            request = IdentityGetRequest(access_token=access_token)
-
-        logging_extra = {
-            "access_token": access_token,
-            "account_ids": account_ids,
-        }
-
-        try:
-            response = self.get_client(access_token).identity_get(request)
-
-            logging_extra["response_data"] = response.to_dict()
-            logging_extra["requestId"] = response.request_id
-        except plaid.ApiException as e:
-            logger.exception("[PLAID] get_identity", e, extra=logging_extra)
-            raise e
-
-        logger.info("[PLAID] get_identity", extra=logging_extra)
 
         return [PlaidAccount(i) for i in response['accounts']]
 

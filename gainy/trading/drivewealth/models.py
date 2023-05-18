@@ -580,6 +580,18 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
     def is_valid_weights(self) -> bool:
         logger_extra = {"portfolio_status": self.data}
+        for holding_id, holding in self.holdings.items():
+            if holding.is_valid():
+                continue
+
+            logger.info(f'is_valid: holding {holding_id} is invalid',
+                        extra=logger_extra)
+            return False
+
+        return self.is_valid_weights()
+
+    def is_valid_weights(self) -> bool:
+        logger_extra = {"portfolio_status": self.data}
         weight_sum = Decimal(self.cash_actual_weight)
         for holding_id, holding in self.holdings.items():
             if not holding.is_valid_weights():
@@ -1080,7 +1092,7 @@ class DriveWealthTransaction(BaseDriveWealthModel,
     key_fields = ["ref_id"]
 
     db_excluded_fields = ["created_at"]
-    non_persistent_fields = ["created_at"]
+    non_persistent_fields = ["id", "created_at"]
 
     def set_from_response(self, data: dict = None):
         if not data:
@@ -1124,6 +1136,7 @@ class DriveWealthTransaction(BaseDriveWealthModel,
             typed_transaction = _cls()
             break
 
+        typed_transaction.id = transaction.id
         typed_transaction.account_id = transaction.account_id
         typed_transaction.set_from_response(transaction.data)
         return typed_transaction

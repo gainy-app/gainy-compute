@@ -483,7 +483,7 @@ class CorporateActionAdjustment(BaseModel):
 
     key_fields = []
     db_excluded_fields = ["created_at"]
-    non_persistent_fields = ["created_at"]
+    non_persistent_fields = ["id", "created_at"]
 
     @classproperty
     def schema_name(self) -> str:

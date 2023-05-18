@@ -137,7 +137,7 @@ class DriveWealthTransactionHandler:
                     self._link_caa(caa, filtered_transactions)
                     self._create_order(caa)
         finally:
-            logger.error(
+            logger.info(
                 "DriveWealthTransactionHandler _handle_dividend_transactions",
                 extra=logger_extra)
 
