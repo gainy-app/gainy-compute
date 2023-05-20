@@ -290,6 +290,7 @@ def test_rebalance_existing_funds(monkeypatch):
             "weights": weights,
             "target_amount_delta_relative": None,
             "use_static_weights": True,
+            "note": "automatic_rebalance",
             "last_optimization_at": collection_last_optimization_at
         } == kwargs
         return new_trading_collection_version
@@ -408,6 +409,7 @@ def test_automatic_sell(monkeypatch):
                 trading_account_id) == args
         assert {
             "target_amount_delta": order1_amount,
+            "note": "test_automatic_sell",
         } == kwargs
         return trading_collection_version
 
@@ -419,6 +421,7 @@ def test_automatic_sell(monkeypatch):
                 trading_account_id) == args
         assert {
             "target_amount_delta": order2_amount,
+            "note": "test_automatic_sell",
         } == kwargs
         return trading_order
 
