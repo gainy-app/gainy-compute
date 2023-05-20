@@ -137,7 +137,7 @@ class DriveWealthTransactionHandler:
                     self._link_caa(caa, filtered_transactions)
                     self._create_order(caa)
         finally:
-            logger.error(
+            logger.info(
                 "DriveWealthTransactionHandler _handle_dividend_transactions",
                 extra=logger_extra)
 
@@ -336,9 +336,6 @@ class DriveWealthTransactionHandler:
     def _create_order(
             self,
             caa: CorporateActionAdjustment) -> Optional[AbstractTradingOrder]:
-        if abs(caa.amount) < EXECUTED_AMOUNT_PRECISION:
-            return None
-
         note = "caa #%d" % caa.id
         if caa.collection_id:
             return self.trading_service.create_collection_version(
