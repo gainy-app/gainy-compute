@@ -409,7 +409,7 @@ def test_automatic_sell(monkeypatch):
                 trading_account_id) == args
         assert {
             "target_amount_delta": order1_amount,
-            "note": "test_automatic_sell",
+            "note": "automatic_sell",
         } == kwargs
         return trading_collection_version
 
@@ -421,7 +421,7 @@ def test_automatic_sell(monkeypatch):
                 trading_account_id) == args
         assert {
             "target_amount_delta": order2_amount,
-            "note": "test_automatic_sell",
+            "note": "automatic_sell",
         } == kwargs
         return trading_order
 
