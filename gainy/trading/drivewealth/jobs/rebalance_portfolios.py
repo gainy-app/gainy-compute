@@ -16,7 +16,7 @@ from gainy.trading.drivewealth.exceptions import DriveWealthApiException, Tradin
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
     DriveWealthFund, DriveWealthPortfolioStatus
 from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
-from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
+from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException, TradingPausedException
 from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder, \
     AbstractTradingOrder
 from gainy.trading.repository import TradingRepository
@@ -50,6 +50,11 @@ class RebalancePortfoliosJob:
 
         for profile_id, trading_account_id in self._iterate_accounts_with_pending_trading_collection_versions(
         ):
+            try:
+                self.repo.check_profile_trading_not_paused(profile_id)
+            except TradingPausedException:
+                continue
+
             start_time = time.time()
             try:
                 portfolio = self.provider.ensure_portfolio(
@@ -71,6 +76,12 @@ class RebalancePortfoliosJob:
         for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
             portfolio: DriveWealthPortfolio
             if portfolio.is_artificial:
+                continue
+
+            try:
+                self.repo.check_profile_trading_not_paused(
+                    portfolio.profile_id)
+            except TradingPausedException:
                 continue
 
             try:

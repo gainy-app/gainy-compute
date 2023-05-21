@@ -115,8 +115,10 @@ class TradingService:
                                   use_static_weights: bool = False,
                                   note: str = None):
         """
+        :raises TradingPausedException:
         :raises InsufficientFundsException:
         """
+        self.trading_repository.check_profile_trading_not_paused(profile_id)
 
         if weights:
             # todo mark the newly created collection_version for rebalance job to take these weights into account
@@ -181,9 +183,11 @@ class TradingService:
                            target_amount_delta_relative: Decimal = None,
                            note: str = None):
         """
+        :raises TradingPausedException:
         :raises InsufficientFundsException:
         """
         self.check_tradeable_symbol(symbol)
+        self.trading_repository.check_profile_trading_not_paused(profile_id)
 
         if target_amount_delta_relative:
             if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:

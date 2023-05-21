@@ -32,3 +32,7 @@ class DriveWealthProviderInterface(ABC):
         :raises SymbolIsNotTradeableException:
         """
         pass
+
+    @abstractmethod
+    def filter_inactive_symbols_from_weights(self, weights):
+        pass
