@@ -4,6 +4,16 @@ class InsufficientFundsException(Exception):
         super().__init__(message)
 
 
+class TradingPausedException(Exception):
+
+    def __init__(
+        self,
+        message='Trading for this account is paused. Please contract support.'
+    ):
+        self.message = message
+        super().__init__(message)
+
+
 class InsufficientHoldingValueException(Exception):
 
     def __init__(self, message='Insufficient holdings.'):

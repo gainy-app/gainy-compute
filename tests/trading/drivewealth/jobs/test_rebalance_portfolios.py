@@ -107,6 +107,10 @@ def test_rebalance_portfolios(monkeypatch):
                 "ref_id": drivewealth_account_id2
             }, account2),
         ]))
+    check_profile_trading_not_paused_calls = []
+    monkeypatch.setattr(
+        trading_repository, "check_profile_trading_not_paused",
+        mock_record_calls(check_profile_trading_not_paused_calls))
 
     transaction_handler = DriveWealthTransactionHandler(None, None, None, None)
     handle_new_transactions_calls = []
@@ -144,6 +148,7 @@ def test_rebalance_portfolios(monkeypatch):
 
     job.run()
 
+    assert ((profile_id1, ), {}) in check_profile_trading_not_paused_calls
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
 
     assert (
