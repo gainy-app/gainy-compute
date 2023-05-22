@@ -109,9 +109,9 @@ class DriveWealthTransactionHandler:
         try:
 
             def key_func(tx: DriveWealthDividendTransaction):
-                return tx.symbol
+                return tx.symbol, tx.date
 
-            for symbol, symbol_transactions in groupby(
+            for (symbol, tx_date), symbol_transactions in groupby(
                     sorted(transactions, key=key_func), key_func):
                 symbol_transactions: list[
                     DriveWealthDividendTransaction] = list(symbol_transactions)
@@ -132,6 +132,7 @@ class DriveWealthTransactionHandler:
                     caa.collection_id = collection_id
                     caa.symbol = symbol
                     caa.amount = account_amount_delta_sum * weight
+                    caa.date = tx_date
                     self.drivewealth_repository.persist(caa)
 
                     self._link_caa(caa, filtered_transactions)
@@ -163,10 +164,10 @@ class DriveWealthTransactionHandler:
         try:
 
             def key_func(tx: DriveWealthSpinOffTransaction):
-                return tx.from_symbol, tx.to_symbol, tx.symbol
+                return tx.from_symbol, tx.to_symbol, tx.symbol, tx.date
 
-            for (from_symbol, to_symbol,
-                 symbol), symbol_transactions in groupby(
+            for (from_symbol, to_symbol, symbol,
+                 tx_date), symbol_transactions in groupby(
                      sorted(transactions, key=key_func), key_func):
                 symbol_transactions: list[
                     DriveWealthSpinOffTransaction] = list(symbol_transactions)
@@ -188,6 +189,7 @@ class DriveWealthTransactionHandler:
                     caa.symbol = from_symbol
                     caa.amount = position_delta_sum * self._get_actual_price(
                         to_symbol, account_positions) * weight
+                    caa.date = tx_date
                     self.drivewealth_repository.persist(caa)
 
                     self._link_caa(caa, filtered_transactions)
@@ -223,10 +225,10 @@ class DriveWealthTransactionHandler:
         try:
 
             def key_func(tx: DriveWealthMergerAcquisitionTransaction):
-                return tx.merger_transaction_type, tx.symbol
+                return tx.merger_transaction_type, tx.symbol, tx.date
 
-            for (merger_transaction_type,
-                 symbol), symbol_transactions in groupby(
+            for (merger_transaction_type, symbol,
+                 tx_date), symbol_transactions in groupby(
                      sorted(transactions, key=key_func), key_func):
                 symbol_transactions: list[
                     DriveWealthMergerAcquisitionTransaction] = list(
@@ -265,6 +267,7 @@ class DriveWealthTransactionHandler:
                     caa.collection_id = collection_id
                     caa.symbol = symbol
                     caa.amount = amount * weight
+                    caa.date = tx_date
                     self.drivewealth_repository.persist(caa)
                     self._link_caa(caa, filtered_transactions)
                     self._create_order(caa)
@@ -336,9 +339,6 @@ class DriveWealthTransactionHandler:
     def _create_order(
             self,
             caa: CorporateActionAdjustment) -> Optional[AbstractTradingOrder]:
-        if abs(caa.amount) < EXECUTED_AMOUNT_PRECISION:
-            return None
-
         note = "caa #%d" % caa.id
         if caa.collection_id:
             return self.trading_service.create_collection_version(
