@@ -50,21 +50,37 @@ class AnalyticsService:
         properties = {}
         self._emit(profile_id, event_name, properties)
 
-    def on_kyc_status_info_required(self, profile_id: int,
-                                    error_codes: list[str]):
+    def on_kyc_status_info_required(self,
+                                    profile_id: int,
+                                    error_codes: list[str],
+                                    error_messages: list[str] = None):
         event_name = EVENT_DW_KYC_STATUS_INFO_REQUIRED
-        properties = {"error_codes": error_codes}
+        properties = {
+            "error_codes": error_codes,
+            "error_messages": error_messages,
+        }
         self._emit(profile_id, event_name, properties)
 
-    def on_kyc_status_manual_review(self, profile_id: int):
+    def on_kyc_status_manual_review(self,
+                                    profile_id: int,
+                                    error_codes: list[str],
+                                    error_messages: list[str] = None):
         event_name = EVENT_DW_KYC_STATUS_MANUAL_REVIEW
-        properties = {}
+        properties = {
+            "error_codes": error_codes,
+            "error_messages": error_messages,
+        }
         self._emit(profile_id, event_name, properties)
 
-    def on_kyc_status_doc_required(self, profile_id: int,
-                                   error_codes: list[str]):
+    def on_kyc_status_doc_required(self,
+                                   profile_id: int,
+                                   error_codes: list[str],
+                                   error_messages: list[str] = None):
         event_name = EVENT_DW_KYC_STATUS_DOC_REQUIRED
-        properties = {"error_codes": error_codes}
+        properties = {
+            "error_codes": error_codes,
+            "error_messages": error_messages,
+        }
         self._emit(profile_id, event_name, properties)
 
     def on_deposit_success(self, money_flow: TradingMoneyFlow):
