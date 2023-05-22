@@ -67,17 +67,18 @@ class KycUpdatedEventHandler(AbstractDriveWealthEventHandler):
             self.notification_service.on_kyc_status_rejected(profile_id)
 
         if _status_changed_to(entity, old_entity, KycStatus.MANUAL_REVIEW):
-            self.analytics_service.on_kyc_status_manual_review(profile_id)
+            self.analytics_service.on_kyc_status_manual_review(
+                profile_id, entity.error_codes, entity.error_messages)
 
         if _status_changed_to(entity, old_entity, KycStatus.INFO_REQUIRED):
             errors = ', '.join(i.lower().rstrip('.')
                                for i in entity.error_messages)
             self.analytics_service.on_kyc_status_info_required(
-                profile_id, entity.error_messages)
+                profile_id, entity.error_codes, entity.error_messages)
             self.notification_service.on_kyc_status_info_required(
                 profile_id, errors)
 
         if _status_changed_to(entity, old_entity, KycStatus.DOC_REQUIRED):
             self.analytics_service.on_kyc_status_doc_required(
-                profile_id, entity.error_messages)
+                profile_id, entity.error_codes, entity.error_messages)
             self.notification_service.on_kyc_status_doc_required(profile_id)
