@@ -87,6 +87,16 @@ class NotificationService:
         except Exception as e:
             logger.exception(e, extra={"subject": subject, "text": text})
 
+    def on_profile_paused(self, profile_id, reason):
+        subject = 'Profile %d was paused' % profile_id
+        text = 'Profile %d was paused due to: %s' % reason
+        try:
+            self.sendgrid.send_email(to=DW_MANAGER_EMAILS,
+                                     subject=subject,
+                                     content_plain=text)
+        except Exception as e:
+            logger.exception(e, extra={"subject": subject, "text": text})
+
     def on_kyc_status_approved(self, profile_id):
         logger.info('Sending notification on_kyc_status_approved',
                     extra={"profile_id": profile_id})
