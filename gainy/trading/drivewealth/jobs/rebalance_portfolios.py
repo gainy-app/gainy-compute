@@ -266,20 +266,23 @@ class RebalancePortfoliosJob:
 
                 target_amount_delta = -amount_to_auto_sell * weight / weight_sum
 
+                note = "automatic_sell"
                 if fund.collection_id:
                     order = self.trading_service.create_collection_version(
                         profile_id,
                         TradingOrderSource.AUTOMATIC,
                         fund.collection_id,
                         trading_account_id,
-                        target_amount_delta=target_amount_delta)
+                        target_amount_delta=target_amount_delta,
+                        note=note)
                 elif fund.symbol:
                     order = self.trading_service.create_stock_order(
                         profile_id,
                         TradingOrderSource.AUTOMATIC,
                         fund.symbol,
                         trading_account_id,
-                        target_amount_delta=target_amount_delta)
+                        target_amount_delta=target_amount_delta,
+                        note=note)
                 else:
                     raise Exception('Unknown fund type ' + fund_ref_id)
 
@@ -391,7 +394,8 @@ class RebalancePortfoliosJob:
             target_amount_delta_relative=target_amount_delta_relative,
             weights=weights,
             use_static_weights=True,
-            last_optimization_at=collection_last_optimization_at)
+            last_optimization_at=collection_last_optimization_at,
+            note="automatic_rebalance")
 
         self.provider.execute_order_in_portfolio(portfolio,
                                                  trading_collection_version)
