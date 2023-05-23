@@ -479,6 +479,7 @@ class CorporateActionAdjustment(BaseModel):
     collection_id: int = None
     symbol: str = None
     amount: Decimal = None
+    date: datetime.date = None
     created_at: datetime.datetime = None
 
     key_fields = []
