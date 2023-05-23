@@ -89,7 +89,7 @@ class NotificationService:
 
     def on_profile_paused(self, profile_id, reason):
         subject = 'Profile %d was paused' % profile_id
-        text = 'Profile %d was paused due to: %s' % reason
+        text = 'Profile %d was paused due to: %s' % (profile_id, reason)
         try:
             self.sendgrid.send_email(to=DW_MANAGER_EMAILS,
                                      subject=subject,
