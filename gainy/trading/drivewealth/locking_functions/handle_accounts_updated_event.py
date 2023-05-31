@@ -60,6 +60,8 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
                 DriveWealthUser, {"ref_id": account.drivewealth_user_id})
             if not user or not user.profile_id:
                 return
+            self.provider.ensure_trading_account_created(
+                account, user.profile_id)
 
             self.send_event(user.profile_id, was_open)
             self.create_payment_method(account, user.profile_id)
