@@ -1,13 +1,13 @@
-insert into app.profile_collection_match_score (profile_id, collection_id, collection_uniq_id, match_score, risk_similarity,
+insert into app.profile_collection_match_score (profile_id, collection_id, collection_uniq_id, match_score,
+                                                risk_similarity,
                                                 category_similarity, interest_similarity, updated_at, risk_level,
                                                 category_level, interest_level)
 with profiles as
          (
              select id as profile_id, email
-             from app.profiles
-             {where_clause}
+             from app.profiles {where_clause}
          ),
-risk_similarity as
+     risk_similarity as
          (
              select profile_id,
                     collection_uniq_id,
@@ -77,6 +77,8 @@ from risk_similarity
          left join cat_eligibility using (collection_id)
          left join int_eligibility using (collection_id)
          left join cat_int_similarity using (profile_id, collection_uniq_id)
+where cat_eligibility.collection_id is not null
+   or int_eligibility.collection_id is not null
 on conflict (
     profile_id, collection_uniq_id
     ) do update set profile_id          = excluded.profile_id,
