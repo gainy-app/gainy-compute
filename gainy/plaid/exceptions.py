@@ -14,3 +14,11 @@ class AccessTokenLoginRequiredException(AccessTokenApiException):
 
 class InvalidAccountIdException(AccessTokenApiException):
     pass
+
+
+class NoAccountsException(AccessTokenApiException):
+    pass
+
+
+class InstitutionNotRespondingException(AccessTokenApiException):
+    pass
