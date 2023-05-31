@@ -37,6 +37,9 @@ class DriveWealthApi:
                           transaction_code=None,
                           partner_account_no=None,
                           note=None) -> DriveWealthRedemption:
+        """
+        :raises PlaidProcessorTokenProvidedIsInvalidException:
+        """
         params = {
             'accountNo': account.ref_no,
             'amount': amount,

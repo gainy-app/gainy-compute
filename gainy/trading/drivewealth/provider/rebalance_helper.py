@@ -26,6 +26,7 @@ class DriveWealthProviderRebalanceHelper:
         repository = self.repository
         collection_id = None
         symbol = None
+        should_update_weights = False
 
         if isinstance(trading_order, TradingCollectionVersion):
             collection_id = trading_order.collection_id
@@ -34,11 +35,7 @@ class DriveWealthProviderRebalanceHelper:
             fund = self.repository.get_profile_fund(
                 profile_id, collection_id=collection_id)
 
-            # todo only update weights if they were marked to be updated in the order
-            # if fund and trading_order.use_static_weights:
-            #     fund.weights = weights
-            #     repository.persist(fund)
-
+            should_update_weights = trading_order.use_static_weights
         elif isinstance(trading_order, TradingOrder):
             symbol = trading_order.symbol
             weights = {symbol: Decimal(1)}
@@ -46,10 +43,11 @@ class DriveWealthProviderRebalanceHelper:
         else:
             raise Exception("Unsupported order class.")
 
-        if fund:
+        if fund and fund.has_valid_weights() and not should_update_weights:
             return fund
 
-        fund = DriveWealthFund()
+        if not fund:
+            fund = DriveWealthFund()
         fund.profile_id = profile_id
         fund.holdings = self._generate_new_fund_holdings(weights, fund)
         fund.weights = weights
@@ -71,8 +69,9 @@ class DriveWealthProviderRebalanceHelper:
         else:
             raise Exception("Unsupported order class.")
 
-        description = name
-        self.api.create_fund(fund, name, client_fund_id, description)
+        if not fund.ref_id:
+            description = name
+            self.api.create_fund(fund, name, client_fund_id, description)
 
         repository.persist(fund)
 
@@ -82,7 +81,8 @@ class DriveWealthProviderRebalanceHelper:
                                   portfolio: DriveWealthPortfolio,
                                   chosen_fund: DriveWealthFund):
 
-        target_amount_delta = order.target_amount_delta
+        target_amount_delta = Decimal(
+            order.target_amount_delta) if order.target_amount_delta else None
         if order.executed_amount:
             target_amount_delta -= order.executed_amount
         target_amount_delta_relative = order.target_amount_delta_relative

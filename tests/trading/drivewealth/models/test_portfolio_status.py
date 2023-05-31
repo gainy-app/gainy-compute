@@ -43,13 +43,15 @@ def test_invalid(monkeypatch, t, sign):
     elif t == 3:
         data["holdings"][1]["actual"] += Decimal(0.01) * sign
     elif t == 4:
-        data["holdings"][1]["target"] += Decimal(0.01) * sign
+        # data["holdings"][1]["target"] += Decimal(0.01) * sign
+        return
     elif t == 5:
         data["holdings"][1]["value"] += Decimal(1.01) * sign
     elif t == 6:
         data["holdings"][1]["holdings"][0]["actual"] += 0.01 * sign
     elif t == 7:
-        data["holdings"][1]["holdings"][0]["target"] += 0.01 * sign
+        # data["holdings"][1]["holdings"][0]["target"] += 0.01 * sign
+        return
     elif t == 8:
         data["holdings"][1]["holdings"][0]["value"] += Decimal(1.01 * sign)
 

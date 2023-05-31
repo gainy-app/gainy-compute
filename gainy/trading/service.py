@@ -4,27 +4,26 @@ from decimal import Decimal
 
 from typing import Iterable, Dict, List, Any
 
-from gainy.billing.models import Invoice, InvoiceStatus, PaymentTransaction, PaymentTransactionStatus
 from gainy.exceptions import EntityNotFoundException
-from gainy.plaid.exceptions import AccessTokenLoginRequiredException
+from gainy.plaid.exceptions import AccessTokenLoginRequiredException, InvalidAccountIdException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
-from gainy.trading.drivewealth.models import PRECISION
+from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
 from gainy.trading.exceptions import InsufficientFundsException, InsufficientHoldingValueException
 from gainy.trading.repository import TradingRepository
-from gainy.trading.drivewealth import DriveWealthProvider
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
     TradingOrderStatus, TradingOrderSource, TradingOrder
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
+PRECISION = Decimal(10)**-3
 
 
 class TradingService:
-    drivewealth_provider: DriveWealthProvider
+    drivewealth_provider: DriveWealthProviderInterface
 
     def __init__(self, trading_repository: TradingRepository,
-                 drivewealth_provider: DriveWealthProvider,
+                 drivewealth_provider: DriveWealthProviderInterface,
                  plaid_service: PlaidService):
         self.trading_repository = trading_repository
         self.drivewealth_provider = drivewealth_provider
@@ -51,6 +50,15 @@ class TradingService:
             access_token: PlaidAccessToken = self.trading_repository.find_one(
                 PlaidAccessToken, {"id": plaid_access_token_id})
 
+            logger_extra = {
+                "profile_id":
+                access_token.profile_id,
+                "funding_accounts": [
+                    funding_account.to_dict()
+                    for funding_account in funding_accounts
+                ],
+            }
+
             for funding_account in funding_accounts:
                 funding_account.needs_reauth = bool(
                     access_token.needs_reauth_since)
@@ -68,7 +76,18 @@ class TradingService:
             try:
                 plaid_accounts = self.plaid_service.get_item_accounts_balances(
                     access_token, list(funding_accounts_by_account_id.keys()))
-            except AccessTokenLoginRequiredException:
+            except InvalidAccountIdException as e:
+                for funding_account in funding_accounts:
+                    funding_account.needs_reauth = True
+                self.trading_repository.persist(funding_accounts)
+                logger.info('update_funding_accounts_balance: %s',
+                            e,
+                            extra=logger_extra)
+                return
+            except AccessTokenLoginRequiredException as e:
+                logger.info('update_funding_accounts_balance: %s',
+                            e,
+                            extra=logger_extra)
                 continue
 
             for plaid_account in plaid_accounts:
@@ -78,19 +97,10 @@ class TradingService:
                     plaid_account.
                     account_id].balance = plaid_account.balance_current
 
-            logger.info('update_funding_accounts_balance',
-                        extra={
-                            "profile_id":
-                            access_token.profile_id,
-                            "funding_accounts": [
-                                funding_account.to_dict()
-                                for funding_account in funding_accounts
-                            ],
-                            "plaid_accounts": [
-                                plaid_account.to_dict()
-                                for plaid_account in plaid_accounts
-                            ],
-                        })
+            logger_extra["plaid_accounts"] = [
+                plaid_account.to_dict() for plaid_account in plaid_accounts
+            ]
+            logger.info('update_funding_accounts_balance', extra=logger_extra)
             self.trading_repository.persist(funding_accounts)
 
     def create_collection_version(self,
@@ -101,7 +111,14 @@ class TradingService:
                                   weights: List[Dict[str, Any]] = None,
                                   target_amount_delta: Decimal = None,
                                   target_amount_delta_relative: Decimal = None,
-                                  last_optimization_at: datetime.date = None):
+                                  last_optimization_at: datetime.date = None,
+                                  use_static_weights: bool = False,
+                                  note: str = None):
+        """
+        :raises TradingPausedException:
+        :raises InsufficientFundsException:
+        """
+        self.trading_repository.check_profile_trading_not_paused(profile_id)
 
         if weights:
             # todo mark the newly created collection_version for rebalance job to take these weights into account
@@ -109,6 +126,9 @@ class TradingService:
         else:
             weights, last_optimization_at = self.trading_repository.get_collection_actual_weights(
                 collection_id)
+
+        weights = self.drivewealth_provider.filter_inactive_symbols_from_weights(
+            weights)
 
         weights = {i["symbol"]: Decimal(i["weight"]) for i in weights}
 
@@ -147,6 +167,8 @@ class TradingService:
         collection_version.target_amount_delta_relative = target_amount_delta_relative
         collection_version.trading_account_id = trading_account_id
         collection_version.last_optimization_at = last_optimization_at
+        collection_version.use_static_weights = use_static_weights
+        collection_version.note = note
 
         self.trading_repository.persist(collection_version)
 
@@ -158,8 +180,14 @@ class TradingService:
                            symbol: str,
                            trading_account_id: int,
                            target_amount_delta: Decimal = None,
-                           target_amount_delta_relative: Decimal = None):
+                           target_amount_delta_relative: Decimal = None,
+                           note: str = None):
+        """
+        :raises TradingPausedException:
+        :raises InsufficientFundsException:
+        """
         self.check_tradeable_symbol(symbol)
+        self.trading_repository.check_profile_trading_not_paused(profile_id)
 
         if target_amount_delta_relative:
             if target_amount_delta_relative < -1 or target_amount_delta_relative >= 0:
@@ -194,6 +222,7 @@ class TradingService:
         trading_order.target_amount_delta = target_amount_delta
         trading_order.target_amount_delta_relative = target_amount_delta_relative
         trading_order.trading_account_id = trading_account_id
+        trading_order.note = note
 
         self.trading_repository.persist(trading_order)
 

@@ -1,7 +1,7 @@
 from gainy.tests.mocks.repository_mocks import mock_persist, mock_record_calls
 from gainy.trading.drivewealth.models import DriveWealthTransaction
 from gainy.trading.drivewealth.event_handlers.transactions_created import TransactionsCreatedEventHandler
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 
@@ -11,9 +11,10 @@ def test(monkeypatch):
     monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
 
     provider = DriveWealthProvider(None, None, None, None, None)
-    on_new_transaction_calls = []
-    monkeypatch.setattr(provider, "on_new_transaction",
-                        mock_record_calls(on_new_transaction_calls))
+    # disabled in favor of batch transaction handler in the rebalance job
+    # on_new_transaction_calls = []
+    # monkeypatch.setattr(provider, "on_new_transaction",
+    #                     mock_record_calls(on_new_transaction_calls))
     event_handler = TransactionsCreatedEventHandler(repository, provider, None,
                                                     None)
     sync_trading_account_balances_calls = []
@@ -44,7 +45,7 @@ def test(monkeypatch):
     assert transaction.account_amount_delta == message["transaction"][
         "accountAmount"]
 
-    assert ((transaction.account_id, ), {}) in on_new_transaction_calls
+    # assert ((transaction.account_id, ), {}) in on_new_transaction_calls
     assert ((transaction.account_id, ), {
         "force": True
     }) in sync_trading_account_balances_calls

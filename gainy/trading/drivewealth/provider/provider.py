@@ -1,30 +1,26 @@
-from decimal import Decimal
-
 from typing import Optional
 
 import datetime
 
 from gainy.billing.models import PaymentTransaction, Invoice, InvoiceStatus
-from gainy.data_access.operators import OperatorGt, OperatorIn
+from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException, NotFoundException
+from gainy.models import AbstractEntityLock
 from gainy.trading import MIN_FIRST_DEPOSIT_AMOUNT
-from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException, BadMissingParametersBodyException, \
-    InvalidDriveWealthPortfolioStatusException
-from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
-    DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthPortfolioStatus, PRECISION, \
+from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException, BadMissingParametersBodyException
+from gainy.trading.drivewealth.locking_functions.handle_new_transaction import HandleNewTransaction
+from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccount, \
+    DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
     DriveWealthAccountStatus, BaseDriveWealthMoneyFlowModel, DriveWealthRedemptionStatus, DriveWealthInstrument, \
-    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthFund
+    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthTransactionInterface
 
-from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
+from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase, DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import SymbolIsNotTradeableException
 from gainy.trading.models import TradingAccount, TradingOrderStatus, TradingMoneyFlow, TradingStatement, AbstractTradingOrder
 from gainy.utils import get_logger, ENV_PRODUCTION, env
 
 logger = get_logger(__name__)
-
-DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
-DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
@@ -115,115 +111,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         return account
 
-    def actualize_portfolio(
-            self, portfolio: DriveWealthPortfolio,
-            portfolio_status: DriveWealthPortfolioStatus) -> bool:
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "portfolio_status": portfolio_status.to_dict(),
-            "portfolio_pre": portfolio.to_dict(),
-        }
-        portfolio.set_target_weights_from_status_actual_weights(
-            portfolio_status)
-        self.repository.persist(portfolio)
-
-        funds: list[DriveWealthFund] = self.repository.find_all(
-            DriveWealthFund,
-            {"ref_id": OperatorIn(portfolio_status.get_fund_ref_ids())})
-        logging_extra["funds_pre"] = [fund.to_dict() for fund in funds]
-        for fund in funds:
-            fund.set_target_weights_from_status_actual_weights(
-                portfolio_status)
-        self.repository.persist(funds)
-
-        logging_extra["portfolio_post"] = portfolio.to_dict()
-        logging_extra["funds_post"] = [fund.to_dict() for fund in funds]
-        logger.info('set_target_weights_from_status_actual_weights',
-                    extra=logging_extra)
-
-        return self.rebalance_portfolio_cash(portfolio, portfolio_status)
-
-    def rebalance_portfolio_cash(
-            self, portfolio: DriveWealthPortfolio,
-            portfolio_status: DriveWealthPortfolioStatus) -> bool:
-        new_equity_value = portfolio_status.equity_value
-
-        new_transactions_amount_sum = Decimal(0)
-        new_transactions = self.repository.get_new_transactions(
-            portfolio.drivewealth_account_id, portfolio.last_transaction_id)
-        for transaction in new_transactions:
-            if portfolio.last_transaction_id:
-                portfolio.last_transaction_id = max(
-                    portfolio.last_transaction_id, transaction.id)
-            else:
-                portfolio.last_transaction_id = transaction.id
-
-            new_transactions_amount_sum += transaction.account_amount_delta
-
-        # pending redemptions do not have transactions, but are already accounted in portfolio balance.
-        pending_redemptions_amount_sum = Decimal(0)
-        pending_redemptions = self.repository.get_pending_redemptions(
-            portfolio.drivewealth_account_id)
-        for redemption in pending_redemptions:
-            pending_redemptions_amount_sum += redemption.amount
-
-        new_transactions_amount_sum += pending_redemptions_amount_sum - portfolio.pending_redemptions_amount_sum
-
-        logging_extra = {
-            "profile_id": portfolio.profile_id,
-            "prev_pending_redemptions_amount_sum":
-            portfolio.pending_redemptions_amount_sum,
-            "new_pending_redemptions_amount_sum":
-            pending_redemptions_amount_sum,
-            "new_transactions_amount_sum": new_transactions_amount_sum,
-            "new_transactions": [i.to_dict() for i in new_transactions],
-            "portfolio_pre": portfolio.to_dict(),
-            "portfolio_status": portfolio_status.to_dict(),
-        }
-
-        if abs(new_transactions_amount_sum) < PRECISION:
-            portfolio.last_equity_value = new_equity_value
-            portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
-            self.repository.persist(portfolio)
-            return False
-
-        if not new_equity_value:
-            # todo handle?
-            return False
-        '''
-        new_transactions_amount_sum=200
-        cash_weight 0.5     0.8333
-        fund_weight 0.5     0.1667
-        equity_value 100    300
-        
-        cash_weight_delta = (0.5 * 100 + 200) / 300 - 0.5 = 0.3333
-        '''
-
-        if portfolio.last_equity_value:
-            last_equity_value = portfolio.last_equity_value
-        else:
-            last_equity_value = Decimal(0)
-
-        try:
-            cash_weight_delta = (
-                portfolio.cash_target_weight * last_equity_value +
-                new_transactions_amount_sum
-            ) / new_equity_value - portfolio.cash_target_weight
-            logging_extra["cash_weight_delta"] = cash_weight_delta
-            portfolio.rebalance_cash(cash_weight_delta)
-            portfolio.last_equity_value = new_equity_value
-            portfolio.pending_redemptions_amount_sum = pending_redemptions_amount_sum
-            logging_extra["portfolio_post"] = portfolio.to_dict()
-
-            logger.info('rebalance_portfolio_cash', extra=logging_extra)
-            self.repository.persist(portfolio)
-            return True
-        except Exception as e:
-            logging_extra["exc"] = e
-            logger.exception('rebalance_portfolio_cash', extra=logging_extra)
-            raise e
-
     def execute_order_in_portfolio(self, portfolio: DriveWealthPortfolio,
                                    trading_order: AbstractTradingOrder):
         helper = DriveWealthProviderRebalanceHelper(self,
@@ -265,22 +152,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         return portfolio
 
-    def send_portfolio_to_api(self, portfolio: DriveWealthPortfolio):
-        if portfolio.is_artificial:
-            return
-
-        funds: list[DriveWealthFund] = self.repository.find_all(
-            DriveWealthFund,
-            {"ref_id": OperatorIn(portfolio.get_fund_ref_ids())})
-        for fund in funds:
-            fund.normalize_weights()
-            self.api.update_fund(fund)
-        self.repository.persist(funds)
-
-        portfolio.normalize_weights()
-        self.api.update_portfolio(portfolio)
-        self.repository.persist(portfolio)
-
     def sync_account_money(self,
                            account_ref_id: str,
                            force: bool = False) -> DriveWealthAccountMoney:
@@ -305,31 +176,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.repository.persist(account_money)
         return account_money
 
-    def sync_account_positions(
-            self,
-            account_ref_id: str,
-            force: bool = False) -> DriveWealthAccountPositions:
-
-        account_positions: DriveWealthAccountPositions = self.repository.find_one(
-            DriveWealthAccountPositions, {
-                "drivewealth_account_id":
-                account_ref_id,
-                "created_at":
-                OperatorGt(
-                    datetime.datetime.now(datetime.timezone.utc) -
-                    datetime.timedelta(
-                        seconds=DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL)),
-            }, [("created_at", "DESC")])
-
-        if not force and account_positions:
-            return account_positions
-
-        account_positions_data = self.api.get_account_positions(account_ref_id)
-        account_positions = DriveWealthAccountPositions()
-        account_positions.set_from_response(account_positions_data)
-        self.repository.persist(account_positions)
-        return account_positions
-
     def check_tradeable_symbol(self, symbol: str):
         try:
             instrument = self.repository.get_instrument_by_symbol(symbol)
@@ -353,13 +199,16 @@ class DriveWealthProvider(DriveWealthProviderBase):
         if env() != ENV_PRODUCTION:
             return
 
-        if old_status != DriveWealthAccountStatus.OPEN:
+        if old_status not in [
+                DriveWealthAccountStatus.OPEN,
+                DriveWealthAccountStatus.OPEN_NO_NEW_TRADES
+        ]:
             return
         if old_status == account.status:
             return
 
         self.notification_service.notify_dw_account_status_changed(
-            account.ref_id, old_status, account.status)
+            account.ref_no, old_status, account.status)
 
     def handle_money_flow_status_change(
             self, money_flow: BaseDriveWealthMoneyFlowModel,
@@ -390,6 +239,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             return
 
         money_flow.status = entity.get_money_flow_status()
+        money_flow.error_message = entity.get_error_message()
         money_flow.fees_total_amount = entity.fees_total_amount
         self.repository.persist(money_flow)
         return money_flow
@@ -443,11 +293,19 @@ class DriveWealthProvider(DriveWealthProviderBase):
         entity = repository.find_one(
             DriveWealthRedemption,
             {"ref_id": redemption_ref_id}) or DriveWealthRedemption()
+        redemption_pre = entity.to_dict()
 
         redemption_data = self.api.get_redemption(redemption_ref_id)
         entity.set_from_response(redemption_data)
         self.ensure_account_exists(entity.trading_account_ref_id)
         repository.persist(entity)
+
+        logger.info("Updated redemption",
+                    extra={
+                        "file": __file__,
+                        "redemption_pre": redemption_pre,
+                        "redemption": entity.to_dict(),
+                    })
 
         self.update_money_flow_from_dw(entity)
         return entity
@@ -470,36 +328,15 @@ class DriveWealthProvider(DriveWealthProviderBase):
                     return
                 raise e
 
-    def on_new_transaction(self, account_ref_id: str):
-        #todo thread-safe!
-        portfolio: DriveWealthPortfolio = self.repository.find_one(
-            DriveWealthPortfolio, {"drivewealth_account_id": account_ref_id})
-        if not portfolio:
-            return
-
-        self.sync_portfolio(portfolio)
-        try:
-            portfolio_status = self.sync_portfolio_status(portfolio,
-                                                          force=True)
-        except InvalidDriveWealthPortfolioStatusException as e:
-            portfolio_status = self.get_latest_portfolio_status(
-                portfolio.ref_id)
-
-            # in case we received an invalid portfolio status - look for a valid one, which is not more than an hour old
-            min_created_at = datetime.datetime.now(
-                datetime.timezone.utc) - datetime.timedelta(hours=1)
-            if not portfolio_status or portfolio_status.created_at < min_created_at:
-                logger.exception(e)
-                # use invalid portfolio status anyway, what choice do we have?..
-                portfolio_status = e.portfolio_status
-
-        portfolio_changed = self.actualize_portfolio(portfolio,
-                                                     portfolio_status)
-        if not portfolio_changed:
-            return
-
-        portfolio.normalize_weights()
-        self.send_portfolio_to_api(portfolio)
+    # disabled in favor of batch transaction handler in the rebalance job
+    # def on_new_transaction(self, transaction: DriveWealthTransactionInterface):
+    #     entity_lock = AbstractEntityLock(DriveWealthAccount,
+    #                                      transaction.account_id)
+    #     self.repository.persist(entity_lock)
+    #
+    #     func = HandleNewTransaction(self.repository, self, entity_lock,
+    #                                 transaction)
+    #     func.execute()
 
     def update_payment_transaction_from_dw(self,
                                            redemption: DriveWealthRedemption):
@@ -584,3 +421,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]
+
+    def filter_inactive_symbols_from_weights(self, weights):
+        return self.repository.filter_inactive_symbols_from_weights(weights)

@@ -3,21 +3,20 @@ import os
 import psycopg2.errors
 from decimal import Decimal
 
-import datetime
-import dateutil.parser
-
 from typing import Iterable, Tuple
 
 import time
 
 from gainy.context_container import ContextContainer
 from gainy.data_access.operators import OperatorLt, OperatorIn
-from gainy.trading.drivewealth import DriveWealthProvider, DriveWealthRepository
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException, TradingAccountNotOpenException, \
     InvalidDriveWealthPortfolioStatusException
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DW_WEIGHT_THRESHOLD, \
-    DriveWealthFund
-from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException
+    DriveWealthFund, DriveWealthPortfolioStatus
+from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
+from gainy.trading.exceptions import InsufficientFundsException, SymbolIsNotTradeableException, TradingPausedException
 from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder, \
     AbstractTradingOrder
 from gainy.trading.repository import TradingRepository
@@ -38,10 +37,12 @@ class RebalancePortfoliosJob:
     def __init__(self, trading_repository: TradingRepository,
                  drivewealth_repository: DriveWealthRepository,
                  provider: DriveWealthProvider,
+                 transaction_handler: DriveWealthTransactionHandler,
                  trading_service: TradingService):
         self.repo = trading_repository
         self.drivewealth_repository = drivewealth_repository
         self.provider = provider
+        self.transaction_handler = transaction_handler
         self.trading_service = trading_service
 
     def run(self):
@@ -49,6 +50,11 @@ class RebalancePortfoliosJob:
 
         for profile_id, trading_account_id in self._iterate_accounts_with_pending_trading_collection_versions(
         ):
+            try:
+                self.repo.check_profile_trading_not_paused(profile_id)
+            except TradingPausedException:
+                continue
+
             start_time = time.time()
             try:
                 portfolio = self.provider.ensure_portfolio(
@@ -73,6 +79,12 @@ class RebalancePortfoliosJob:
                 continue
 
             try:
+                self.repo.check_profile_trading_not_paused(
+                    portfolio.profile_id)
+            except TradingPausedException:
+                continue
+
+            try:
                 account: DriveWealthAccount = self.repo.find_one(
                     DriveWealthAccount,
                     {"ref_id": portfolio.drivewealth_account_id})
@@ -80,25 +92,38 @@ class RebalancePortfoliosJob:
                     continue
 
                 portfolio_status = self.provider.sync_portfolio_status(
-                    portfolio, force=True)
+                    portfolio, force=True, allow_invalid=True)
+
+                if self._should_skip_portfolio(portfolio, portfolio_status):
+                    continue
 
                 # 1. update pending execution orders
                 self.provider.update_trading_orders_pending_execution_from_portfolio_status(
                     portfolio_status)
 
                 # 2. set target weights from actual weights and change cash weight in case of new transactions
-                portfolio_changed = self.provider.actualize_portfolio(
+                self.provider.actualize_portfolio(portfolio, portfolio_status)
+
+                # 3. apply new transactions
+                portfolio_changed = self.transaction_handler.handle_new_transactions(
                     portfolio, portfolio_status)
 
-                # 3. apply all pending orders
+                if not portfolio_status.is_valid_weights():
+                    # At the moment there are sporadic problems with DW portfolio statuses, which we can't handle.
+                    # However, we need to observe portfolio statuses around particular transactions to be able to
+                    # reverse-engineer these errors.
+                    raise InvalidDriveWealthPortfolioStatusException(
+                        portfolio_status)
+
+                # 4. apply all pending orders
                 trading_orders = self.apply_trading_orders(portfolio)
                 portfolio_changed = trading_orders or portfolio_changed
 
-                # 4. rebalance collections automatically
+                # 5. rebalance collections automatically
                 portfolio_changed = self.rebalance_existing_funds(
                     portfolio) or portfolio_changed
 
-                # 5. automatic sell
+                # 6. automatic sell
                 portfolio_changed = self.automatic_sell(
                     portfolio) or portfolio_changed
 
@@ -113,12 +138,13 @@ class RebalancePortfoliosJob:
                     DriveWealthApiException) as e:
                 logger.exception(e)
                 self.repo.rollback()
-            except InvalidDriveWealthPortfolioStatusException:
+            except InvalidDriveWealthPortfolioStatusException as e:
                 logger.info(
                     f"Skipping portfolio {portfolio.ref_id} due to invalid status",
                     extra={
                         "profile_id": portfolio.profile_id,
-                        "account_id": portfolio.drivewealth_account_id
+                        "account_id": portfolio.drivewealth_account_id,
+                        "portfolio_status": e.portfolio_status.to_dict(),
                     })
             except Exception as e:
                 logger.exception(e)
@@ -240,20 +266,23 @@ class RebalancePortfoliosJob:
 
                 target_amount_delta = -amount_to_auto_sell * weight / weight_sum
 
+                note = "automatic_sell"
                 if fund.collection_id:
                     order = self.trading_service.create_collection_version(
                         profile_id,
                         TradingOrderSource.AUTOMATIC,
                         fund.collection_id,
                         trading_account_id,
-                        target_amount_delta=target_amount_delta)
+                        target_amount_delta=target_amount_delta,
+                        note=note)
                 elif fund.symbol:
                     order = self.trading_service.create_stock_order(
                         profile_id,
                         TradingOrderSource.AUTOMATIC,
                         fund.symbol,
                         trading_account_id,
-                        target_amount_delta=target_amount_delta)
+                        target_amount_delta=target_amount_delta,
+                        note=note)
                 else:
                     raise Exception('Unknown fund type ' + fund_ref_id)
 
@@ -320,6 +349,8 @@ class RebalancePortfoliosJob:
 
         weights, collection_last_optimization_at = self.repo.get_collection_actual_weights(
             fund.collection_id)
+        weights = self.drivewealth_repository.filter_inactive_symbols_from_weights(
+            weights)
 
         tcv: TradingCollectionVersion = self.repo.find_one(
             TradingCollectionVersion,
@@ -362,7 +393,9 @@ class RebalancePortfoliosJob:
             trading_account_id,
             target_amount_delta_relative=target_amount_delta_relative,
             weights=weights,
-            last_optimization_at=collection_last_optimization_at)
+            use_static_weights=True,
+            last_optimization_at=collection_last_optimization_at,
+            note="automatic_rebalance")
 
         self.provider.execute_order_in_portfolio(portfolio,
                                                  trading_collection_version)
@@ -433,6 +466,44 @@ class RebalancePortfoliosJob:
             return True
         return False
 
+    def _should_skip_portfolio(self, portfolio: DriveWealthPortfolio,
+                               portfolio_status: DriveWealthPortfolioStatus):
+        if portfolio_status.last_portfolio_rebalance_at is None:
+            return False
+
+        query = """
+            select max(last_portfolio_rebalance_at) as last_portfolio_rebalance_at
+            from drivewealth_portfolio_historical_holdings
+                     join app.drivewealth_portfolio_statuses on drivewealth_portfolio_statuses.id = portfolio_status_id
+            where profile_id = %(profile_id)s        
+        """
+        params = {
+            "profile_id": portfolio.profile_id,
+        }
+
+        with self.repo.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            row = cursor.fetchone()
+
+        last_portfolio_rebalance_at = row[0] if row else None
+
+        if last_portfolio_rebalance_at is None:
+            result = portfolio_status.last_portfolio_rebalance_at is not None
+        else:
+            result = portfolio_status.last_portfolio_rebalance_at > last_portfolio_rebalance_at
+
+        logging_extra = {
+            "profile_id": portfolio.profile_id,
+            "last_portfolio_rebalance_at_portfolio_status":
+            portfolio_status.last_portfolio_rebalance_at,
+            "last_portfolio_rebalance_at_db": last_portfolio_rebalance_at,
+            "result": result,
+        }
+
+        logger.info('_should_skip_portfolio', extra=logging_extra)
+
+        return result
+
 
 def cli():
     try:
@@ -441,6 +512,7 @@ def cli():
                 context_container.trading_repository,
                 context_container.drivewealth_repository,
                 context_container.drivewealth_provider,
+                context_container.drivewealth_transaction_handler,
                 context_container.trading_service)
             job.run()
 

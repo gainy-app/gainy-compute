@@ -17,12 +17,14 @@ class RedemptionUpdatedEventHandler(AbstractDriveWealthEventHandler):
             DriveWealthRedemption, {"ref_id": ref_id})
 
         if redemption:
+            redemption_pre = redemption.to_dict()
             was_approved = redemption.is_approved()
             old_mf_status = redemption.get_money_flow_status()
             old_status = redemption.status
             redemption = self.provider.sync_redemption(redemption.ref_id)
         else:
             redemption = DriveWealthRedemption()
+            redemption_pre = redemption.to_dict()
             was_approved = redemption.is_approved()
             old_mf_status = redemption.get_money_flow_status()
             old_status = redemption.status
@@ -31,10 +33,16 @@ class RedemptionUpdatedEventHandler(AbstractDriveWealthEventHandler):
         self.provider.handle_money_flow_status_change(redemption, old_status)
         self.repo.persist(redemption)
         self.provider.handle_redemption_status(redemption)
-
-        if redemption.is_approved() != was_approved:
-            # update cash weight in linked portfolio
-            self.provider.on_new_transaction(redemption.trading_account_ref_id)
+        logger.info("Updated redemption",
+                    extra={
+                        "file": __file__,
+                        "redemption_pre": redemption_pre,
+                        "redemption": redemption.to_dict(),
+                    })
+        # disabled in favor of batch transaction handler in the rebalance job
+        # if redemption.is_approved() != was_approved:
+        #     # update cash weight in linked portfolio
+        #     self.provider.on_new_transaction(redemption.trading_account_ref_id)
 
         if redemption.is_approved() and redemption.fees_total_amount is None:
             self.provider.sync_redemption(redemption.ref_id)

@@ -1,35 +1,34 @@
-from gainy.tests.mocks.repository_mocks import mock_record_calls
-from gainy.trading.drivewealth.models import DriveWealthUser
+from gainy.models import AbstractEntityLock
+from gainy.tests.mocks.repository_mocks import mock_record_calls, mock_persist
 from gainy.trading.drivewealth.event_handlers import UsersUpdatedEventHandler
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 
 def test(monkeypatch):
     user_id = "user_id"
-
-    user = DriveWealthUser()
-    user.profile_id = 1
-
-    provider = DriveWealthProvider(None, None, None, None, None)
-
-    def mock_sync_user(_user_id):
-        assert _user_id == user_id
-        return user
-
-    monkeypatch.setattr(provider, 'sync_user', mock_sync_user)
-    ensure_account_created_calls = []
-    monkeypatch.setattr(provider, 'ensure_account_created',
-                        mock_record_calls(ensure_account_created_calls))
+    event_payload = {"userID": user_id}
 
     repository = DriveWealthRepository(None)
-    monkeypatch.setattr(repository, 'refresh', lambda x: x)
-
+    persisted_objects = {}
+    monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
+    provider = DriveWealthProvider(None, None, None, None, None)
     event_handler = UsersUpdatedEventHandler(repository, provider, None, None)
 
-    message = {
-        "userID": user_id,
-    }
-    event_handler.handle(message)
+    execute_calls = []
 
-    assert (user, ) in [args for args, kwargs in ensure_account_created_calls]
+    def mock_execute(self):
+        assert self.provider == provider
+        assert self.entity_lock in persisted_objects[AbstractEntityLock]
+        assert isinstance(self.entity_lock, AbstractEntityLock)
+        assert self.entity_lock.object_id == user_id
+        assert self.event_payload == event_payload
+        mock_record_calls(execute_calls)()
+
+    monkeypatch.setattr(
+        "gainy.trading.drivewealth.locking_functions.handle_users_updated_event.HandleUsersUpdatedEvent.execute",
+        mock_execute)
+
+    event_handler.handle(event_payload)
+
+    assert execute_calls

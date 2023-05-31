@@ -18,6 +18,8 @@ class DepositsUpdatedEventHandler(AbstractDriveWealthEventHandler):
         if not deposit:
             deposit = DriveWealthDeposit()
 
+        deposit_pre = deposit.to_dict()
+
         old_mf_status = deposit.get_money_flow_status()
         old_status = deposit.status
         deposit.set_from_response(event_payload)
@@ -26,6 +28,13 @@ class DepositsUpdatedEventHandler(AbstractDriveWealthEventHandler):
 
         self.repo.persist(deposit)
         money_flow = self.provider.update_money_flow_from_dw(deposit)
+
+        logger.info("Updated deposit",
+                    extra={
+                        "file": __file__,
+                        "deposit_pre": deposit_pre,
+                        "deposit": deposit.to_dict(),
+                    })
 
         if money_flow:
             funding_account: FundingAccount = self.repo.find_one(
@@ -52,3 +61,7 @@ class DepositsUpdatedEventHandler(AbstractDriveWealthEventHandler):
         ) == TradingMoneyFlowStatus.FAILED and old_mf_status != TradingMoneyFlowStatus.FAILED and funding_account:
             self.notification_service.on_deposit_failed(
                 money_flow.profile_id, money_flow.amount, funding_account.mask)
+            self.trading_repository.set_profile_trading_paused(
+                money_flow.profile_id, False)
+            self.notification_service.on_profile_paused(
+                money_flow.profile_id, "returned deposit")

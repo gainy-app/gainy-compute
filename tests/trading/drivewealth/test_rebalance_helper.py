@@ -12,7 +12,7 @@ from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.drivewealth.api import DriveWealthApi
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthInstrument, DriveWealthPortfolioStatus, PRECISION
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.models import TradingCollectionVersion, TradingOrder
 
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthFund
@@ -108,6 +108,7 @@ def test_ensure_fund(fund_exists, type, monkeypatch):
 
     fund = DriveWealthFund()
     monkeypatch.setattr(fund, "ref_id", fund_ref_id)
+    monkeypatch.setattr(fund, "weights", weights)
 
     def mock_get_user(_profile_id):
         assert _profile_id == profile_id

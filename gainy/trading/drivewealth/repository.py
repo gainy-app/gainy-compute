@@ -1,13 +1,13 @@
 from psycopg2.extras import RealDictCursor
 
-from typing import List, Iterable, Optional
+from typing import List, Optional, Any, Dict
 
 from gainy.data_access.operators import OperatorGt, OperatorIn
 from gainy.data_access.repository import Repository
 from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthUser, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolio, DriveWealthInstrumentStatus, DriveWealthInstrument, DriveWealthTransaction, \
-    DriveWealthRedemption, DriveWealthRedemptionStatus
+    DriveWealthRedemption, DriveWealthRedemptionStatus, DriveWealthTransactionInterface
 from gainy.trading.models import TradingOrderStatus
 from gainy.utils import get_logger
 
@@ -76,16 +76,20 @@ class DriveWealthRepository(Repository):
     # todo add to tests?
     def get_instrument_by_symbol(
             self, symbol: str) -> Optional[DriveWealthInstrument]:
+        """
+        :raises EntityNotFoundException:
+        """
         query = """
             select ref_id 
             from app.drivewealth_instruments 
             where public.normalize_drivewealth_symbol(symbol) = %(symbol)s 
               and status = %(status)s"""
         with self.db_conn.cursor() as cursor:
-            cursor.execute(query, {
-                "symbol": symbol,
-                "status": DriveWealthInstrumentStatus.ACTIVE
-            })
+            cursor.execute(
+                query, {
+                    "symbol": symbol,
+                    "status": DriveWealthInstrumentStatus.ACTIVE.name
+                })
             row = cursor.fetchone()
             if not row:
                 raise EntityNotFoundException(DriveWealthInstrument)
@@ -127,8 +131,8 @@ class DriveWealthRepository(Repository):
         return row[0]
 
     def get_new_transactions(
-            self, account_id: str, last_transaction_id: Optional[int]
-    ) -> list[DriveWealthTransaction]:
+        self, account_id: str, last_transaction_id: Optional[int]
+    ) -> list[DriveWealthTransactionInterface]:
 
         params = {
             "account_id": account_id,
@@ -136,7 +140,12 @@ class DriveWealthRepository(Repository):
         if last_transaction_id:
             params["id"] = OperatorGt(last_transaction_id)
 
-        return self.find_all(DriveWealthTransaction, params)
+        transactions = self.find_all(DriveWealthTransaction, params)
+        transactions = [
+            DriveWealthTransaction.create_typed_transaction(tx)
+            for tx in transactions
+        ]
+        return transactions
 
     def get_pending_redemptions(
             self, account_id: str) -> list[DriveWealthRedemption]:
@@ -161,3 +170,15 @@ class DriveWealthRepository(Repository):
                                    and _sdc_extracted_at > (select max(_sdc_extracted_at) from raw_data.ticker_collections_weights) - interval '1 hour') 
                 ''', {"symbol": symbol})
             return cursor.fetchone()[0]
+
+    def filter_inactive_symbols_from_weights(
+            self, weights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        symbols = [i["symbol"] for i in weights]
+        tradeable_symbols = []
+        for symbol in symbols:
+            try:
+                self.get_instrument_by_symbol(symbol)
+                tradeable_symbols.append(symbol)
+            except EntityNotFoundException:
+                pass
+        return [i for i in weights if i["symbol"] in tradeable_symbols]

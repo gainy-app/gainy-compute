@@ -50,7 +50,7 @@ class AbstractOptimisticLockingFunction(ABC):
         cur_version = self.load_version()
         entities = self.get_entities()
 
-        # TODO dependency on repo for database_lock looks bad
+        # TODO doesn't look too optimistic to me
         with LockManager.database_lock(self.repo.db_conn,
                                        cur_version.resource_type,
                                        cur_version.resource_id):

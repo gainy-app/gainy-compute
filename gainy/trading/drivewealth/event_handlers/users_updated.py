@@ -1,4 +1,7 @@
+from gainy.models import AbstractEntityLock
 from gainy.trading.drivewealth.abstract_event_handler import AbstractDriveWealthEventHandler
+from gainy.trading.drivewealth.locking_functions.handle_users_updated_event import HandleUsersUpdatedEvent
+from gainy.trading.drivewealth.models import DriveWealthUser
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -10,11 +13,10 @@ class UsersUpdatedEventHandler(AbstractDriveWealthEventHandler):
         return event_type in ["users.updated", "users.created"]
 
     def handle(self, event_payload: dict):
-        # TODO: make thread safe for a user
         user_id = event_payload["userID"]
-        user = self.provider.sync_user(user_id)
-        user = self.repo.refresh(user)
+        entity_lock = AbstractEntityLock(DriveWealthUser, user_id)
+        self.repo.persist(entity_lock)
 
-        # create or update account
-        if user.profile_id:
-            self.provider.ensure_account_created(user)
+        func = HandleUsersUpdatedEvent(self.repo, self.provider, entity_lock,
+                                       event_payload)
+        func.execute()

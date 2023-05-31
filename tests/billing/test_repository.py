@@ -57,7 +57,7 @@ def test_create_invoices():
             "%Y-%m-%d")
         assert invoice["status"] == InvoiceStatus.PENDING
         assert abs(invoice["amount"] - fee * days_in_month) < Decimal(1e-3)
-        assert invoice["due_date"] > period_end.date()
+        assert invoice["due_date"] == period_end.date()
         assert invoice["period_start"] == period_start
         assert invoice["period_end"] == period_end
 

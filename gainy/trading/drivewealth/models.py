@@ -1,20 +1,23 @@
+import abc
 import enum
+import re
 
 import dateutil.parser
 import datetime
 from abc import ABC
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 
 import pytz
 
 from gainy.billing.models import PaymentTransaction, PaymentTransactionStatus
 from gainy.data_access.db_lock import ResourceType
 from gainy.data_access.models import BaseModel, classproperty, ResourceVersion, DecimalEncoder
+from gainy.exceptions import EntityNotFoundException
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.models import TradingAccount, TradingMoneyFlowStatus, AbstractProviderBankAccount, FundingAccount, \
-    ProfileKycStatus, KycStatus, TradingStatementType
+    ProfileKycStatus, KycStatus, TradingStatementType, KycErrorCode, CorporateActionAdjustment
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -25,6 +28,138 @@ ONE = Decimal(1)
 ZERO = Decimal(0)
 DW_WEIGHT_PRECISION = 4
 DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
+
+DW_ERRORS_MAPPING = [
+    {
+        "name": "AGE_VALIDATION",
+        "gainy_code": KycErrorCode.AGE_VALIDATION,
+        "code": "K001",
+    },
+    {
+        "name": "POOR_PHOTO_QUALITY",
+        "gainy_code": KycErrorCode.POOR_PHOTO_QUALITY,
+        "code": "K002",
+    },
+    {
+        "name": "POOR_DOC_QUALITY",
+        "gainy_code": KycErrorCode.POOR_DOC_QUALITY,
+        "code": "K003",
+    },
+    {
+        "name": "SUSPECTED_DOCUMENT_FRAUD",
+        "gainy_code": KycErrorCode.SUSPECTED_DOCUMENT_FRAUD,
+        "code": "K004",
+    },
+    {
+        "name": "INCORRECT_SIDE",
+        "gainy_code": KycErrorCode.INCORRECT_SIDE,
+        "code": "K005",
+    },
+    {
+        "name": "NO_DOC_IN_IMAGE",
+        "gainy_code": KycErrorCode.NO_DOC_IN_IMAGE,
+        "code": "K006",
+    },
+    {
+        "name": "TWO_DOCS_UPLOADED",
+        "gainy_code": KycErrorCode.TWO_DOCS_UPLOADED,
+        "code": "K007",
+    },
+    {
+        "name": "EXPIRED_DOCUMENT",
+        "gainy_code": KycErrorCode.EXPIRED_DOCUMENT,
+        "code": "K008",
+    },
+    {
+        "name": "MISSING_BACK",
+        "gainy_code": KycErrorCode.MISSING_BACK,
+        "code": "K009",
+    },
+    {
+        "name": "UNSUPPORTED_DOCUMENT",
+        "gainy_code": KycErrorCode.UNSUPPORTED_DOCUMENT,
+        "code": "K010",
+    },
+    {
+        "name": "DOB_NOT_MATCH_ON_DOC",
+        "gainy_code": KycErrorCode.DOB_NOT_MATCH_ON_DOC,
+        "code": "K011",
+    },
+    {
+        "name": "NAME_NOT_MATCH_ON_DOC",
+        "gainy_code": KycErrorCode.NAME_NOT_MATCH_ON_DOC,
+        "code": "K012",
+    },
+    {
+        "name": "INVALID_DOCUMENT",
+        "gainy_code": KycErrorCode.INVALID_DOCUMENT,
+        "code": "K050",
+    },
+    {
+        "name": "ADDRESS_NOT_MATCH",
+        "gainy_code": KycErrorCode.ADDRESS_NOT_MATCH,
+        "code": "K101",
+    },
+    {
+        "name": "SSN_NOT_MATCH",
+        "gainy_code": KycErrorCode.SSN_NOT_MATCH,
+        "code": "K102",
+    },
+    {
+        "name": "DOB_NOT_MATCH",
+        "gainy_code": KycErrorCode.DOB_NOT_MATCH,
+        "code": "K103",
+    },
+    {
+        "name": "NAME_NOT_MATCH",
+        "gainy_code": KycErrorCode.NAME_NOT_MATCH,
+        "code": "K104",
+    },
+    {
+        "name": "SANCTION_WATCHLIST",
+        "gainy_code": KycErrorCode.SANCTION_WATCHLIST,
+        "code": "K106",
+    },
+    {
+        "name": "SANCTION_OFAC",
+        "gainy_code": KycErrorCode.SANCTION_OFAC,
+        "code": "K107",
+    },
+    {
+        "name": "INVALID_PHONE_NUMBER",
+        "gainy_code": KycErrorCode.INVALID_PHONE_NUMBER,
+        "code": "K108",
+    },
+    {
+        "name": "INVALID_EMAIL_ADDRESS",
+        "gainy_code": KycErrorCode.INVALID_EMAIL_ADDRESS,
+        "code": "K109",
+    },
+    {
+        "name": "INVALID_NAME_TOO_LONG",
+        "gainy_code": KycErrorCode.INVALID_NAME_TOO_LONG,
+        "code": "K110",
+    },
+    {
+        "name": "UNSUPPORTED_COUNTRY",
+        "gainy_code": KycErrorCode.UNSUPPORTED_COUNTRY,
+        "code": "K111",
+    },
+    {
+        "name": "AGED_ACCOUNT",
+        "gainy_code": KycErrorCode.AGED_ACCOUNT,
+        "code": "K801",
+    },
+    {
+        "name": "ACCOUNT_INTEGRITY",
+        "gainy_code": KycErrorCode.ACCOUNT_INTEGRITY,
+        "code": "K802",
+    },
+    {
+        "name": "UNKNOWN",
+        "code": "U999",
+    },
+]
 
 
 class DriveWealthRedemptionStatus(str, enum.Enum):
@@ -112,6 +247,7 @@ class DriveWealthUser(BaseDriveWealthModel):
 
 class DriveWealthAccountStatus(str, enum.Enum):
     OPEN = "OPEN"
+    OPEN_NO_NEW_TRADES = "OPEN_NO_NEW_TRADES"
 
 
 class DriveWealthAccount(BaseDriveWealthModel):
@@ -162,7 +298,7 @@ class DriveWealthAccount(BaseDriveWealthModel):
         pass
 
     def is_open(self):
-        return self.status == DriveWealthAccountStatus.OPEN.name
+        return self.status == DriveWealthAccountStatus.OPEN
 
 
 class DriveWealthAccountMoney(BaseDriveWealthModel):
@@ -227,6 +363,19 @@ class DriveWealthAccountPositions(BaseDriveWealthModel):
     def update_trading_account(self, trading_account: TradingAccount):
         trading_account.equity_value = self.equity_value
         pass
+
+    def get_symbol_market_price(self, symbol: str) -> Decimal:
+        """
+        :raises EntityNotFoundException:
+        """
+        try:
+            position = next(
+                filter(lambda x: x["symbol"] == symbol,
+                       self.data["equityPositions"]))
+            return Decimal(position["mktPrice"])
+        except StopIteration as e:
+            raise EntityNotFoundException(
+                "drivewealth_accounts_positions position") from e
 
 
 class CollectionHoldingStatus:
@@ -323,24 +472,35 @@ class DriveWealthPortfolioStatusHolding:
 
     def is_valid(self) -> bool:
         logger_extra = {"holding": self.data}
-        weight_sum = Decimal(0)
-        target_weight_sum = Decimal(0)
         value_sum = Decimal(0)
         for holding in self.holdings:
-            weight_sum += holding.actual_weight
-            target_weight_sum += holding.target_weight
             value_sum += holding.value
 
-        if abs(value_sum - self.value) > 1:
-            logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-            return False
-        if abs(weight_sum - 1) > 2e-3 and self.value > 0:
-            logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
-            return False
-        if abs(target_weight_sum - 1) > 2e-3 and self.value > 0:
-            logger.info(f'is_valid: target_weight_sum is invalid',
+        diff = abs(value_sum - self.value)
+        if diff > 1:
+            logger.info(f'is_valid: value_sum is invalid, diff: %.6f',
+                        diff,
                         extra=logger_extra)
             return False
+
+        return self.is_valid_weights()
+
+    def is_valid_weights(self) -> bool:
+        logger_extra = {"holding": self.data}
+        try:
+            weight_sum = sum(holding.actual_weight
+                             for holding in self.holdings)
+        except StopIteration:
+            # empty holdings: let's say it's correct
+            return True
+
+        diff = abs(weight_sum - 1)
+        if diff > 2e-3 and self.value > 0:
+            logger.info(f'is_valid: weight_sum is invalid, diff: %.6f',
+                        diff,
+                        extra=logger_extra)
+            return False
+
         return True
 
 
@@ -408,30 +568,35 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
     def is_valid(self) -> bool:
         logger_extra = {"portfolio_status": self.data}
-        weight_sum = Decimal(self.cash_actual_weight)
-        target_weight_sum = Decimal(self.cash_target_weight)
-        value_sum = Decimal(self.cash_value)
         for holding_id, holding in self.holdings.items():
-            if not holding.is_valid():
+            if holding.is_valid():
+                continue
+
+            logger.info(f'is_valid: holding {holding_id} is invalid',
+                        extra=logger_extra)
+            return False
+
+        return self.is_valid_weights()
+
+    def is_valid_weights(self) -> bool:
+        logger_extra = {"portfolio_status": self.data}
+        weight_sum = Decimal(self.cash_actual_weight)
+        for holding_id, holding in self.holdings.items():
+            if not holding.is_valid_weights():
                 logger.info(f'is_valid: holding {holding_id} is invalid',
                             extra=logger_extra)
                 return False
             weight_sum += holding.actual_weight
-            target_weight_sum += holding.target_weight
-            value_sum += holding.value
 
         equity_value = self.equity_value
-        # this is frequently false negative
-        # if abs(value_sum - equity_value) > 1:
-        #     logger.info(f'is_valid: value_sum is invalid', extra=logger_extra)
-        #     return False
-        if abs(weight_sum - 1) > 2e-3 and equity_value > 0:
-            logger.info(f'is_valid: weight_sum is invalid', extra=logger_extra)
-            return False
-        if abs(target_weight_sum - 1) > 2e-3 and equity_value > 0:
-            logger.info(f'is_valid: target_weight_sum is invalid',
+
+        diff = abs(weight_sum - 1)
+        if diff > 2e-3 and equity_value > 0:
+            logger.info(f'is_valid: weight_sum is invalid, diff: %6.f',
+                        diff,
                         extra=logger_extra)
             return False
+
         return True
 
     def get_fund_value(self, fund_ref_id) -> Decimal:
@@ -559,6 +724,9 @@ class DriveWealthFund(BaseDriveWealthModel):
                         "holdings": self.holdings,
                     })
 
+        if weight_sum < DW_WEIGHT_THRESHOLD:
+            return
+
         for k, i in enumerate(self.holdings):
             new_target = round(i['target'] / weight_sum, DW_WEIGHT_PRECISION)
             self.holdings[k]['target'] = new_target
@@ -599,6 +767,17 @@ class DriveWealthFund(BaseDriveWealthModel):
                 "instrumentID": holding.instrument_id,
                 "target": holding.actual_weight
             })
+
+    def has_valid_weights(self) -> bool:
+        return any(filter(lambda x: Decimal(x) > ZERO, self.weights.values()))
+
+    def get_instrument_ids(self) -> list[str]:
+        return [i["instrumentID"] for i in self.holdings]
+
+    def remove_instrument_ids(self, ref_ids: Iterable[str]):
+        self.holdings = [
+            i for i in self.holdings if i["instrumentID"] not in ref_ids
+        ]
 
 
 class DriveWealthPortfolio(BaseDriveWealthModel):
@@ -735,6 +914,9 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
             self.holdings[k] = round(i, DW_WEIGHT_PRECISION)
             weight_sum += i
 
+        if weight_sum < DW_WEIGHT_THRESHOLD:
+            return
+
         logger.info('DriveWealthPortfolio normalize_weights pre',
                     extra={
                         "weight_sum": weight_sum,
@@ -870,7 +1052,20 @@ class DriveWealthCountry(BaseDriveWealthModel):
         return "drivewealth_countries"
 
 
-class DriveWealthTransaction(BaseDriveWealthModel):
+class DriveWealthTransactionInterface(abc.ABC):
+    id: int = None
+    account_id: str = None
+    type: str = None
+    data: dict = None
+
+    @classmethod
+    @abc.abstractmethod
+    def supports(cls, tx_type: str) -> bool:
+        pass
+
+
+class DriveWealthTransaction(BaseDriveWealthModel,
+                             DriveWealthTransactionInterface):
     id = None
     ref_id = None
     account_id = None
@@ -885,7 +1080,7 @@ class DriveWealthTransaction(BaseDriveWealthModel):
     key_fields = ["ref_id"]
 
     db_excluded_fields = ["created_at"]
-    non_persistent_fields = ["created_at"]
+    non_persistent_fields = ["id", "created_at"]
 
     def set_from_response(self, data: dict = None):
         if not data:
@@ -909,6 +1104,101 @@ class DriveWealthTransaction(BaseDriveWealthModel):
     @classproperty
     def table_name(self) -> str:
         return "drivewealth_transactions"
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return True
+
+    @classmethod
+    def create_typed_transaction(
+        cls, transaction: DriveWealthTransactionInterface
+    ) -> DriveWealthTransactionInterface:
+        classes = [
+            DriveWealthDividendTransaction, DriveWealthSpinOffTransaction,
+            DriveWealthMergerAcquisitionTransaction
+        ]
+        typed_transaction = DriveWealthTransaction()
+        for _cls in classes:
+            if not _cls.supports(transaction.type):
+                continue
+            typed_transaction = _cls()
+            break
+
+        typed_transaction.id = transaction.id
+        typed_transaction.account_id = transaction.account_id
+        typed_transaction.set_from_response(transaction.data)
+        return typed_transaction
+
+
+class DriveWealthDividendTransaction(DriveWealthTransaction,
+                                     DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type in ["DIVTAX", "DIV"]
+
+
+class DriveWealthSpinOffTransaction(DriveWealthTransaction,
+                                    DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type == "SPINOFF"
+
+    @property
+    def position_delta(self) -> Decimal:
+        return Decimal(self.data["positionDelta"])
+
+    @property
+    def from_symbol(self) -> str:
+        m = re.search(DriveWealthSpinOffTransaction.__comment_regex,
+                      self.data["comment"])
+        if not m:
+            raise Exception("Failed to parse transaction comment %s" %
+                            self.data["comment"])
+        return m[1]
+
+    @property
+    def to_symbol(self) -> str:
+        m = re.search(self.__comment_regex, self.data["comment"])
+        if not m:
+            raise Exception("Failed to parse transaction comment %s" %
+                            self.data["comment"])
+        return m[2]
+
+    @classproperty
+    def __comment_regex(cls):
+        return r"from (\w*) to (\w*)"
+
+
+class DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE(str, enum.Enum):
+    EXCHANGE_STOCK_CASH = "EXCHANGE_STOCK_CASH"
+    REMOVE_SHARES = "REMOVE_SHARES"
+    ADD_SHARES_CASH = "ADD_SHARES_CASH"
+
+
+class DriveWealthMergerAcquisitionTransaction(DriveWealthTransaction,
+                                              DriveWealthTransactionInterface):
+
+    @classmethod
+    def supports(cls, tx_type) -> bool:
+        return tx_type == "MERGER_ACQUISITION"
+
+    @property
+    def position_delta(self) -> Decimal:
+        return Decimal(self.data["positionDelta"])
+
+    @property
+    def merger_transaction_type(self) -> str:
+        return self.data["mergerAcquisition"]["type"]
+
+    @property
+    def acquirer_symbol(self) -> str:
+        return self.data["mergerAcquisition"]["acquirer"]["symbol"]
+
+    @property
+    def acquiree_symbol(self) -> str:
+        return self.data["mergerAcquisition"]["acquiree"]["symbol"]
 
 
 class DriveWealthBankAccount(AbstractProviderBankAccount,
@@ -1006,6 +1296,11 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
     def is_successful(self) -> bool:
         return self.status == DriveWealthRedemptionStatus.Successful.name
 
+    def get_error_message(self) -> Optional[str]:
+        if "status" in self.data and isinstance(self.data["status"], dict):
+            return self.data["status"].get("comment")
+        return self.data.get("statusComment")
+
     def get_money_flow_status(self) -> TradingMoneyFlowStatus:
         """
         Started	0	"STARTED"
@@ -1017,7 +1312,7 @@ class BaseDriveWealthMoneyFlowModel(BaseDriveWealthModel, ABC):
         RIA Approved	12	"RIA_Approved"
         RIA Rejected	13	"RIA_Rejected"
         Approved	14	"APPROVED"	Once marked as "Approved", the deposit will be processed.
-        Rejected	15	"REJECTED"	Updating a deposit to "Rejected" will immediately set it 's status to "Failed"
+        Rejected	15	"REJECTED"	Updating a deposit to "Rejected" will immediately set it's status to "Failed"
         On Hold	16	"ON_HOLD"	The "On Hold" status is reserved for deposits that aren't ready to be processed.
         Returned	5	"RETURNED"	A deposit is marked as returned if DW receives notification from our bank that the deposit had failed.
         Unknown	-1	–	Reserved for errors.
@@ -1088,21 +1383,22 @@ class DriveWealthKycStatus:
 
     def get_profile_kyc_status(self) -> ProfileKycStatus:
         kyc = self.data["kyc"]
-        kyc_status = self.map_dw_kyc_status(kyc["status"]["name"])
         message = kyc["status"].get("name") or kyc.get("statusComment")
-
         errors = kyc.get("errors", [])
-        error_messages = list(map(lambda e: e['description'], errors))
+        error_codes = list(map(lambda e: e["code"], errors))
+        kyc_status = self.map_dw_kyc_status(kyc["status"]["name"], error_codes)
 
         entity = ProfileKycStatus()
         entity.status = kyc_status
         entity.message = message
-        entity.error_messages = error_messages
+        entity.error_codes = DriveWealthKycStatus.map_dw_error_codes(
+            error_codes)
+        entity.reset_error_messages()
         entity.created_at = dateutil.parser.parse(kyc["updated"])
         return entity
 
     @staticmethod
-    def map_dw_kyc_status(kyc_status):
+    def map_dw_kyc_status(kyc_status, error_codes=None):
         if kyc_status == "KYC_NOT_READY":
             return KycStatus.NOT_READY
         if kyc_status == "KYC_READY":
@@ -1116,10 +1412,21 @@ class DriveWealthKycStatus:
         if kyc_status == "KYC_DOC_REQUIRED":
             return KycStatus.DOC_REQUIRED
         if kyc_status == "KYC_MANUAL_REVIEW":
-            return KycStatus.MANUAL_REVIEW
+            if error_codes:
+                return KycStatus.INFO_REQUIRED
+            else:
+                return KycStatus.MANUAL_REVIEW
         if kyc_status == "KYC_DENIED":
             return KycStatus.DENIED
         raise Exception('Unknown kyc status %s' % kyc_status)
+
+    @staticmethod
+    def map_dw_error_codes(error_codes: list[str]) -> list[KycErrorCode]:
+        result = []
+        for i in DW_ERRORS_MAPPING:
+            if i["name"] in error_codes or i["code"] in error_codes:
+                result.append(i["gainy_code"])
+        return result
 
 
 class DriveWealthOrder(BaseDriveWealthModel):
@@ -1211,3 +1518,23 @@ class DriveWealthStatement(BaseDriveWealthModel):
         except Exception as e:
             logger.exception(e, extra={"file_key": self.file_key})
             return None
+
+
+class DriveWealthCorporateActionTransactionLink(BaseModel):
+    corporate_action_adjustment_id: int = None
+    drivewealth_transaction_id: int = None
+    created_at: datetime.datetime = None
+
+    key_fields = [
+        "corporate_action_adjustment_id", "drivewealth_transaction_id"
+    ]
+    db_excluded_fields = ["created_at"]
+    non_persistent_fields = ["created_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "corporate_action_drivewealth_transaction_link"

@@ -15,6 +15,7 @@ class ResourceType(enum.Enum):
     DRIVEWEALTH_AUTH_TOKEN = 3
     INVOICE = 4
     QUEUE_MESSAGE = 5
+    ABSTRACT_ENTITY_LOCK = 6
 
 
 class LockAcquisitionTimeout(Exception):
