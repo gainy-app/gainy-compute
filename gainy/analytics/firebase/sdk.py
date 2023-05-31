@@ -111,10 +111,10 @@ class FirebaseClient:
                          data=None,
                          headers=None):
         return requests.request(method,
-                                    url,
-                                    params=params,
-                                    data=data,
-                                    headers=headers)
+                                url,
+                                params=params,
+                                data=data,
+                                headers=headers)
 
     def _get_profile_app_instance_id(self, profile_id):
         metadata = self.repository.get_analytics_metadata(
