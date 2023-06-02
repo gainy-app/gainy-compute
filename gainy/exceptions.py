@@ -40,6 +40,15 @@ class EmailNotSentException(Exception):
         super().__init__(message, *args)
 
 
+class DepositLimitExceededException(Exception):
+
+    def __init__(
+            self,
+            message='Transaction limit exceeded, please try again later.'):
+        self.message = message
+        super().__init__(message)
+
+
 class AccountNeedsReauthException(Exception):
     pass
 
