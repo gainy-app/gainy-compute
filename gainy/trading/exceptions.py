@@ -23,4 +23,4 @@ class InsufficientHoldingValueException(Exception):
 class SymbolIsNotTradeableException(Exception):
 
     def __init__(self, symbol):
-        super().__init__('Symbol %s is not tradeable.', symbol)
+        super().__init__('Symbol %s is not tradeable.' % symbol)
