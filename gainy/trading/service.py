@@ -5,7 +5,8 @@ from decimal import Decimal
 from typing import Iterable, Dict, List, Any
 
 from gainy.exceptions import EntityNotFoundException
-from gainy.plaid.exceptions import AccessTokenLoginRequiredException, InvalidAccountIdException
+from gainy.plaid.exceptions import AccessTokenLoginRequiredException, InvalidAccountIdException, NoAccountsException, \
+    InstitutionNotRespondingException
 from gainy.plaid.models import PlaidAccessToken
 from gainy.plaid.service import PlaidService
 from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
@@ -76,14 +77,19 @@ class TradingService:
             try:
                 plaid_accounts = self.plaid_service.get_item_accounts_balances(
                     access_token, list(funding_accounts_by_account_id.keys()))
-            except InvalidAccountIdException as e:
+            except (InvalidAccountIdException, NoAccountsException) as e:
                 for funding_account in funding_accounts:
                     funding_account.needs_reauth = True
                 self.trading_repository.persist(funding_accounts)
                 logger.info('update_funding_accounts_balance: %s',
                             e,
                             extra=logger_extra)
-                return
+                continue
+            except InstitutionNotRespondingException as e:
+                logger.info('update_funding_accounts_balance: %s',
+                            e,
+                            extra=logger_extra)
+                continue
             except AccessTokenLoginRequiredException as e:
                 logger.info('update_funding_accounts_balance: %s',
                             e,
@@ -117,6 +123,7 @@ class TradingService:
         """
         :raises TradingPausedException:
         :raises InsufficientFundsException:
+        :raises InsufficientHoldingValueException:
         """
         self.trading_repository.check_profile_trading_not_paused(profile_id)
 
@@ -185,6 +192,7 @@ class TradingService:
         """
         :raises TradingPausedException:
         :raises InsufficientFundsException:
+        :raises InsufficientHoldingValueException:
         """
         self.check_tradeable_symbol(symbol)
         self.trading_repository.check_profile_trading_not_paused(profile_id)
