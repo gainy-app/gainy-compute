@@ -470,3 +470,26 @@ KYC_ERROR_CODE_DESCRIPTION = {
     "Account information provided may not be legitimate and/or is being used by multiple account holders",
     KycErrorCode.UNKNOWN: "Unrecognized error",
 }
+
+
+class CorporateActionAdjustment(BaseModel):
+    id: int = None
+    profile_id: int = None
+    trading_account_id: int = None
+    collection_id: int = None
+    symbol: str = None
+    amount: Decimal = None
+    date: datetime.date = None
+    created_at: datetime.datetime = None
+
+    key_fields = []
+    db_excluded_fields = ["created_at"]
+    non_persistent_fields = ["id", "created_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "corporate_action_adjustments"

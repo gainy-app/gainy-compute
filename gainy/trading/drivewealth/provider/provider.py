@@ -9,21 +9,18 @@ from gainy.models import AbstractEntityLock
 from gainy.trading import MIN_FIRST_DEPOSIT_AMOUNT
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException, BadMissingParametersBodyException
 from gainy.trading.drivewealth.locking_functions.handle_new_transaction import HandleNewTransaction
-from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccountPositions, DriveWealthAccount, \
+from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
     DriveWealthAccountStatus, BaseDriveWealthMoneyFlowModel, DriveWealthRedemptionStatus, DriveWealthInstrument, \
-    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement
+    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthTransactionInterface
 
-from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase
+from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase, DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.exceptions import SymbolIsNotTradeableException
 from gainy.trading.models import TradingAccount, TradingOrderStatus, TradingMoneyFlow, TradingStatement, AbstractTradingOrder
 from gainy.utils import get_logger, ENV_PRODUCTION, env
 
 logger = get_logger(__name__)
-
-DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
-DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
@@ -179,31 +176,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.repository.persist(account_money)
         return account_money
 
-    def sync_account_positions(
-            self,
-            account_ref_id: str,
-            force: bool = False) -> DriveWealthAccountPositions:
-
-        account_positions: DriveWealthAccountPositions = self.repository.find_one(
-            DriveWealthAccountPositions, {
-                "drivewealth_account_id":
-                account_ref_id,
-                "created_at":
-                OperatorGt(
-                    datetime.datetime.now(datetime.timezone.utc) -
-                    datetime.timedelta(
-                        seconds=DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL)),
-            }, [("created_at", "DESC")])
-
-        if not force and account_positions:
-            return account_positions
-
-        account_positions_data = self.api.get_account_positions(account_ref_id)
-        account_positions = DriveWealthAccountPositions()
-        account_positions.set_from_response(account_positions_data)
-        self.repository.persist(account_positions)
-        return account_positions
-
     def check_tradeable_symbol(self, symbol: str):
         try:
             instrument = self.repository.get_instrument_by_symbol(symbol)
@@ -356,14 +328,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
                     return
                 raise e
 
-    def on_new_transaction(self, account_ref_id: str):
-        entity_lock = AbstractEntityLock(DriveWealthAccount, account_ref_id)
-        self.repository.persist(entity_lock)
-
-        func = HandleNewTransaction(self.repository, self, entity_lock,
-                                    account_ref_id)
-        func.execute()
-
     def update_payment_transaction_from_dw(self,
                                            redemption: DriveWealthRedemption):
         if redemption.payment_transaction_id is None:
@@ -424,20 +388,23 @@ class DriveWealthProvider(DriveWealthProviderBase):
             DriveWealthAccount, {"drivewealth_user_id": user.ref_id})
         if not account:
             account_data = self.api.create_account(user.ref_id)
-            account = repository.upsert_user_account(user.ref_id, account_data)
+            repository.upsert_user_account(user.ref_id, account_data)
 
+    def ensure_trading_account_created(self, account: DriveWealthAccount,
+                                       profile_id: int):
+        repository = self.repository
         if account.trading_account_id:
             trading_account: TradingAccount = repository.find_one(
                 TradingAccount, {"id": account.trading_account_id})
-        elif user.profile_id:
+        elif profile_id:
             trading_account: TradingAccount = repository.find_one(
-                TradingAccount, {"profile_id": user.profile_id})
+                TradingAccount, {"profile_id": profile_id})
         else:
             raise Exception('No profile_id assigned to the DW user.')
 
         if not trading_account:
             trading_account = TradingAccount()
-        trading_account.profile_id = user.profile_id
+        trading_account.profile_id = profile_id
         trading_account.name = account.nickname
         account.update_trading_account(trading_account)
         repository.persist(trading_account)

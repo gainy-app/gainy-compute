@@ -3,7 +3,8 @@ from typing import Optional
 
 from gainy.analytics.service import AnalyticsService
 from gainy.queue_processing.abstract_event_handler import EventHandlerInterface
-from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.models import DriveWealthAccount
 from gainy.trading.models import TradingAccount
 from gainy.services.notification import NotificationService

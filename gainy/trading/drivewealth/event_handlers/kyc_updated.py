@@ -8,9 +8,10 @@ logger = get_logger(__name__)
 
 
 def _get_profile_kyc_status(data) -> ProfileKycStatus:
-    status = DriveWealthKycStatus.map_dw_kyc_status(data['status'])
     message = data['statusMessage']
     error_codes = data.get('details', [])
+    status = DriveWealthKycStatus.map_dw_kyc_status(data['status'],
+                                                    error_codes)
 
     entity = ProfileKycStatus()
     entity.status = status
@@ -65,13 +66,19 @@ class KycUpdatedEventHandler(AbstractDriveWealthEventHandler):
             self.analytics_service.on_kyc_status_rejected(profile_id)
             self.notification_service.on_kyc_status_rejected(profile_id)
 
+        if _status_changed_to(entity, old_entity, KycStatus.MANUAL_REVIEW):
+            self.analytics_service.on_kyc_status_manual_review(
+                profile_id, entity.error_codes, entity.error_messages)
+
         if _status_changed_to(entity, old_entity, KycStatus.INFO_REQUIRED):
             errors = ', '.join(i.lower().rstrip('.')
                                for i in entity.error_messages)
-            self.analytics_service.on_kyc_status_info_required(profile_id)
+            self.analytics_service.on_kyc_status_info_required(
+                profile_id, entity.error_codes, entity.error_messages)
             self.notification_service.on_kyc_status_info_required(
                 profile_id, errors)
 
         if _status_changed_to(entity, old_entity, KycStatus.DOC_REQUIRED):
-            self.analytics_service.on_kyc_status_doc_required(profile_id)
+            self.analytics_service.on_kyc_status_doc_required(
+                profile_id, entity.error_codes, entity.error_messages)
             self.notification_service.on_kyc_status_doc_required(profile_id)

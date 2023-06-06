@@ -1,7 +1,7 @@
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist
 from gainy.trading.drivewealth.models import DriveWealthInstrument
 from gainy.trading.drivewealth.event_handlers import InstrumentUpdatedEventHandler
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 

@@ -4,7 +4,7 @@ from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_rec
 from gainy.trading.drivewealth.locking_functions.handle_accounts_updated_event import HandleAccountsUpdatedEvent
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser
 from gainy.trading.models import TradingAccount
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 
@@ -40,6 +40,10 @@ def test_exists(monkeypatch):
     handle_account_status_change_calls = []
     monkeypatch.setattr(provider, 'handle_account_status_change',
                         mock_record_calls(handle_account_status_change_calls))
+    ensure_trading_account_created_calls = []
+    monkeypatch.setattr(
+        provider, 'ensure_trading_account_created',
+        mock_record_calls(ensure_trading_account_created_calls))
 
     message = {
         "accountID": account_id,
@@ -69,6 +73,9 @@ def test_exists(monkeypatch):
     assert account.status == status_name
     assert (account, old_status) in [
         args for args, kwargs in handle_account_status_change_calls
+    ]
+    assert (account, profile_id) in [
+        args for args, kwargs in ensure_trading_account_created_calls
     ]
     assert (profile_id,
             was_open) in [args for args, kwargs in send_event_calls]
@@ -108,6 +115,10 @@ def test_not_exists(monkeypatch):
 
     monkeypatch.setattr(provider, 'sync_trading_account',
                         mock_sync_trading_account)
+    ensure_trading_account_created_calls = []
+    monkeypatch.setattr(
+        provider, 'ensure_trading_account_created',
+        mock_record_calls(ensure_trading_account_created_calls))
 
     message = {
         "accountID": account_id,
@@ -127,6 +138,9 @@ def test_not_exists(monkeypatch):
     func._do(None)
 
     assert (account, ) in [args for args, kwargs in ensure_portfolio_calls]
+    assert (account, profile_id) in [
+        args for args, kwargs in ensure_trading_account_created_calls
+    ]
     assert (profile_id, False) in [args for args, kwargs in send_event_calls]
     assert (account, profile_id) in [
         args for args, kwargs in create_payment_method_calls

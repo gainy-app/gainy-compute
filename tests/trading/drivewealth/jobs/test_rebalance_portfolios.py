@@ -2,14 +2,13 @@ import datetime
 
 from decimal import Decimal
 
-import pytest
-
-from gainy.data_access.operators import OperatorIn
 from gainy.tests.mocks.repository_mocks import mock_find, mock_record_calls, mock_persist, mock_noop, mock_calls_list
-from gainy.trading.drivewealth import DriveWealthRepository, DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
+from gainy.trading.drivewealth import DriveWealthRepository
 from gainy.trading.drivewealth.jobs.rebalance_portfolios import RebalancePortfoliosJob
 from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthAccount, DriveWealthFund, \
     DriveWealthPortfolioStatus, DriveWealthPortfolioStatusHolding
+from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
 from gainy.trading.models import TradingCollectionVersion, TradingOrderStatus, TradingOrderSource, TradingOrder
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
@@ -58,6 +57,7 @@ def test_rebalance_portfolios(monkeypatch):
     portfolio2.holdings = {}
 
     portfolio_status = DriveWealthPortfolioStatus()
+    monkeypatch.setattr(portfolio_status, "is_valid_weights", lambda: True)
 
     repository = DriveWealthRepository(None)
     monkeypatch.setattr(repository, "portfolio_has_pending_orders",
@@ -72,7 +72,9 @@ def test_rebalance_portfolios(monkeypatch):
         provider, "ensure_portfolio",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
-    def mock_sync_portfolio_status(_portfolio, force=None):
+    def mock_sync_portfolio_status(_portfolio, force=None, allow_invalid=None):
+        assert force
+        assert allow_invalid
         return portfolio_status
 
     monkeypatch.setattr(provider, "sync_portfolio_status",
@@ -105,9 +107,24 @@ def test_rebalance_portfolios(monkeypatch):
                 "ref_id": drivewealth_account_id2
             }, account2),
         ]))
+    check_profile_trading_not_paused_calls = []
+    monkeypatch.setattr(
+        trading_repository, "check_profile_trading_not_paused",
+        mock_record_calls(check_profile_trading_not_paused_calls))
+
+    transaction_handler = DriveWealthTransactionHandler(None, None, None, None)
+    handle_new_transactions_calls = []
+
+    def mock_handle_new_transactions(portfolio, portfolio_status):
+        mock_record_calls(handle_new_transactions_calls)(portfolio,
+                                                         portfolio_status)
+        return False
+
+    monkeypatch.setattr(transaction_handler, "handle_new_transactions",
+                        mock_handle_new_transactions)
 
     job = RebalancePortfoliosJob(trading_repository, repository, provider,
-                                 None)
+                                 transaction_handler, None)
     monkeypatch.setattr(
         job, "_iterate_accounts_with_pending_trading_collection_versions",
         lambda: [(profile_id1, trading_account_id_1)])
@@ -131,6 +148,7 @@ def test_rebalance_portfolios(monkeypatch):
 
     job.run()
 
+    assert ((profile_id1, ), {}) in check_profile_trading_not_paused_calls
     assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
 
     assert (
@@ -138,6 +156,10 @@ def test_rebalance_portfolios(monkeypatch):
     ) in update_trading_orders_pending_execution_from_portfolio_status_calls
 
     calls_args = [args for args, kwargs in actualize_portfolio_calls]
+    assert (portfolio1, portfolio_status) in calls_args
+    assert (portfolio2, portfolio_status) in calls_args
+
+    calls_args = [args for args, kwargs in handle_new_transactions_calls]
     assert (portfolio1, portfolio_status) in calls_args
     assert (portfolio2, portfolio_status) in calls_args
 
@@ -202,7 +224,7 @@ def test_apply_trading_orders(monkeypatch):
     monkeypatch.setattr(provider, "execute_order_in_portfolio",
                         mock_record_calls(execute_order_in_portfolio_calls))
 
-    job = RebalancePortfoliosJob(repository, None, provider, None)
+    job = RebalancePortfoliosJob(repository, None, provider, None, None)
     job.apply_trading_orders(portfolio)
 
     for order in [trading_order, trading_collection_version]:
@@ -273,6 +295,7 @@ def test_rebalance_existing_funds(monkeypatch):
             "weights": weights,
             "target_amount_delta_relative": None,
             "use_static_weights": True,
+            "note": "automatic_rebalance",
             "last_optimization_at": collection_last_optimization_at
         } == kwargs
         return new_trading_collection_version
@@ -306,7 +329,7 @@ def test_rebalance_existing_funds(monkeypatch):
                         mock_filter_inactive_symbols_from_weights)
 
     job = RebalancePortfoliosJob(repository, drivewealth_repository, provider,
-                                 trading_service)
+                                 None, trading_service)
 
     def mock_get_trading_account_id(_portfolio):
         assert _portfolio == portfolio
@@ -391,6 +414,7 @@ def test_automatic_sell(monkeypatch):
                 trading_account_id) == args
         assert {
             "target_amount_delta": order1_amount,
+            "note": "automatic_sell",
         } == kwargs
         return trading_collection_version
 
@@ -402,6 +426,7 @@ def test_automatic_sell(monkeypatch):
                 trading_account_id) == args
         assert {
             "target_amount_delta": order2_amount,
+            "note": "automatic_sell",
         } == kwargs
         return trading_order
 
@@ -414,7 +439,8 @@ def test_automatic_sell(monkeypatch):
     monkeypatch.setattr(provider, "execute_order_in_portfolio",
                         mock_record_calls(execute_order_in_portfolio_calls))
 
-    job = RebalancePortfoliosJob(repository, None, provider, trading_service)
+    job = RebalancePortfoliosJob(repository, None, provider, None,
+                                 trading_service)
 
     pending_sell_orders_exist_calls = []
 

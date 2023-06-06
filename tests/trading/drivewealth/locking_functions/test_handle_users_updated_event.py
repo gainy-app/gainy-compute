@@ -1,7 +1,7 @@
 from gainy.tests.mocks.repository_mocks import mock_record_calls
 from gainy.trading.drivewealth.locking_functions.handle_users_updated_event import HandleUsersUpdatedEvent
 from gainy.trading.drivewealth.models import DriveWealthUser
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 
 

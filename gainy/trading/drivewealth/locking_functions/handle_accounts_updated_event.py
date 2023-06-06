@@ -5,7 +5,7 @@ from gainy.analytics.service import AnalyticsService
 from gainy.billing.models import PaymentMethod, PaymentMethodProvider
 from gainy.data_access.pessimistic_lock import AbstractPessimisticLockingFunction
 from gainy.models import AbstractEntityLock
-from gainy.trading.drivewealth import DriveWealthProvider
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthAccountStatus, \
     DriveWealthPortfolio
@@ -60,6 +60,8 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
                 DriveWealthUser, {"ref_id": account.drivewealth_user_id})
             if not user or not user.profile_id:
                 return
+            self.provider.ensure_trading_account_created(
+                account, user.profile_id)
 
             self.send_event(user.profile_id, was_open)
             self.create_payment_method(account, user.profile_id)
