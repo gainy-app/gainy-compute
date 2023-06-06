@@ -7,8 +7,8 @@ class InsufficientFundsException(Exception):
 class TradingPausedException(Exception):
 
     def __init__(
-        self,
-        message='Trading for this account is paused. Please contact support.'
+            self,
+            message='Trading for this account is paused. Please contact support.'
     ):
         self.message = message
         super().__init__(message)
