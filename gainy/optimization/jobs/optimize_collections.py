@@ -18,6 +18,7 @@ from gainy.utils import get_logger
 
 logger = get_logger(__name__)
 
+SHORT_TTF_COLLECTION_ID = 280 
 
 class OptimizeCollectionsJob:
     params = {
@@ -97,6 +98,21 @@ class OptimizeCollectionsJob:
                 benchmark='SPY',
                 lookback=9,
                 **self.params)
+        
+        if collection_id == SHORT_TTF_COLLECTION_ID:
+            return InflationProofPortfolioRiskBudgetCollectionOptimizer(
+                self.repository,
+                date,
+                benchmark='SPY',
+                lookback=9,
+                params = {
+                    'bounds': (0.01, 0.3),
+                    'penalties': {
+                           'hs': 0.05,
+                           'hi': 0,
+                           'b': 0
+                }
+    })
 
         return PortfolioRiskBudgetCollectionOptimizer(self.repository,
                                                       date,
