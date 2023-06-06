@@ -8,7 +8,7 @@ class TradingPausedException(Exception):
 
     def __init__(
         self,
-        message='Trading for this account is paused. Please contract support.'
+        message='Trading for this account is paused. Please contact support.'
     ):
         self.message = message
         super().__init__(message)
@@ -23,4 +23,4 @@ class InsufficientHoldingValueException(Exception):
 class SymbolIsNotTradeableException(Exception):
 
     def __init__(self, symbol):
-        super().__init__('Symbol %s is not tradeable.', symbol)
+        super().__init__('Symbol %s is not tradeable.' % symbol)
