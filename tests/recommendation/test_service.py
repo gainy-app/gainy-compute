@@ -1,4 +1,7 @@
+import pytest
+
 from gainy.context_container import ContextContainer
+from gainy.recommendation.serivce import RecommendationService
 
 
 def test_get_recommended_collections_personalized():
@@ -35,3 +38,50 @@ def test_get_recommended_collections_global():
             profile_id, limit)
         assert [(83, '0_83'), (275, '0_275'),
                 (277, '0_277')] == list(collections)
+
+
+def get_test_data():
+    return [
+        ({
+            "profile_id": 22183,
+            "risk_level": 0.23200755,
+            "average_market_return": 6,
+            "investment_horizon": 0.56439394,
+            "unexpected_purchases_source": "checking_savings",
+            "damage_of_failure": 0.28314394,
+            "stock_market_risk_level": "somewhat_risky",
+            "trading_experience": "etfs_and_safe_stocks",
+            "if_market_drops_20_i_will_buy": 0.5,
+            "if_market_drops_40_i_will_buy": 0.5,
+        }, 2),
+        ({
+            "profile_id": 22225,
+            "risk_level": 0.5104166,
+            "average_market_return": 6,
+            "investment_horizon": 0.62689394,
+            "unexpected_purchases_source": "other_loans",
+            "damage_of_failure": 0.45549244,
+            "stock_market_risk_level": "somewhat_risky",
+            "trading_experience": "etfs_and_safe_stocks",
+            "if_market_drops_20_i_will_buy": 0.5,
+            "if_market_drops_40_i_will_buy": 0.5,
+        }, 2),
+        ({
+            "profile_id": 22492,
+            "risk_level": 0.4985207,
+            "average_market_return": 15,
+            "investment_horizon": 1,
+            "unexpected_purchases_source": "checking_savings",
+            "damage_of_failure": 0.50147927,
+            "stock_market_risk_level": "neutral",
+            "trading_experience": "very_little",
+            "if_market_drops_20_i_will_buy": 0.5,
+            "if_market_drops_40_i_will_buy": 0.5,
+        }, 2),
+    ]
+
+
+@pytest.mark.parametrize("payload,expected_score", get_test_data())
+def test_calculate_risk_score(payload, expected_score):
+    service = RecommendationService(None)
+    assert expected_score == service.calculate_risk_score(payload)
