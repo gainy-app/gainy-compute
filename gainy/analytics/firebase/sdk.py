@@ -35,7 +35,7 @@ class FirebaseClient:
                                   f"/mp/collect",
                                   post_data={
                                       "app_instance_id": app_instance_id,
-                                      "user_id": profile_id,
+                                      "user_id": str(profile_id),
                                       "events": events
                                   })
 
@@ -52,7 +52,7 @@ class FirebaseClient:
                                   f"/mp/collect",
                                   post_data={
                                       "app_instance_id": app_instance_id,
-                                      "user_id": profile_id,
+                                      "user_id": str(profile_id),
                                       "user_properties": properties,
                                   })
 
@@ -110,24 +110,11 @@ class FirebaseClient:
                          params=None,
                          data=None,
                          headers=None):
-        response = requests.request(method,
-                                    url,
-                                    params=params,
-                                    data=data,
-                                    headers=headers)
-
-        status_code = response.status_code
-        logging_extra = {
-            "headers": headers,
-            "get_data": params,
-            "post_data": data,
-            "status_code": status_code,
-            "response_data": response.text,
-        }
-
-        logger.info("[FIREBASE] %s %s" % (method, url), extra=logging_extra)
-
-        return response
+        return requests.request(method,
+                                url,
+                                params=params,
+                                data=data,
+                                headers=headers)
 
     def _get_profile_app_instance_id(self, profile_id):
         metadata = self.repository.get_analytics_metadata(

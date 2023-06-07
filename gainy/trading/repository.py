@@ -324,8 +324,9 @@ class TradingRepository(Repository):
 
         raise EntityNotFoundException("ticker_realtime_metrics")
 
-    def set_profile_trading_paused(self, profile_id: int,
-                                   trading_paused: bool):
+    def set_profile_trading_paused(self,
+                                   profile_id: int,
+                                   trading_paused: bool = True):
         query = "update app.profile_flags set trading_paused = %(trading_paused)s where profile_id = %(profile_id)s"
         params = {
             "profile_id": profile_id,
