@@ -327,7 +327,7 @@ class TradingRepository(Repository):
     def set_profile_trading_paused(self,
                                    profile_id: int,
                                    trading_paused: bool = True):
-        query = "update app.profile_flags set trading_paused = %(trading_paused)s where profile_id = %(profile_id)s"
+        query = "insert into app.profile_flags (profile_id, trading_paused)  values (%(profile_id)s, %(trading_paused)s) on conflict (profile_id) do update set trading_paused = excluded.trading_paused"
         params = {
             "profile_id": profile_id,
             "trading_paused": trading_paused,
