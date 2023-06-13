@@ -328,16 +328,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
                     return
                 raise e
 
-    # disabled in favor of batch transaction handler in the rebalance job
-    # def on_new_transaction(self, transaction: DriveWealthTransactionInterface):
-    #     entity_lock = AbstractEntityLock(DriveWealthAccount,
-    #                                      transaction.account_id)
-    #     self.repository.persist(entity_lock)
-    #
-    #     func = HandleNewTransaction(self.repository, self, entity_lock,
-    #                                 transaction)
-    #     func.execute()
-
     def update_payment_transaction_from_dw(self,
                                            redemption: DriveWealthRedemption):
         if redemption.payment_transaction_id is None:
@@ -398,20 +388,23 @@ class DriveWealthProvider(DriveWealthProviderBase):
             DriveWealthAccount, {"drivewealth_user_id": user.ref_id})
         if not account:
             account_data = self.api.create_account(user.ref_id)
-            account = repository.upsert_user_account(user.ref_id, account_data)
+            repository.upsert_user_account(user.ref_id, account_data)
 
+    def ensure_trading_account_created(self, account: DriveWealthAccount,
+                                       profile_id: int):
+        repository = self.repository
         if account.trading_account_id:
             trading_account: TradingAccount = repository.find_one(
                 TradingAccount, {"id": account.trading_account_id})
-        elif user.profile_id:
+        elif profile_id:
             trading_account: TradingAccount = repository.find_one(
-                TradingAccount, {"profile_id": user.profile_id})
+                TradingAccount, {"profile_id": profile_id})
         else:
             raise Exception('No profile_id assigned to the DW user.')
 
         if not trading_account:
             trading_account = TradingAccount()
-        trading_account.profile_id = user.profile_id
+        trading_account.profile_id = profile_id
         trading_account.name = account.nickname
         account.update_trading_account(trading_account)
         repository.persist(trading_account)
