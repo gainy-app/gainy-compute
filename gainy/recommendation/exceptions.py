@@ -1,0 +1,2 @@
+class PersonalizationDisabledException(Exception):
+    pass

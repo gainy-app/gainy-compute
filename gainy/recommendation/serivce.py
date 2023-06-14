@@ -11,6 +11,7 @@ from psycopg2.extras import RealDictCursor
 from gainy.data_access.db_lock import LockAcquisitionTimeout
 from gainy.data_access.optimistic_lock import ConcurrentVersionUpdate
 from gainy.recommendation.compute import ComputeRecommendationsAndPersist
+from gainy.recommendation.exceptions import PersonalizationDisabledException
 from gainy.recommendation.repository import RecommendationRepository, RecommendedCollectionAlgorithm
 from gainy.utils import get_logger
 
@@ -55,7 +56,14 @@ class RecommendationService:
         return self._get_recommended_collections_global(profile_id, limit)
 
     def compute_match_score(self, profile_id, log_error=True, max_tries=2):
-        self.compute_risk_score(profile_id)
+        if not self.repository.is_personalization_enabled(profile_id):
+            return
+
+        try:
+            self.compute_risk_score(profile_id)
+        except PersonalizationDisabledException:
+            pass
+
         recommendations_func = ComputeRecommendationsAndPersist(
             self.repository, profile_id)
         old_version = recommendations_func.load_version()
@@ -91,10 +99,7 @@ class RecommendationService:
                     {"profile_id": profile_id})
                 row = cursor.fetchone()
                 if not row:
-                    logger.error(
-                        "Failed to compute_risk_score, profile_scoring_settings record doesn't exist"
-                    )
-                    return
+                    raise PersonalizationDisabledException()
                 scoring_settings = dict(row)
 
         risk_score = self.calculate_risk_score(scoring_settings)
