@@ -68,32 +68,34 @@ LOGGING_MIDDLEWARES = {}
 def get_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(LOG_LEVEL)
-
-    for f in LOGGING_MIDDLEWARES.values():
-        logger = f(logger)
-
+    logger = LoggerAdapter(logger)
     return logger
 
 
 class LoggerAdapter(logging.LoggerAdapter):
 
+    def __init__(self, logger, extra=None):
+        super().__init__(logger, extra)
+
     def process(self, msg, kwargs):
-        if "extra" in kwargs and kwargs["extra"]:
-            kwargs["extra"] = {**self.extra, **kwargs["extra"]}
-        else:
-            kwargs["extra"] = self.extra
+        self.logger.info('logging middlewares: %s', LOGGING_MIDDLEWARES.keys())
+        for f in LOGGING_MIDDLEWARES.values():
+            middleware_extra = f()
+            if "extra" in kwargs and kwargs["extra"]:
+                kwargs["extra"] = {**middleware_extra, **kwargs["extra"]}
+            else:
+                kwargs["extra"] = middleware_extra
         return msg, kwargs
 
 
 def setup_lambda_logging_middleware(context):
-    LOGGING_MIDDLEWARES['aws_middleware'] = lambda _logger: LoggerAdapter(
-        _logger, {
-            'invoked_function_arn': context.invoked_function_arn,
-            'log_stream_name': context.log_stream_name,
-            'log_group_name': context.log_group_name,
-            'aws_request_id': context.aws_request_id,
-            'memory_limit_in_mb': context.memory_limit_in_mb,
-        })
+    LOGGING_MIDDLEWARES['aws_middleware'] = lambda: {
+        'invoked_function_arn': context.invoked_function_arn,
+        'log_stream_name': context.log_stream_name,
+        'log_group_name': context.log_group_name,
+        'aws_request_id': context.aws_request_id,
+        'memory_limit_in_mb': context.memory_limit_in_mb,
+    }
 
 
 def setup_exception_logger_hook():
