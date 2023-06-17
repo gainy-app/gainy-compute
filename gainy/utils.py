@@ -78,7 +78,6 @@ class LoggerAdapter(logging.LoggerAdapter):
         super().__init__(logger, extra)
 
     def process(self, msg, kwargs):
-        self.logger.info('logging middlewares: %s', LOGGING_MIDDLEWARES.keys())
         for f in LOGGING_MIDDLEWARES.values():
             middleware_extra = f()
             if "extra" in kwargs and kwargs["extra"]:
