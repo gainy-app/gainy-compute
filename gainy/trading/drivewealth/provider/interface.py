@@ -36,3 +36,10 @@ class DriveWealthProviderInterface(ABC):
     @abstractmethod
     def filter_inactive_symbols_from_weights(self, weights):
         pass
+
+    @abstractmethod
+    def ensure_portfolio(self, profile_id, trading_account_id):
+        """
+        :raises TradingAccountNotOpenException:
+        """
+        pass

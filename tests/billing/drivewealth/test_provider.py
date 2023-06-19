@@ -81,7 +81,8 @@ def test_charge(monkeypatch, is_pending_rebalance, sufficient_funds):
         assert _trading_account_id == trading_account_id
         return portfolio
 
-    monkeypatch.setattr(provider, "ensure_portfolio", mock_ensure_portfolio)
+    monkeypatch.setattr(provider, "ensure_portfolio_locking",
+                        mock_ensure_portfolio)
 
     def mock_sync_portfolio_status(_portfolio, force):
         assert _portfolio == portfolio

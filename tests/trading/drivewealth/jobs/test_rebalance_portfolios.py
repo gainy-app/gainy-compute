@@ -69,7 +69,7 @@ def test_rebalance_portfolios(monkeypatch):
                         mock_record_calls(send_portfolio_to_api_calls))
     ensure_portfolio_profile_ids = []
     monkeypatch.setattr(
-        provider, "ensure_portfolio",
+        provider, "ensure_portfolio_locking",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
     def mock_sync_portfolio_status(_portfolio, force=None, allow_invalid=None):

@@ -52,6 +52,7 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
             old_status = None
             account = self.provider.sync_trading_account(account_ref_id=ref_id,
                                                          fetch_info=True)
+        self.repo.commit()
 
         if account and account.is_open() and account.drivewealth_user_id:
             portfolio = self.ensure_portfolio(account)
@@ -103,18 +104,27 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
     def ensure_portfolio(
             self,
             account: DriveWealthAccount) -> Optional[DriveWealthPortfolio]:
-        if not account.trading_account_id:
-            return None
-
-        trading_account: TradingAccount = self.repo.find_one(
-            TradingAccount, {"id": account.trading_account_id})
-        if not trading_account:
-            return None
-
+        logger_extra = {"account": account.to_dict()}
         try:
-            return self.provider.ensure_portfolio(trading_account.profile_id,
-                                                  trading_account.id)
-        except TradingAccountNotOpenException:
-            pass
+            if not account.trading_account_id:
+                return None
 
-        return None
+            trading_account: TradingAccount = self.repo.find_one(
+                TradingAccount, {"id": account.trading_account_id})
+            if not trading_account:
+                return None
+            logger_extra["trading_account"] = trading_account.to_dict()
+
+            try:
+                portfolio = self.provider.ensure_portfolio(
+                    trading_account.profile_id, trading_account.id)
+                logger_extra["portfolio"] = portfolio.to_dict()
+                return portfolio
+            except TradingAccountNotOpenException as e:
+                logger_extra["exception"] = e
+                pass
+
+            return None
+        finally:
+            logger.info("HandleAccountsUpdatedEvent.ensure_portfolio",
+                        extra=logger_extra)

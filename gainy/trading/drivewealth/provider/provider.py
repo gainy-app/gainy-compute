@@ -8,6 +8,7 @@ from gainy.exceptions import EntityNotFoundException, NotFoundException
 from gainy.models import AbstractEntityLock
 from gainy.trading import MIN_FIRST_DEPOSIT_AMOUNT
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException, BadMissingParametersBodyException
+from gainy.trading.drivewealth.locking_functions.ensure_portfolio import EnsurePortfolio
 from gainy.trading.drivewealth.locking_functions.handle_new_transaction import HandleNewTransaction
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
@@ -124,6 +125,9 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.repository.persist(portfolio)
 
     def ensure_portfolio(self, profile_id, trading_account_id):
+        """
+        :raises TradingAccountNotOpenException:
+        """
         repository = self.repository
         account: DriveWealthAccount = repository.find_one(
             DriveWealthAccount, {"trading_account_id": trading_account_id})
@@ -151,6 +155,20 @@ class DriveWealthProvider(DriveWealthProviderBase):
         repository.persist(portfolio)
 
         return portfolio
+
+    def ensure_portfolio_locking(self, profile_id: int,
+                                 trading_account_id: int):
+        account: DriveWealthAccount = self.repository.find_one(
+            DriveWealthAccount, {"trading_account_id": trading_account_id})
+        if not account or not account.is_open():
+            raise TradingAccountNotOpenException()
+
+        entity_lock = AbstractEntityLock(DriveWealthAccount, account.ref_id)
+        self.repository.persist(entity_lock)
+
+        func = EnsurePortfolio(self.repository, self, entity_lock, profile_id,
+                               trading_account_id)
+        return func.execute()
 
     def sync_account_money(self,
                            account_ref_id: str,

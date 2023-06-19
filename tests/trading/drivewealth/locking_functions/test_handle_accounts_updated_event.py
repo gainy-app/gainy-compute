@@ -1,8 +1,8 @@
 from gainy.analytics.service import AnalyticsService
 from gainy.billing.models import PaymentMethod, PaymentMethodProvider
-from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_record_calls
+from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_record_calls, mock_noop
 from gainy.trading.drivewealth.locking_functions.handle_accounts_updated_event import HandleAccountsUpdatedEvent
-from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser
+from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthPortfolio
 from gainy.trading.models import TradingAccount
 from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
@@ -35,6 +35,7 @@ def test_exists(monkeypatch):
                    }, drivewealth_user)]))
     persisted_objects = {}
     monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
+    monkeypatch.setattr(repository, 'commit', mock_noop)
 
     provider = DriveWealthProvider(None, None, None, None, None)
     handle_account_status_change_calls = []
@@ -105,6 +106,7 @@ def test_not_exists(monkeypatch):
                    (DriveWealthUser, {
                        "ref_id": drivewealth_user_id
                    }, drivewealth_user)]))
+    monkeypatch.setattr(repository, 'commit', mock_noop)
 
     provider = DriveWealthProvider(None, None, None, None, None)
 
@@ -151,6 +153,8 @@ def test_ensure_portfolio(monkeypatch):
     trading_account_id = 1
     profile_id = 2
 
+    portfolio = DriveWealthPortfolio()
+
     account = DriveWealthAccount()
     account.trading_account_id = trading_account_id
     monkeypatch.setattr(account, "is_open", lambda: True)
@@ -168,8 +172,12 @@ def test_ensure_portfolio(monkeypatch):
 
     provider = DriveWealthProvider(None, None, None, None, None)
     ensure_portfolio_calls = []
-    monkeypatch.setattr(provider, 'ensure_portfolio',
-                        mock_record_calls(ensure_portfolio_calls))
+
+    def mock_ensure_portfolio(*args, **kwargs):
+        mock_record_calls(ensure_portfolio_calls)(*args, **kwargs)
+        return portfolio
+
+    monkeypatch.setattr(provider, 'ensure_portfolio', mock_ensure_portfolio)
 
     func = HandleAccountsUpdatedEvent(repository, provider, None, None, None)
     func.ensure_portfolio(account)

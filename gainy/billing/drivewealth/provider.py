@@ -31,8 +31,8 @@ class DriveWealthPaymentProvider(AbstractPaymentProvider):
         if not account:
             raise Exception('DriveWealthAccount not found')
 
-        portfolio = self.provider.ensure_portfolio(payment_method.profile_id,
-                                                   account.trading_account_id)
+        portfolio = self.provider.ensure_portfolio_locking(
+            payment_method.profile_id, account.trading_account_id)
         portfolio_status = self.provider.sync_portfolio_status(portfolio, True)
         if portfolio_status.is_pending_rebalance():
             cash_actual_weight = portfolio.cash_target_weight

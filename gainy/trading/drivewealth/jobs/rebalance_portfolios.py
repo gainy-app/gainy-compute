@@ -57,7 +57,7 @@ class RebalancePortfoliosJob:
 
             start_time = time.time()
             try:
-                portfolio = self.provider.ensure_portfolio(
+                portfolio = self.provider.ensure_portfolio_locking(
                     profile_id, trading_account_id)
 
                 logger.info(
