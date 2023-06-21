@@ -941,8 +941,18 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
         for k, i in self.holdings.items():
             weight_sum += i
 
-        self.cash_target_weight += 1 - weight_sum
-        weight_sum += 1 - weight_sum
+        diff = 1 - weight_sum
+        if self.cash_target_weight >= -diff:
+            self.cash_target_weight += diff
+            weight_sum += diff
+        else:
+            for k, i in self.holdings.items():
+                if self.holdings[k] < -diff:
+                    continue
+
+                self.holdings[k] += diff
+                weight_sum += diff
+                break
 
         logger.info('DriveWealthPortfolio normalize_weights post',
                     extra={
