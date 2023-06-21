@@ -55,14 +55,16 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
         self.repo.commit()
 
         if account and account.is_open() and account.drivewealth_user_id:
-            portfolio = self.ensure_portfolio(account)
-
             user: DriveWealthUser = self.repo.find_one(
                 DriveWealthUser, {"ref_id": account.drivewealth_user_id})
             if not user or not user.profile_id:
                 return
+
             self.provider.ensure_trading_account_created(
                 account, user.profile_id)
+
+            portfolio = self.provider.ensure_portfolio(user.profile_id,
+                                                       account)
 
             self.send_event(user.profile_id, was_open)
             self.create_payment_method(account, user.profile_id)
@@ -100,31 +102,3 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
 
         account.payment_method_id = payment_method.id
         self.repo.persist(account)
-
-    def ensure_portfolio(
-            self,
-            account: DriveWealthAccount) -> Optional[DriveWealthPortfolio]:
-        logger_extra = {"account": account.to_dict()}
-        try:
-            if not account.trading_account_id:
-                return None
-
-            trading_account: TradingAccount = self.repo.find_one(
-                TradingAccount, {"id": account.trading_account_id})
-            if not trading_account:
-                return None
-            logger_extra["trading_account"] = trading_account.to_dict()
-
-            try:
-                portfolio = self.provider.ensure_portfolio(
-                    trading_account.profile_id, trading_account.id)
-                logger_extra["portfolio"] = portfolio.to_dict()
-                return portfolio
-            except TradingAccountNotOpenException as e:
-                logger_extra["exception"] = e
-                pass
-
-            return None
-        finally:
-            logger.info("HandleAccountsUpdatedEvent.ensure_portfolio",
-                        extra=logger_extra)

@@ -41,10 +41,15 @@ def test_exists(monkeypatch):
     handle_account_status_change_calls = []
     monkeypatch.setattr(provider, 'handle_account_status_change',
                         mock_record_calls(handle_account_status_change_calls))
+
     ensure_trading_account_created_calls = []
     monkeypatch.setattr(
         provider, 'ensure_trading_account_created',
         mock_record_calls(ensure_trading_account_created_calls))
+
+    ensure_portfolio_calls = []
+    monkeypatch.setattr(provider, 'ensure_portfolio',
+                        mock_record_calls(ensure_portfolio_calls))
 
     message = {
         "accountID": account_id,
@@ -57,9 +62,6 @@ def test_exists(monkeypatch):
 
     func = HandleAccountsUpdatedEvent(repository, provider, None, None,
                                       message)
-    ensure_portfolio_calls = []
-    monkeypatch.setattr(func, 'ensure_portfolio',
-                        mock_record_calls(ensure_portfolio_calls))
     send_event_calls = []
     monkeypatch.setattr(func, 'send_event',
                         mock_record_calls(send_event_calls))
@@ -70,7 +72,8 @@ def test_exists(monkeypatch):
 
     assert DriveWealthAccount in persisted_objects
     assert account in persisted_objects[DriveWealthAccount]
-    assert (account, ) in [args for args, kwargs in ensure_portfolio_calls]
+    assert (profile_id,
+            account) in [args for args, kwargs in ensure_portfolio_calls]
     assert account.status == status_name
     assert (account, old_status) in [
         args for args, kwargs in handle_account_status_change_calls
@@ -117,19 +120,21 @@ def test_not_exists(monkeypatch):
 
     monkeypatch.setattr(provider, 'sync_trading_account',
                         mock_sync_trading_account)
+
     ensure_trading_account_created_calls = []
     monkeypatch.setattr(
         provider, 'ensure_trading_account_created',
         mock_record_calls(ensure_trading_account_created_calls))
+
+    ensure_portfolio_calls = []
+    monkeypatch.setattr(provider, 'ensure_portfolio',
+                        mock_record_calls(ensure_portfolio_calls))
 
     message = {
         "accountID": account_id,
     }
     func = HandleAccountsUpdatedEvent(repository, provider, None, None,
                                       message)
-    ensure_portfolio_calls = []
-    monkeypatch.setattr(func, 'ensure_portfolio',
-                        mock_record_calls(ensure_portfolio_calls))
     send_event_calls = []
     monkeypatch.setattr(func, 'send_event',
                         mock_record_calls(send_event_calls))
@@ -139,51 +144,14 @@ def test_not_exists(monkeypatch):
 
     func._do(None)
 
-    assert (account, ) in [args for args, kwargs in ensure_portfolio_calls]
+    assert (profile_id,
+            account) in [args for args, kwargs in ensure_portfolio_calls]
     assert (account, profile_id) in [
         args for args, kwargs in ensure_trading_account_created_calls
     ]
     assert (profile_id, False) in [args for args, kwargs in send_event_calls]
     assert (account, profile_id) in [
         args for args, kwargs in create_payment_method_calls
-    ]
-
-
-def test_ensure_portfolio(monkeypatch):
-    trading_account_id = 1
-    profile_id = 2
-
-    portfolio = DriveWealthPortfolio()
-
-    account = DriveWealthAccount()
-    account.trading_account_id = trading_account_id
-    monkeypatch.setattr(account, "is_open", lambda: True)
-
-    trading_account = TradingAccount()
-    trading_account.profile_id = profile_id
-    trading_account.id = trading_account_id
-
-    repository = DriveWealthRepository(None)
-    monkeypatch.setattr(
-        repository, 'find_one',
-        mock_find([(TradingAccount, {
-            "id": trading_account_id
-        }, trading_account)]))
-
-    provider = DriveWealthProvider(None, None, None, None, None)
-    ensure_portfolio_calls = []
-
-    def mock_ensure_portfolio(*args, **kwargs):
-        mock_record_calls(ensure_portfolio_calls)(*args, **kwargs)
-        return portfolio
-
-    monkeypatch.setattr(provider, 'ensure_portfolio', mock_ensure_portfolio)
-
-    func = HandleAccountsUpdatedEvent(repository, provider, None, None, None)
-    func.ensure_portfolio(account)
-
-    assert (profile_id, trading_account_id) in [
-        args for args, kwargs in ensure_portfolio_calls
     ]
 
 

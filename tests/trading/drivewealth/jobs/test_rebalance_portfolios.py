@@ -104,6 +104,9 @@ def test_rebalance_portfolios(monkeypatch):
                 "ref_id": drivewealth_account_id1
             }, account1),
             (DriveWealthAccount, {
+                "trading_account_id": trading_account_id_1
+            }, account1),
+            (DriveWealthAccount, {
                 "ref_id": drivewealth_account_id2
             }, account2),
         ]))
@@ -149,7 +152,7 @@ def test_rebalance_portfolios(monkeypatch):
     job.run()
 
     assert ((profile_id1, ), {}) in check_profile_trading_not_paused_calls
-    assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
+    assert (profile_id1, account1) in ensure_portfolio_profile_ids
 
     assert (
         (portfolio_status, ), {}
