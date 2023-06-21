@@ -33,7 +33,6 @@ def test_charge(monkeypatch, is_pending_rebalance, sufficient_funds):
     amount = 4
     transaction_id = 5
     description = "description"
-    trading_account_id = 6
 
     account_money = DriveWealthAccountMoney()
     account_money.cash_balance = Decimal(amount)
@@ -45,7 +44,6 @@ def test_charge(monkeypatch, is_pending_rebalance, sufficient_funds):
     invoice.description = description
 
     dw_account = DriveWealthAccount()
-    dw_account.trading_account_id = trading_account_id
     payment_method = PaymentMethod()
     monkeypatch.setattr(payment_method, "id", payment_method_id)
     monkeypatch.setattr(payment_method, "profile_id", profile_id)
@@ -76,9 +74,9 @@ def test_charge(monkeypatch, is_pending_rebalance, sufficient_funds):
 
     provider = DriveWealthProvider(None, None, None, None, None)
 
-    def mock_ensure_portfolio(_profile_id, _trading_account_id):
+    def mock_ensure_portfolio(_profile_id, _account):
         assert _profile_id == profile_id
-        assert _trading_account_id == trading_account_id
+        assert _account == dw_account
         return portfolio
 
     monkeypatch.setattr(provider, "ensure_portfolio_locking",
