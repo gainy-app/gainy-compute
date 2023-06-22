@@ -2,11 +2,16 @@ import argparse
 import traceback
 import time
 import json
-from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.utils import db_connect, get_logger
 
 logger = get_logger(__name__)
+
+
+def split_in_chunks(lst, batch_size):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), batch_size):
+        yield lst[i:i + batch_size]
 
 
 class MatchScoreJob:
@@ -16,18 +21,51 @@ class MatchScoreJob:
         self.batch_size = batch_size
 
     def run(self):
+        tickers_to_update = self.repo.get_tickers_to_update_ms()
+        profiles_to_update = self.repo.get_profiles_to_update_ms()
+
+        self._calculate_for_tickers(tickers_to_update)
+        self._calculate_for_profiles(profiles_to_update)
+        self._calculate_for_collections()
+
+        self.repo.save_tickers_state()
+        self.repo.save_profiles_state()
+
+    def _calculate_for_tickers(self, tickers):
+        if not tickers:
+            return
+
         for profile_ids_batch in self.repo.read_ms_batch_profile_ids(
                 self.batch_size):
             start_time = time.time()
-            self.repo.generate_match_scores(profile_ids_batch)
+            self.repo.generate_ticker_match_scores(profile_ids_batch,
+                                                   tickers=tickers)
 
-            for profile_id in profile_ids_batch:
-                top_20_tickers = self.repo.read_top_match_score_tickers(
-                    profile_id, 20)
-                self.repo.update_personalized_collection(
-                    profile_id, TOP_20_FOR_YOU_COLLECTION_ID, top_20_tickers)
+            logger.info(
+                "Calculated ticker match scores for tickers %s and profiles %s in %f",
+                json.dumps(tickers), json.dumps(profile_ids_batch),
+                time.time() - start_time)
 
-            logger.info("Calculated match score profiles %s in %f",
+    def _calculate_for_collections(self):
+        for profile_ids_batch in self.repo.read_ms_batch_profile_ids(
+                self.batch_size):
+            start_time = time.time()
+            self.repo.generate_collection_match_scores(profile_ids_batch)
+
+            logger.info(
+                "Calculated collection match scores %s and profiles %s in %f",
+                json.dumps(profile_ids_batch),
+                time.time() - start_time)
+
+    def _calculate_for_profiles(self, profile_ids):
+        if not profile_ids:
+            return
+
+        for profile_ids_batch in split_in_chunks(profile_ids, self.batch_size):
+            start_time = time.time()
+            self.repo.generate_ticker_match_scores(profile_ids_batch)
+
+            logger.info("Calculated ticker match scores for profiles %s in %f",
                         json.dumps(profile_ids_batch),
                         time.time() - start_time)
 

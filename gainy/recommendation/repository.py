@@ -9,6 +9,7 @@ from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
 
 from gainy.data_access.repository import Repository
+from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID, TOP_20_COLLECTIO_NENABLED
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -197,39 +198,66 @@ class RecommendationRepository(Repository):
                 [(profile_id, collection_id, symbol)
                  for symbol in ticker_list])
 
-    def generate_match_scores(self, profile_ids: List[int]):
-        queries: list[tuple[str, Any]] = []
+    def generate_ticker_match_scores(self,
+                                     profile_ids: List[int],
+                                     tickers: list[str] = None):
         query_filenames = [
             'generate_ticker_match_scores.sql',
-            'cleanup_ticker_match_scores.sql',
-            'generate_collection_match_scores.sql',
-            'cleanup_collection_match_scores.sql',
         ]
+
+        substitutions = {"tickers_where_clause": sql.SQL("")}
+        params = {}
+        if tickers:
+            substitutions["tickers_where_clause"] = sql.SQL(
+                "where symbol IN %(tickers)s")
+            params["tickers"] = tuple(tickers)
+        else:
+            query_filenames.append('cleanup_ticker_match_scores.sql')
+
+        self._generate_match_scores(query_filenames, profile_ids,
+                                    substitutions, params)
+
+        if TOP_20_COLLECTIO_NENABLED:
+            for profile_id in profile_ids:
+                top_20_tickers = self.read_top_match_score_tickers(
+                    profile_id, 20)
+                self.update_personalized_collection(
+                    profile_id, TOP_20_FOR_YOU_COLLECTION_ID, top_20_tickers)
+
+    def generate_collection_match_scores(self, profile_ids: List[int]):
+        self._generate_match_scores([
+            'generate_collection_match_scores.sql',
+            'cleanup_collection_match_scores.sql'
+        ], profile_ids)
+
+    def _generate_match_scores(self,
+                               query_filenames,
+                               profile_ids: List[int],
+                               substitutions: dict = None,
+                               params: dict = None):
+        queries: list[tuple[str, Any]] = []
 
         for query_filename in query_filenames:
             query_path = os.path.join(script_dir, "sql", query_filename)
             with open(query_path) as f:
                 queries.append((query_filename, f.read()))
 
-        where_clause = []
-        params = {}
-        if profile_ids is not None:
-            where_clause.append(sql.SQL("id IN %(profile_ids)s"))
-            params['profile_ids'] = tuple(profile_ids)
-        else:
-            where_clause.append(sql.SQL("email not ilike '%test%@gainy.app'"))
-
-        if where_clause:
-            where_clause = sql.SQL('where ') + sql.SQL(' and ').join(
-                where_clause)
-        else:
-            where_clause = sql.SQL('')
+        if not substitutions:
+            substitutions = {}
+        substitutions = {
+            **substitutions,
+            "where_clause":
+            sql.SQL("where id IN %(profile_ids)s"),
+        }
 
         if not params:
-            params = None
+            params = {}
+        params = {
+            **params,
+            "profile_ids": tuple(profile_ids),
+        }
 
-        queries = [(query_name,
-                    sql.SQL(query).format(where_clause=where_clause))
+        queries = [(query_name, sql.SQL(query).format(**substitutions))
                    for query_name, query in queries]
 
         with self.db_conn.cursor() as cursor:
@@ -243,6 +271,22 @@ class RecommendationRepository(Repository):
                                 "profile_ids": profile_ids,
                                 "duration": time.time() - start,
                             })
+
+    def get_tickers_to_update_ms(self) -> list[str]:
+        data = self._execute_script("sql/get_tickers_to_update_ms.sql", None)
+        return list(map(itemgetter(0), data))
+
+    def save_tickers_state(self) -> list[str]:
+        data = self._execute_script("sql/save_tickers_state.sql", None)
+        return list(map(itemgetter(0), data))
+
+    def get_profiles_to_update_ms(self) -> list[int]:
+        data = self._execute_script("sql/get_profiles_to_update_ms.sql", None)
+        return list(map(itemgetter(0), data))
+
+    def save_profiles_state(self) -> list[int]:
+        data = self._execute_script("sql/save_profiles_state.sql", None)
+        return list(map(itemgetter(0), data))
 
     def _read_sorted_collection_match_scores(self, profile_id: int,
                                              limit: int) -> List[int]:
