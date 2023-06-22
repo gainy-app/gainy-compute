@@ -209,7 +209,7 @@ class RecommendationRepository(Repository):
         params = {}
         if tickers:
             substitutions["tickers_where_clause"] = sql.SQL(
-                "where symbol IN %(tickers)s")
+                "and symbol IN %(tickers)s")
             params["tickers"] = tuple(tickers)
         else:
             query_filenames.append('cleanup_ticker_match_scores.sql')
