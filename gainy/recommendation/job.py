@@ -53,7 +53,7 @@ class MatchScoreJob:
             self.repo.generate_collection_match_scores(profile_ids_batch)
 
             logger.info(
-                "Calculated collection match scores %s and profiles %s in %f",
+                "Calculated collection match scores for profiles %s in %f",
                 json.dumps(profile_ids_batch),
                 time.time() - start_time)
 

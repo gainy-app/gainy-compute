@@ -276,17 +276,15 @@ class RecommendationRepository(Repository):
         data = self._execute_script("sql/get_tickers_to_update_ms.sql", None)
         return list(map(itemgetter(0), data))
 
-    def save_tickers_state(self) -> list[str]:
-        data = self._execute_script("sql/save_tickers_state.sql", None)
-        return list(map(itemgetter(0), data))
+    def save_tickers_state(self):
+        self._execute_script("sql/save_tickers_state.sql", None, False)
 
     def get_profiles_to_update_ms(self) -> list[int]:
         data = self._execute_script("sql/get_profiles_to_update_ms.sql", None)
         return list(map(itemgetter(0), data))
 
-    def save_profiles_state(self) -> list[int]:
-        data = self._execute_script("sql/save_profiles_state.sql", None)
-        return list(map(itemgetter(0), data))
+    def save_profiles_state(self):
+        self._execute_script("sql/save_profiles_state.sql", None, False)
 
     def _read_sorted_collection_match_scores(self, profile_id: int,
                                              limit: int) -> List[int]:
@@ -317,12 +315,18 @@ class RecommendationRepository(Repository):
                                     {"limit": limit})
         return list(map(itemgetter(0), data))
 
-    def _execute_script(self, script_rel_path, params):
+    def _execute_script(self,
+                        script_rel_path,
+                        params,
+                        return_results: bool = True):
         query_filename = os.path.join(script_dir, script_rel_path)
         with open(query_filename) as f:
             query = f.read()
 
         with self.db_conn.cursor() as cursor:
             cursor.execute(query, params)
+
+            if not return_results:
+                return None
 
             return cursor.fetchall()

@@ -376,3 +376,12 @@ insert into app.analytics_profile_data(profile_id, service_name, metadata)
 VALUES (1, 'FIREBASE', '{"app_instance_id": "cqtJrlJKYkRerQW1G5960_"}'::jsonb),
        (1, 'APPSFLYER', '{"appsflyer_id": "1677666510758-9043781"}'::jsonb)
 on conflict do nothing;
+
+create table app.object_recommendation_state
+(
+    object_id   text,
+    object_type text,
+    state_hash  text,
+    updated_at  timestamp default now(),
+    primary key (object_id, object_type)
+);
