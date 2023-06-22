@@ -69,7 +69,7 @@ def test_rebalance_portfolios(monkeypatch):
                         mock_record_calls(send_portfolio_to_api_calls))
     ensure_portfolio_profile_ids = []
     monkeypatch.setattr(
-        provider, "ensure_portfolio",
+        provider, "ensure_portfolio_locking",
         mock_ensure_portfolio(portfolio1, ensure_portfolio_profile_ids))
 
     def mock_sync_portfolio_status(_portfolio, force=None, allow_invalid=None):
@@ -102,6 +102,9 @@ def test_rebalance_portfolios(monkeypatch):
         mock_find([
             (DriveWealthAccount, {
                 "ref_id": drivewealth_account_id1
+            }, account1),
+            (DriveWealthAccount, {
+                "trading_account_id": trading_account_id_1
             }, account1),
             (DriveWealthAccount, {
                 "ref_id": drivewealth_account_id2
@@ -149,7 +152,7 @@ def test_rebalance_portfolios(monkeypatch):
     job.run()
 
     assert ((profile_id1, ), {}) in check_profile_trading_not_paused_calls
-    assert (profile_id1, trading_account_id_1) in ensure_portfolio_profile_ids
+    assert (profile_id1, account1) in ensure_portfolio_profile_ids
 
     assert (
         (portfolio_status, ), {}

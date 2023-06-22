@@ -1,8 +1,8 @@
 from gainy.analytics.service import AnalyticsService
 from gainy.billing.models import PaymentMethod, PaymentMethodProvider
-from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_record_calls
+from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_record_calls, mock_noop
 from gainy.trading.drivewealth.locking_functions.handle_accounts_updated_event import HandleAccountsUpdatedEvent
-from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser
+from gainy.trading.drivewealth.models import DriveWealthAccount, DriveWealthUser, DriveWealthPortfolio
 from gainy.trading.models import TradingAccount
 from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.drivewealth.repository import DriveWealthRepository
@@ -35,15 +35,21 @@ def test_exists(monkeypatch):
                    }, drivewealth_user)]))
     persisted_objects = {}
     monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
+    monkeypatch.setattr(repository, 'commit', mock_noop)
 
     provider = DriveWealthProvider(None, None, None, None, None)
     handle_account_status_change_calls = []
     monkeypatch.setattr(provider, 'handle_account_status_change',
                         mock_record_calls(handle_account_status_change_calls))
+
     ensure_trading_account_created_calls = []
     monkeypatch.setattr(
         provider, 'ensure_trading_account_created',
         mock_record_calls(ensure_trading_account_created_calls))
+
+    ensure_portfolio_calls = []
+    monkeypatch.setattr(provider, 'ensure_portfolio',
+                        mock_record_calls(ensure_portfolio_calls))
 
     message = {
         "accountID": account_id,
@@ -56,9 +62,6 @@ def test_exists(monkeypatch):
 
     func = HandleAccountsUpdatedEvent(repository, provider, None, None,
                                       message)
-    ensure_portfolio_calls = []
-    monkeypatch.setattr(func, 'ensure_portfolio',
-                        mock_record_calls(ensure_portfolio_calls))
     send_event_calls = []
     monkeypatch.setattr(func, 'send_event',
                         mock_record_calls(send_event_calls))
@@ -69,7 +72,8 @@ def test_exists(monkeypatch):
 
     assert DriveWealthAccount in persisted_objects
     assert account in persisted_objects[DriveWealthAccount]
-    assert (account, ) in [args for args, kwargs in ensure_portfolio_calls]
+    assert (profile_id,
+            account) in [args for args, kwargs in ensure_portfolio_calls]
     assert account.status == status_name
     assert (account, old_status) in [
         args for args, kwargs in handle_account_status_change_calls
@@ -105,6 +109,7 @@ def test_not_exists(monkeypatch):
                    (DriveWealthUser, {
                        "ref_id": drivewealth_user_id
                    }, drivewealth_user)]))
+    monkeypatch.setattr(repository, 'commit', mock_noop)
 
     provider = DriveWealthProvider(None, None, None, None, None)
 
@@ -115,19 +120,21 @@ def test_not_exists(monkeypatch):
 
     monkeypatch.setattr(provider, 'sync_trading_account',
                         mock_sync_trading_account)
+
     ensure_trading_account_created_calls = []
     monkeypatch.setattr(
         provider, 'ensure_trading_account_created',
         mock_record_calls(ensure_trading_account_created_calls))
+
+    ensure_portfolio_calls = []
+    monkeypatch.setattr(provider, 'ensure_portfolio',
+                        mock_record_calls(ensure_portfolio_calls))
 
     message = {
         "accountID": account_id,
     }
     func = HandleAccountsUpdatedEvent(repository, provider, None, None,
                                       message)
-    ensure_portfolio_calls = []
-    monkeypatch.setattr(func, 'ensure_portfolio',
-                        mock_record_calls(ensure_portfolio_calls))
     send_event_calls = []
     monkeypatch.setattr(func, 'send_event',
                         mock_record_calls(send_event_calls))
@@ -137,45 +144,14 @@ def test_not_exists(monkeypatch):
 
     func._do(None)
 
-    assert (account, ) in [args for args, kwargs in ensure_portfolio_calls]
+    assert (profile_id,
+            account) in [args for args, kwargs in ensure_portfolio_calls]
     assert (account, profile_id) in [
         args for args, kwargs in ensure_trading_account_created_calls
     ]
     assert (profile_id, False) in [args for args, kwargs in send_event_calls]
     assert (account, profile_id) in [
         args for args, kwargs in create_payment_method_calls
-    ]
-
-
-def test_ensure_portfolio(monkeypatch):
-    trading_account_id = 1
-    profile_id = 2
-
-    account = DriveWealthAccount()
-    account.trading_account_id = trading_account_id
-    monkeypatch.setattr(account, "is_open", lambda: True)
-
-    trading_account = TradingAccount()
-    trading_account.profile_id = profile_id
-    trading_account.id = trading_account_id
-
-    repository = DriveWealthRepository(None)
-    monkeypatch.setattr(
-        repository, 'find_one',
-        mock_find([(TradingAccount, {
-            "id": trading_account_id
-        }, trading_account)]))
-
-    provider = DriveWealthProvider(None, None, None, None, None)
-    ensure_portfolio_calls = []
-    monkeypatch.setattr(provider, 'ensure_portfolio',
-                        mock_record_calls(ensure_portfolio_calls))
-
-    func = HandleAccountsUpdatedEvent(repository, provider, None, None, None)
-    func.ensure_portfolio(account)
-
-    assert (profile_id, trading_account_id) in [
-        args for args, kwargs in ensure_portfolio_calls
     ]
 
 

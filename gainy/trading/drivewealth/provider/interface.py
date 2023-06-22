@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from gainy.trading.drivewealth.models import DriveWealthAccountPositions, DriveWealthPortfolio
+from gainy.trading.drivewealth.models import DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthAccount
 from gainy.trading.models import TradingAccount
 
 
@@ -35,4 +35,11 @@ class DriveWealthProviderInterface(ABC):
 
     @abstractmethod
     def filter_inactive_symbols_from_weights(self, weights):
+        pass
+
+    @abstractmethod
+    def ensure_portfolio(self, profile_id: int, account: DriveWealthAccount):
+        """
+        :raises TradingAccountNotOpenException:
+        """
         pass
