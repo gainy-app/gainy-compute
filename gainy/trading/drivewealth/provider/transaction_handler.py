@@ -11,6 +11,7 @@ from gainy.trading.drivewealth.models import DriveWealthPortfolio, DriveWealthFu
     DriveWealthTransactionInterface, PRECISION, DriveWealthTransaction, DriveWealthMergerAcquisitionTransaction, \
     DRIVEWEALTH_MERGER_ACQUISITION_TX_TYPE, EXECUTED_AMOUNT_PRECISION
 from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInterface
+from gainy.trading.exceptions import InsufficientFundsException
 from gainy.trading.models import CorporateActionAdjustment, AbstractTradingOrder, TradingOrderSource
 from gainy.trading.repository import TradingRepository
 from gainy.trading.service import TradingService
@@ -340,22 +341,25 @@ class DriveWealthTransactionHandler:
             self,
             caa: CorporateActionAdjustment) -> Optional[AbstractTradingOrder]:
         note = "caa #%d" % caa.id
-        if caa.collection_id:
-            return self.trading_service.create_collection_version(
+        try:
+            if caa.collection_id:
+                return self.trading_service.create_collection_version(
+                    caa.profile_id,
+                    TradingOrderSource.AUTOMATIC,
+                    caa.collection_id,
+                    caa.trading_account_id,
+                    target_amount_delta=caa.amount,
+                    note=note)
+
+            return self.trading_service.create_stock_order(
                 caa.profile_id,
                 TradingOrderSource.AUTOMATIC,
-                caa.collection_id,
+                caa.symbol,
                 caa.trading_account_id,
                 target_amount_delta=caa.amount,
                 note=note)
-
-        return self.trading_service.create_stock_order(
-            caa.profile_id,
-            TradingOrderSource.AUTOMATIC,
-            caa.symbol,
-            caa.trading_account_id,
-            target_amount_delta=caa.amount,
-            note=note)
+        except InsufficientFundsException:
+            return None
 
     def _handle_redemptions(self, portfolio: DriveWealthPortfolio) -> bool:
         # pending redemptions do not have transactions, but are already accounted in portfolio balance.
