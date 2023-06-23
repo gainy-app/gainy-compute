@@ -6,7 +6,7 @@ from _decimal import Decimal
 from gainy.tests.mocks.trading.drivewealth.api_mocks import PORTFOLIO_STATUS, CASH_ACTUAL_VALUE, \
     FUND1_ID, FUND2_ID, FUND2_ACTUAL_VALUE, FUND1_ACTUAL_VALUE
 
-from gainy.trading.drivewealth.models import DriveWealthPortfolioStatus
+from gainy.trading.drivewealth.models import DriveWealthPortfolioStatus, WEIGHT_ERROR_THRESHOLD
 
 
 def test_set_from_response(monkeypatch):
@@ -36,19 +36,22 @@ def test_invalid(monkeypatch, t, sign):
         # data["equity"] += Decimal(1.01) * sign
         return
     elif t == 1:
-        data["holdings"][0]["actual"] += Decimal(0.01) * sign
+        data["holdings"][0]["actual"] += (WEIGHT_ERROR_THRESHOLD +
+                                          Decimal(1e-3)) * sign
     elif t == 2:
         # data["holdings"][0]["value"] += Decimal(1.01) * sign
         return
     elif t == 3:
-        data["holdings"][1]["actual"] += Decimal(0.01) * sign
+        data["holdings"][1]["actual"] += (WEIGHT_ERROR_THRESHOLD +
+                                          Decimal(1e-3)) * sign
     elif t == 4:
         # data["holdings"][1]["target"] += Decimal(0.01) * sign
         return
     elif t == 5:
         data["holdings"][1]["value"] += Decimal(1.01) * sign
     elif t == 6:
-        data["holdings"][1]["holdings"][0]["actual"] += 0.01 * sign
+        data["holdings"][1]["holdings"][0]["actual"] += float(
+            WEIGHT_ERROR_THRESHOLD + Decimal(1e-3)) * sign
     elif t == 7:
         # data["holdings"][1]["holdings"][0]["target"] += 0.01 * sign
         return
