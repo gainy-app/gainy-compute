@@ -22,7 +22,8 @@ class ComputeRecommendationsAndPersist(AbstractPessimisticLockingFunction):
         return profile_metadata
 
     def _do(self, version):
-        self.repo.generate_match_scores([self.profile_id])
+        self.repo.generate_ticker_match_scores([self.profile_id])
+        self.repo.generate_collection_match_scores([self.profile_id])
 
         # top_20_tickers = self.repo.read_top_match_score_tickers(
         #     self.profile_id, 20)
