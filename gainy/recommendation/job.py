@@ -73,7 +73,10 @@ class MatchScoreJob:
 def cli(args=None):
     parser = argparse.ArgumentParser(
         description='Update recommendations for all profiles.')
-    parser.add_argument('--batch_size', dest='batch_size', type=int)
+    parser.add_argument('--batch_size',
+                        dest='batch_size',
+                        type=int,
+                        default=15)
     args = parser.parse_args(args)
 
     try:
