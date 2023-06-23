@@ -311,8 +311,10 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
                     Decimal(0.0005) * portfolio_status.equity_value)
             else:
                 if not fund:
-                    raise Exception('No fund for %s %d' % (order.__class__.__name__, order.id))
-                is_executed = portfolio_status.get_fund_value(fund.ref_id) < PRECISION
+                    raise Exception('No fund for %s %d' %
+                                    (order.__class__.__name__, order.id))
+                is_executed = portfolio_status.get_fund_value(
+                    fund.ref_id) < PRECISION
 
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
