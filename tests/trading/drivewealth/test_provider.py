@@ -1015,6 +1015,17 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     executed_amount_sum = Decimal(executed_amount_sum)
     cash_flow_sum = Decimal(cash_flow_sum)
     min_date = datetime.date.today()
+    fund = DriveWealthFund()
+
+    dw_repository = DriveWealthRepository(None)
+
+    def mock_get_profile_fund(*args, **kwargs):
+        assert args[0] == profile_id
+        assert kwargs["collection_id"] == collection_id
+        return fund
+
+    monkeypatch.setattr(dw_repository, "get_profile_fund",
+                        mock_get_profile_fund)
 
     repository = TradingRepository(None)
 
@@ -1047,7 +1058,7 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(None, None, repository, None, None)
+    provider = DriveWealthProvider(dw_repository, None, repository, None, None)
 
     portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.equity_value = Decimal(100)
