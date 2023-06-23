@@ -150,6 +150,8 @@ class RebalancePortfoliosJob:
                         "account_id": portfolio.drivewealth_account_id,
                         "portfolio_status": e.portfolio_status.to_dict(),
                     })
+            except TradingAccountNotOpenException:
+                pass
             except Exception as e:
                 logger.exception(e)
 

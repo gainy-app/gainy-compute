@@ -307,15 +307,12 @@ class DriveWealthApi:
 
         if status_code is None or status_code < 200 or status_code > 299:
             if status_code == 401 and response_data.get(
-                    "errorCode") == "L075" and not force_token_refresh:
+                    "errorCode") == "L025" and not force_token_refresh:
                 logger.info('[DRIVEWEALTH] token expired', extra=logging_extra)
                 return self._make_request(method,
                                           url,
                                           post_data,
                                           force_token_refresh=True)
-
-            logger.error("[DRIVEWEALTH] %s %s" % (method, url),
-                         extra=logging_extra)
 
             raise DriveWealthApiException.create_from_response(
                 response_data, status_code)
@@ -348,6 +345,11 @@ class DriveWealthApi:
             "requestId": response.headers.get("dw-request-id"),
         }
 
-        logger.info("[DRIVEWEALTH] %s %s" % (method, url), extra=logging_extra)
+        if status_code is None or status_code < 200 or status_code > 299:
+            logger.warning("[DRIVEWEALTH] %s %s" % (method, url),
+                           extra=logging_extra)
+        else:
+            logger.info("[DRIVEWEALTH] %s %s" % (method, url),
+                        extra=logging_extra)
 
         return response
