@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
-from gainy.trading.drivewealth.models import DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthAccount
+from gainy.trading.drivewealth.models import DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthAccount, \
+    DriveWealthPortfolioStatus
 from gainy.trading.models import TradingAccount
 
 
@@ -42,4 +43,18 @@ class DriveWealthProviderInterface(ABC):
         """
         :raises TradingAccountNotOpenException:
         """
+        pass
+
+    @abstractmethod
+    def sync_portfolio(self,
+                       portfolio: DriveWealthPortfolio,
+                       force: bool = False):
+        pass
+
+    @abstractmethod
+    def sync_portfolio_status(
+            self,
+            portfolio: DriveWealthPortfolio,
+            force: bool = False,
+            allow_invalid: bool = False) -> DriveWealthPortfolioStatus:
         pass

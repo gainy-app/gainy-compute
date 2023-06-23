@@ -71,9 +71,12 @@ class HandleAccountsUpdatedEvent(AbstractPessimisticLockingFunction):
 
             if portfolio and old_status == DriveWealthAccountStatus.OPEN_NO_NEW_TRADES.name:
                 # if account reopens, we set portfolio target weights to actual weights
+                try:
+                    portfolio_status = self.provider.sync_portfolio_status(
+                        portfolio, force=True, allow_invalid=True)
+                except TradingAccountNotOpenException:
+                    return
                 self.provider.sync_portfolio(portfolio)
-                portfolio_status = self.provider.sync_portfolio_status(
-                    portfolio, force=True, allow_invalid=True)
                 self.provider.actualize_portfolio(portfolio, portfolio_status)
                 self.provider.send_portfolio_to_api(portfolio)
 
