@@ -9,7 +9,7 @@ from psycopg2.extras import execute_values, RealDictCursor
 from psycopg2 import sql
 
 from gainy.data_access.repository import Repository
-from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID, TOP_20_COLLECTIO_NENABLED
+from gainy.recommendation import TOP_20_FOR_YOU_COLLECTION_ID, TOP_20_COLLECTION_ENABLED
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -217,7 +217,7 @@ class RecommendationRepository(Repository):
         self._generate_match_scores(query_filenames, profile_ids,
                                     substitutions, params)
 
-        if TOP_20_COLLECTIO_NENABLED:
+        if TOP_20_COLLECTION_ENABLED:
             for profile_id in profile_ids:
                 top_20_tickers = self.read_top_match_score_tickers(
                     profile_id, 20)

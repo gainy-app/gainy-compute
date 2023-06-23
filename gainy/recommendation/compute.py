@@ -1,4 +1,5 @@
 from gainy.data_access.pessimistic_lock import AbstractPessimisticLockingFunction
+from gainy.recommendation import TOP_20_COLLECTION_ENABLED, TOP_20_FOR_YOU_COLLECTION_ID
 from gainy.recommendation.models import ProfileRecommendationsMetadata
 from gainy.utils import get_logger
 
@@ -25,9 +26,9 @@ class ComputeRecommendationsAndPersist(AbstractPessimisticLockingFunction):
         self.repo.generate_ticker_match_scores([self.profile_id])
         self.repo.generate_collection_match_scores([self.profile_id])
 
-        # top_20_tickers = self.repo.read_top_match_score_tickers(
-        #     self.profile_id, 20)
-        # self.repo.update_personalized_collection(self.profile_id,
-        #                                          TOP_20_FOR_YOU_COLLECTION_ID,
-        #                                          top_20_tickers)
+        if TOP_20_COLLECTION_ENABLED:
+            top_20_tickers = self.repo.read_top_match_score_tickers(
+                self.profile_id, 20)
+            self.repo.update_personalized_collection(
+                self.profile_id, TOP_20_FOR_YOU_COLLECTION_ID, top_20_tickers)
         self.repo.commit()
