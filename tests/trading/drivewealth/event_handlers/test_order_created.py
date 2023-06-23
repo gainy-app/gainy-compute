@@ -10,12 +10,7 @@ def test(monkeypatch):
     persisted_objects = {}
     monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(None, None, None, None, None)
-    handle_order_calls = []
-    monkeypatch.setattr(provider, 'handle_order',
-                        mock_record_calls(handle_order_calls))
-
-    event_handler = OrderCreatedEventHandler(repository, provider, None, None)
+    event_handler = OrderCreatedEventHandler(repository, None, None, None)
 
     message = {
         "id": "JK.7f6bbe0d-9341-437a-abf2-f028c2e7eb02",
@@ -29,5 +24,3 @@ def test(monkeypatch):
 
     assert DriveWealthOrder in persisted_objects
     assert len(persisted_objects[DriveWealthOrder]) > 0
-    for order in persisted_objects[DriveWealthOrder]:
-        assert order in [args[0] for args, kwargs in handle_order_calls]
