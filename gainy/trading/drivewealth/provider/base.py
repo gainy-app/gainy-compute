@@ -247,6 +247,8 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
                 profile_id, collection_id=collection_id, min_date=min_date)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
                 profile_id, collection_id=collection_id, min_date=min_date)
+            fund = self.repository.get_profile_fund(
+                profile_id, collection_id=collection_id)
         elif symbol:
             min_date = self.trading_repository.get_last_selloff_date(
                 profile_id, symbol=symbol)
@@ -254,6 +256,7 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
                 profile_id, symbol=symbol, min_date=min_date)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
                 profile_id, symbol=symbol, min_date=min_date)
+            fund = self.repository.get_profile_fund(profile_id, symbol=symbol)
         else:
             raise Exception("You must specify either collection_id or symbol")
 
@@ -302,9 +305,14 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
             order.executed_amount = order.target_amount_delta - error
             logger_extra["executed_amount"] = order.executed_amount
 
-            is_executed = abs(error) < max(
-                EXECUTED_AMOUNT_PRECISION,
-                Decimal(0.0005) * portfolio_status.equity_value)
+            if order.target_amount_delta_relative is None:
+                is_executed = abs(error) < max(
+                    EXECUTED_AMOUNT_PRECISION,
+                    Decimal(0.0005) * portfolio_status.equity_value)
+            else:
+                if not fund:
+                    raise Exception('No fund for %s %d' % (order.__class__.__name__, order.id))
+                is_executed = portfolio_status.get_fund_value(fund.ref_id) < PRECISION
 
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
