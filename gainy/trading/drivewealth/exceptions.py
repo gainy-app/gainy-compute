@@ -1,3 +1,5 @@
+import re
+
 from gainy.exceptions import ApiException
 from gainy.trading.drivewealth.models import DriveWealthPortfolioStatus
 
@@ -13,6 +15,7 @@ class DriveWealthApiException(ApiException):
     def create_from_response(data, status_code):
         error_code_to_exception_class = {
             "I050": InstrumentNotFoundException,
+            "E030": InvalidMissingParametersURLException,
             "E032": BadMissingParametersBodyException,
             "K110": PlaidProcessorTokenProvidedIsInvalidException,
         }
@@ -33,6 +36,12 @@ class DriveWealthApiException(ApiException):
 
 class InstrumentNotFoundException(DriveWealthApiException):
     pass
+
+
+class InvalidMissingParametersURLException(DriveWealthApiException):
+
+    def account_is_not_open(self) -> bool:
+        return bool(re.search(r'sub-account\S* is not open', self.message))
 
 
 class BadMissingParametersBodyException(DriveWealthApiException):
