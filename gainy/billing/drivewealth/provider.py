@@ -35,8 +35,7 @@ class DriveWealthPaymentProvider(AbstractPaymentProvider):
             payment_method.profile_id, account)
         portfolio_status = self.provider.sync_portfolio_status(portfolio, True)
         if portfolio_status.is_pending_rebalance():
-            cash_actual_weight = portfolio.cash_target_weight
-            cash_value = cash_actual_weight * portfolio_status.equity_value
+            cash_value = portfolio.cash_target_weight * portfolio_status.equity_value
         else:
             cash_value = portfolio_status.cash_value
 
