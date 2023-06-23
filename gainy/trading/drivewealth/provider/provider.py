@@ -25,15 +25,6 @@ logger = get_logger(__name__)
 
 class DriveWealthProvider(DriveWealthProviderBase):
 
-    def sync_user(self, user_ref_id) -> DriveWealthUser:
-        user: DriveWealthUser = self.repository.find_one(
-            DriveWealthUser, {"ref_id": user_ref_id}) or DriveWealthUser()
-
-        data = self.api.get_user(user_ref_id)
-        user.set_from_response(data)
-        self.repository.persist(user)
-        return user
-
     def sync_profile_trading_accounts(self, profile_id: int):
         repository = self.repository
         user_ref_id = self._get_user(profile_id).ref_id
@@ -198,16 +189,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
                 raise SymbolIsNotTradeableException(symbol)
         except EntityNotFoundException:
             raise SymbolIsNotTradeableException(symbol)
-
-    def sync_account(self, account: DriveWealthAccount):
-        account_data = self.api.get_account(account.ref_id)
-        account.set_from_response(account_data)
-
-        if not self.repository.find_one(
-                DriveWealthUser, {"ref_id": account.drivewealth_user_id}):
-            self.sync_user(account.drivewealth_user_id)
-
-        self.repository.persist(account)
 
     def handle_account_status_change(self, account: DriveWealthAccount,
                                      old_status: Optional[str]):
