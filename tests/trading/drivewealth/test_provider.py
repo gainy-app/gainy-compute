@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from gainy.analytics.service import AnalyticsService
 from gainy.data_access.operators import OperatorIn, OperatorNot
-from gainy.models import AbstractEntityLock
 from gainy.services.notification import NotificationService
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_noop, mock_record_calls
 from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accounts, mock_get_account_money, \
@@ -239,7 +238,6 @@ def test_sync_instrument(monkeypatch):
 
 def test_ensure_portfolio(monkeypatch):
     profile_id = 1
-    trading_account_id = 2
 
     user = DriveWealthUser()
     monkeypatch.setattr(user, "ref_id", USER_ID)
@@ -251,33 +249,15 @@ def test_ensure_portfolio(monkeypatch):
         assert _profile_id == profile_id
         return user
 
-    def mock_get_profile_portfolio(*args):
-        assert args[0] == profile_id
-        assert args[1] == trading_account_id
-        return None
-
-    def _mock_get_account(*args):
-        assert args[0] == trading_account_id
-        return account
-
-    def mock_get_user_accounts(_user_ref_id):
-        assert _user_ref_id == USER_ID
-        return [account]
-
     drivewealth_repository = DriveWealthRepository(None)
     monkeypatch.setattr(drivewealth_repository, "persist", mock_noop)
     monkeypatch.setattr(drivewealth_repository, "get_user", mock_get_user)
-    monkeypatch.setattr(drivewealth_repository, "get_profile_portfolio",
-                        mock_get_profile_portfolio)
-    monkeypatch.setattr(drivewealth_repository, "get_user_accounts",
-                        mock_get_user_accounts)
-    monkeypatch.setattr(drivewealth_repository, "get_account",
-                        _mock_get_account)
     monkeypatch.setattr(
         drivewealth_repository, "find_one",
-        mock_find([(DriveWealthAccount, {
-            "trading_account_id": trading_account_id
-        }, account)]))
+        mock_find([(DriveWealthPortfolio, {
+            "profile_id": profile_id,
+            "drivewealth_account_id": _ACCOUNT_ID,
+        }, None)]))
 
     api = DriveWealthApi(None)
 
@@ -296,7 +276,7 @@ def test_ensure_portfolio(monkeypatch):
 
     provider = DriveWealthProvider(drivewealth_repository, api, None, None,
                                    None)
-    portfolio = provider.ensure_portfolio(profile_id, trading_account_id)
+    portfolio = provider.ensure_portfolio(profile_id, account)
 
     assert portfolio.ref_id == PORTFOLIO_REF_ID
     assert portfolio.drivewealth_account_id == _ACCOUNT_ID
@@ -1035,6 +1015,17 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     executed_amount_sum = Decimal(executed_amount_sum)
     cash_flow_sum = Decimal(cash_flow_sum)
     min_date = datetime.date.today()
+    fund = DriveWealthFund()
+
+    dw_repository = DriveWealthRepository(None)
+
+    def mock_get_profile_fund(*args, **kwargs):
+        assert args[0] == profile_id
+        assert kwargs["collection_id"] == collection_id
+        return fund
+
+    monkeypatch.setattr(dw_repository, "get_profile_fund",
+                        mock_get_profile_fund)
 
     repository = TradingRepository(None)
 
@@ -1067,7 +1058,7 @@ def test_fill_executed_amount(monkeypatch, executed_amount_sum, cash_flow_sum,
     persisted_objects = {}
     monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
 
-    provider = DriveWealthProvider(None, None, repository, None, None)
+    provider = DriveWealthProvider(dw_repository, None, repository, None, None)
 
     portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.equity_value = Decimal(100)
@@ -1113,69 +1104,3 @@ def test_handle_instrument_status_change(monkeypatch):
     provider.handle_instrument_status_change(instrument, new_status)
 
     assert (symbol, status, new_status) in [args for args, kwargs in calls]
-
-
-def test_handle_order(monkeypatch):
-    order_executed_at = datetime.datetime.now()
-    last_order_executed_at = order_executed_at - datetime.timedelta(seconds=1)
-    account_id = 1
-    account_ref_id = "account_ref_id"
-
-    order = DriveWealthOrder()
-    order.last_executed_at = order_executed_at
-    order.account_id = account_id
-
-    account = DriveWealthAccount()
-    account.ref_id = account_ref_id
-
-    portfolio = DriveWealthPortfolio()
-    portfolio.last_order_executed_at = last_order_executed_at
-
-    repository = DriveWealthRepository(None)
-    monkeypatch.setattr(
-        repository, "find_one",
-        mock_find([
-            (DriveWealthAccount, {
-                "ref_id": account_id
-            }, account),
-            (DriveWealthPortfolio, {
-                "drivewealth_account_id": account_ref_id
-            }, portfolio),
-        ]))
-    persisted_objects = {}
-    monkeypatch.setattr(repository, "persist", mock_persist(persisted_objects))
-
-    provider = DriveWealthProvider(repository, None, None, None, None)
-    provider.handle_order(order)
-
-    assert DriveWealthPortfolio in persisted_objects
-    assert portfolio in persisted_objects[DriveWealthPortfolio]
-    assert portfolio.last_order_executed_at == order_executed_at
-
-
-# def test_on_new_transaction(monkeypatch):
-#     account_ref_id = "account_ref_id"
-#
-#     repository = DriveWealthRepository(None)
-#     persisted_objects = {}
-#     monkeypatch.setattr(repository, 'persist', mock_persist(persisted_objects))
-#     provider = DriveWealthProvider(None, None, None, None, None)
-#
-#     execute_calls = []
-#
-#     def mock_execute(self):
-#         assert self.provider == provider
-#         assert self.entity_lock in persisted_objects[AbstractEntityLock]
-#         assert isinstance(self.entity_lock, AbstractEntityLock)
-#         assert self.entity_lock.object_id == account_ref_id
-#         assert self.account_ref_id == account_ref_id
-#         mock_record_calls(execute_calls)()
-#
-#     monkeypatch.setattr(
-#         "gainy.trading.drivewealth.locking_functions.handle_new_transaction.HandleNewTransaction.execute",
-#         mock_execute)
-#
-#     provider = DriveWealthProvider(repository, None, None, None, None)
-#     provider.on_new_transaction(account_ref_id)
-#
-#     assert execute_calls

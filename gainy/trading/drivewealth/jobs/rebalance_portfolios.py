@@ -57,8 +57,12 @@ class RebalancePortfoliosJob:
 
             start_time = time.time()
             try:
-                portfolio = self.provider.ensure_portfolio(
-                    profile_id, trading_account_id)
+                account: DriveWealthAccount = self.repo.find_one(
+                    DriveWealthAccount,
+                    {"trading_account_id": trading_account_id})
+
+                portfolio = self.provider.ensure_portfolio_locking(
+                    profile_id, account)
 
                 logger.info(
                     "Upsert portfolio %s for profile %d account %d in %fs",
@@ -146,6 +150,8 @@ class RebalancePortfoliosJob:
                         "account_id": portfolio.drivewealth_account_id,
                         "portfolio_status": e.portfolio_status.to_dict(),
                     })
+            except TradingAccountNotOpenException:
+                pass
             except Exception as e:
                 logger.exception(e)
 

@@ -8,11 +8,11 @@ from gainy.exceptions import EntityNotFoundException, NotFoundException
 from gainy.models import AbstractEntityLock
 from gainy.trading import MIN_FIRST_DEPOSIT_AMOUNT
 from gainy.trading.drivewealth.exceptions import TradingAccountNotOpenException, BadMissingParametersBodyException
-from gainy.trading.drivewealth.locking_functions.handle_new_transaction import HandleNewTransaction
+from gainy.trading.drivewealth.locking_functions.ensure_portfolio import EnsurePortfolio
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
     DriveWealthAccountStatus, BaseDriveWealthMoneyFlowModel, DriveWealthRedemptionStatus, DriveWealthInstrument, \
-    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthTransactionInterface
+    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase, DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -24,15 +24,6 @@ logger = get_logger(__name__)
 
 
 class DriveWealthProvider(DriveWealthProviderBase):
-
-    def sync_user(self, user_ref_id) -> DriveWealthUser:
-        user: DriveWealthUser = self.repository.find_one(
-            DriveWealthUser, {"ref_id": user_ref_id}) or DriveWealthUser()
-
-        data = self.api.get_user(user_ref_id)
-        user.set_from_response(data)
-        self.repository.persist(user)
-        return user
 
     def sync_profile_trading_accounts(self, profile_id: int):
         repository = self.repository
@@ -123,15 +114,19 @@ class DriveWealthProvider(DriveWealthProviderBase):
         self.repository.persist(trading_order)
         self.repository.persist(portfolio)
 
-    def ensure_portfolio(self, profile_id, trading_account_id):
+    def ensure_portfolio(self, profile_id: int, account: DriveWealthAccount):
+        """
+        :raises TradingAccountNotOpenException:
+        """
         repository = self.repository
-        account: DriveWealthAccount = repository.find_one(
-            DriveWealthAccount, {"trading_account_id": trading_account_id})
         if not account or not account.is_open():
             raise TradingAccountNotOpenException()
 
-        portfolio = repository.get_profile_portfolio(profile_id,
-                                                     trading_account_id)
+        portfolio: DriveWealthPortfolio = repository.find_one(
+            DriveWealthPortfolio, {
+                "profile_id": profile_id,
+                "drivewealth_account_id": account.ref_id,
+            })
 
         if not portfolio:
             name = f"Gainy profile #{profile_id}'s portfolio"
@@ -144,13 +139,24 @@ class DriveWealthProvider(DriveWealthProviderBase):
                                       description)
 
         if not portfolio.drivewealth_account_id:
-            account = self.repository.get_account(trading_account_id)
             self.api.update_account(account.ref_id, portfolio.ref_id)
             portfolio.drivewealth_account_id = account.ref_id
 
         repository.persist(portfolio)
 
         return portfolio
+
+    def ensure_portfolio_locking(self, profile_id: int,
+                                 account: DriveWealthAccount):
+        if not account or not account.is_open():
+            raise TradingAccountNotOpenException()
+
+        entity_lock = AbstractEntityLock(DriveWealthAccount, account.ref_id)
+        self.repository.persist(entity_lock)
+
+        func = EnsurePortfolio(self.repository, self, entity_lock, profile_id,
+                               account)
+        return func.execute()
 
     def sync_account_money(self,
                            account_ref_id: str,
@@ -183,16 +189,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
                 raise SymbolIsNotTradeableException(symbol)
         except EntityNotFoundException:
             raise SymbolIsNotTradeableException(symbol)
-
-    def sync_account(self, account: DriveWealthAccount):
-        account_data = self.api.get_account(account.ref_id)
-        account.set_from_response(account_data)
-
-        if not self.repository.find_one(
-                DriveWealthUser, {"ref_id": account.drivewealth_user_id}):
-            self.sync_user(account.drivewealth_user_id)
-
-        self.repository.persist(account)
 
     def handle_account_status_change(self, account: DriveWealthAccount,
                                      old_status: Optional[str]):
@@ -268,24 +264,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
             raise NotFoundException
 
         return user.profile_id
-
-    def handle_order(self, order: DriveWealthOrder):
-        if not order.last_executed_at:
-            return
-
-        account: DriveWealthAccount = self.repository.find_one(
-            DriveWealthAccount, {"ref_id": order.account_id})
-        if not account:
-            return
-
-        portfolio: DriveWealthPortfolio = self.repository.find_one(
-            DriveWealthPortfolio, {"drivewealth_account_id": account.ref_id})
-        if not portfolio:
-            return
-
-        if not portfolio.last_order_executed_at or order.last_executed_at > portfolio.last_order_executed_at:
-            portfolio.last_order_executed_at = order.last_executed_at
-            self.repository.persist(portfolio)
 
     def sync_redemption(self, redemption_ref_id: str) -> DriveWealthRedemption:
         repository = self.repository
@@ -391,7 +369,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
             repository.upsert_user_account(user.ref_id, account_data)
 
     def ensure_trading_account_created(self, account: DriveWealthAccount,
-                                       profile_id: int):
+                                       profile_id: int) -> TradingAccount:
         repository = self.repository
         if account.trading_account_id:
             trading_account: TradingAccount = repository.find_one(
@@ -411,6 +389,7 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         account.trading_account_id = trading_account.id
         repository.persist(account)
+        return trading_account
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]

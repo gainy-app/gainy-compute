@@ -27,7 +27,9 @@ def test_ticker_match_score():
                 on conflict do nothing;
                 """, {"profile_id": profile_id})
 
-        context_container.recommendation_repository.generate_match_scores(
+        context_container.recommendation_repository.generate_ticker_match_scores(
+            [profile_id])
+        context_container.recommendation_repository.generate_collection_match_scores(
             [profile_id])
 
         with context_container.db_conn.cursor(

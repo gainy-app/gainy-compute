@@ -12,8 +12,8 @@ with profiles as materialized
          (
              select symbol
              from tickers
-             where tickers.type in ('preferred stock', 'common stock', 'crypto', 'etf')
-               and tickers.ms_enabled
+             where tickers.ms_enabled
+             {tickers_where_clause}
      ),
      p_cat as
          (

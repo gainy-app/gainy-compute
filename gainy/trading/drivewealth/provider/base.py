@@ -9,7 +9,8 @@ from gainy.data_access.operators import OperatorNot, OperatorIn, OperatorGt
 from gainy.exceptions import KYCFormHasNotBeenSentException, EntityNotFoundException
 from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth import DriveWealthApi
-from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException
+from gainy.trading.drivewealth.exceptions import InvalidDriveWealthPortfolioStatusException, \
+    InvalidMissingParametersURLException, TradingAccountNotOpenException
 from gainy.trading.drivewealth.models import DriveWealthUser, DriveWealthPortfolio, DriveWealthPortfolioStatus, \
     DriveWealthFund, DriveWealthInstrument, DriveWealthAccount, EXECUTED_AMOUNT_PRECISION, DriveWealthPortfolioHolding, \
     PRECISION, DriveWealthInstrumentStatus, DriveWealthTransaction, DriveWealthSpinOffTransaction, \
@@ -55,6 +56,8 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
             self.sync_portfolio(portfolio, force=force)
             try:
                 self.sync_portfolio_status(portfolio, force=force)
+            except TradingAccountNotOpenException:
+                pass
             except InvalidDriveWealthPortfolioStatusException as e:
                 logger.warning(e,
                                extra={
@@ -89,6 +92,13 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
             self.repository.persist(portfolio)
 
             return portfolio_status
+        except TradingAccountNotOpenException as e:
+            logger.warning(e)
+            account = self.repository.find_one(
+                DriveWealthAccount,
+                {"ref_id": portfolio.drivewealth_account_id})
+            self.sync_account(account)
+            raise e
         except InvalidDriveWealthPortfolioStatusException as e:
             logger.warning(e)
 
@@ -189,7 +199,13 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
             if portfolio_status and portfolio_status.created_at > min_created_at:
                 return portfolio_status
 
-        data = self.api.get_portfolio_status(portfolio)
+        try:
+            data = self.api.get_portfolio_status(portfolio)
+        except InvalidMissingParametersURLException as e:
+            if e.account_is_not_open():
+                raise TradingAccountNotOpenException()
+            raise e
+
         portfolio_status = DriveWealthPortfolioStatus()
         portfolio_status.set_from_response(data)
         if not portfolio_status.is_valid():
@@ -247,6 +263,8 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
                 profile_id, collection_id=collection_id, min_date=min_date)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
                 profile_id, collection_id=collection_id, min_date=min_date)
+            fund = self.repository.get_profile_fund(
+                profile_id, collection_id=collection_id)
         elif symbol:
             min_date = self.trading_repository.get_last_selloff_date(
                 profile_id, symbol=symbol)
@@ -254,6 +272,7 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
                 profile_id, symbol=symbol, min_date=min_date)
             cash_flow_sum = self.trading_repository.calculate_cash_flow_sum(
                 profile_id, symbol=symbol, min_date=min_date)
+            fund = self.repository.get_profile_fund(profile_id, symbol=symbol)
         else:
             raise Exception("You must specify either collection_id or symbol")
 
@@ -302,9 +321,16 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
             order.executed_amount = order.target_amount_delta - error
             logger_extra["executed_amount"] = order.executed_amount
 
-            is_executed = abs(error) < max(
-                EXECUTED_AMOUNT_PRECISION,
-                Decimal(0.0005) * portfolio_status.equity_value)
+            if order.target_amount_delta_relative is None:
+                is_executed = abs(error) < max(
+                    EXECUTED_AMOUNT_PRECISION,
+                    Decimal(0.0005) * portfolio_status.equity_value)
+            else:
+                if not fund:
+                    raise Exception('No fund for %s %d' %
+                                    (order.__class__.__name__, order.id))
+                is_executed = portfolio_status.get_fund_value(
+                    fund.ref_id) < PRECISION
 
             if is_executed:
                 order.status = TradingOrderStatus.EXECUTED_FULLY
@@ -519,6 +545,25 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
                 })
         active_instrument_ids = set(i.ref_id for i in active_instruments)
         fund.remove_instrument_ids(set(instrument_ids) - active_instrument_ids)
+
+    def sync_user(self, user_ref_id) -> DriveWealthUser:
+        user: DriveWealthUser = self.repository.find_one(
+            DriveWealthUser, {"ref_id": user_ref_id}) or DriveWealthUser()
+
+        data = self.api.get_user(user_ref_id)
+        user.set_from_response(data)
+        self.repository.persist(user)
+        return user
+
+    def sync_account(self, account: DriveWealthAccount):
+        account_data = self.api.get_account(account.ref_id)
+        account.set_from_response(account_data)
+
+        if not self.repository.find_one(
+                DriveWealthUser, {"ref_id": account.drivewealth_user_id}):
+            self.sync_user(account.drivewealth_user_id)
+
+        self.repository.persist(account)
 
     def sync_account_positions(
             self,
