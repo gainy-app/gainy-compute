@@ -267,24 +267,6 @@ class DriveWealthProvider(DriveWealthProviderBase):
 
         return user.profile_id
 
-    def handle_order(self, order: DriveWealthOrder):
-        if not order.last_executed_at:
-            return
-
-        account: DriveWealthAccount = self.repository.find_one(
-            DriveWealthAccount, {"ref_id": order.account_id})
-        if not account:
-            return
-
-        portfolio: DriveWealthPortfolio = self.repository.find_one(
-            DriveWealthPortfolio, {"drivewealth_account_id": account.ref_id})
-        if not portfolio:
-            return
-
-        if not portfolio.last_order_executed_at or order.last_executed_at > portfolio.last_order_executed_at:
-            portfolio.last_order_executed_at = order.last_executed_at
-            self.repository.persist(portfolio)
-
     def sync_redemption(self, redemption_ref_id: str) -> DriveWealthRedemption:
         repository = self.repository
 

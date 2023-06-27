@@ -28,6 +28,7 @@ ONE = Decimal(1)
 ZERO = Decimal(0)
 DW_WEIGHT_PRECISION = 4
 DW_WEIGHT_THRESHOLD = Decimal(10)**(-DW_WEIGHT_PRECISION)
+WEIGHT_ERROR_THRESHOLD = Decimal(1e-2)
 
 DW_ERRORS_MAPPING = [
     {
@@ -495,7 +496,7 @@ class DriveWealthPortfolioStatusHolding:
             return True
 
         diff = abs(weight_sum - 1)
-        if diff > 2e-3 and self.value > 0:
+        if diff > WEIGHT_ERROR_THRESHOLD and self.value > 0:
             logger.info(f'is_valid: weight_sum is invalid, diff: %.6f',
                         diff,
                         extra=logger_extra)
@@ -591,8 +592,8 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
         equity_value = self.equity_value
 
         diff = abs(weight_sum - 1)
-        if diff > 2e-3 and equity_value > 0:
-            logger.info(f'is_valid: weight_sum is invalid, diff: %6.f',
+        if diff > WEIGHT_ERROR_THRESHOLD and equity_value > 0:
+            logger.info(f'is_valid: weight_sum is invalid, diff: %.6f',
                         diff,
                         extra=logger_extra)
             return False
@@ -791,7 +792,6 @@ class DriveWealthPortfolio(BaseDriveWealthModel):
     is_artificial = False
     waiting_rebalance_since: Optional[datetime.datetime] = None
     last_rebalance_at: Optional[datetime.datetime] = None
-    last_order_executed_at: Optional[datetime.datetime] = None
     last_sync_at: Optional[datetime.datetime] = None
     last_transaction_id: int = None
     pending_redemptions_amount_sum: Decimal = None
