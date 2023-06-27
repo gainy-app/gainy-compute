@@ -13,7 +13,7 @@ from gainy.trading.drivewealth.provider.interface import DriveWealthProviderInte
 from gainy.trading.exceptions import InsufficientFundsException, InsufficientHoldingValueException
 from gainy.trading.repository import TradingRepository
 from gainy.trading.models import TradingAccount, FundingAccount, TradingCollectionVersion, \
-    TradingOrderStatus, TradingOrderSource, TradingOrder
+    TradingOrderStatus, TradingOrderSource, TradingOrder, TradingMoneyFlow, TradingMoneyFlowStatus, TradingMoneyFlowType
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -315,6 +315,24 @@ class TradingService:
 
         self.sync_balances(trading_account)
         return self.trading_repository.refresh(trading_account)
+
+    def reward_with_cash(self, trading_account: TradingAccount,
+                         amount: Decimal) -> TradingMoneyFlow:
+        entity = self._get_provider_service().reward_with_cash(
+            trading_account.id, amount)
+
+        money_flow = TradingMoneyFlow()
+        money_flow.profile_id = trading_account.profile_id
+        money_flow.status = TradingMoneyFlowStatus.PENDING
+        money_flow.type = TradingMoneyFlowType.CASH_REWARD
+        money_flow.amount = amount
+        money_flow.trading_account_id = trading_account.id
+        self.trading_repository.persist(money_flow)
+
+        entity.money_flow_id = money_flow.id
+        self.trading_repository.persist(entity)
+
+        return money_flow
 
     def _get_provider_service(self):
         return self.drivewealth_provider

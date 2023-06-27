@@ -2,6 +2,8 @@ from typing import Optional
 
 import datetime
 
+from _decimal import Decimal
+
 from gainy.billing.models import PaymentTransaction, Invoice, InvoiceStatus
 from gainy.data_access.operators import OperatorGt
 from gainy.exceptions import EntityNotFoundException, NotFoundException
@@ -12,7 +14,7 @@ from gainy.trading.drivewealth.locking_functions.ensure_portfolio import EnsureP
 from gainy.trading.drivewealth.models import DriveWealthAccountMoney, DriveWealthAccount, \
     DriveWealthUser, DriveWealthPortfolio, DriveWealthInstrumentStatus, \
     DriveWealthAccountStatus, BaseDriveWealthMoneyFlowModel, DriveWealthRedemptionStatus, DriveWealthInstrument, \
-    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement
+    DriveWealthOrder, DriveWealthRedemption, DriveWealthStatement, DriveWealthDeposit
 
 from gainy.trading.drivewealth.provider.base import DriveWealthProviderBase, DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
@@ -408,6 +410,13 @@ class DriveWealthProvider(DriveWealthProviderBase):
         account.trading_account_id = trading_account.id
         repository.persist(account)
         return trading_account
+
+    def reward_with_cash(self, trading_account_id: int,
+                         amount: Decimal) -> DriveWealthDeposit:
+        account = self.repository.get_account(trading_account_id)
+        deposit = self.api.create_deposit_promo(amount, account)
+        self.repository.persist(deposit)
+        return deposit
 
     def _get_trading_account(self, user_ref_id) -> DriveWealthAccount:
         return self.repository.get_user_accounts(user_ref_id)[0]

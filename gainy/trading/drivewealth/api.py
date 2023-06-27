@@ -13,7 +13,7 @@ from gainy.trading.drivewealth.config import DRIVEWEALTH_APP_KEY, DRIVEWEALTH_RI
 from gainy.trading.drivewealth.exceptions import DriveWealthApiException
 from gainy.trading.drivewealth.locking_functions.update_drive_wealth_auth_token import UpdateDriveWealthAuthToken
 from gainy.trading.drivewealth.models import DriveWealthAuthToken, DriveWealthPortfolio, DriveWealthFund, \
-    DriveWealthAccount, DriveWealthBankAccount, DriveWealthRedemption
+    DriveWealthAccount, DriveWealthBankAccount, DriveWealthRedemption, DriveWealthDeposit
 from gainy.trading.drivewealth.repository import DriveWealthRepository
 from gainy.utils import get_logger, ENV_PRODUCTION, env
 
@@ -74,6 +74,20 @@ class DriveWealthApi:
                                       'statusComment': 'Updated by Gainy',
                                   })
         redemption.set_from_response(data)
+
+    def create_deposit_promo(
+            self, amount: Decimal,
+            account: DriveWealthAccount) -> DriveWealthDeposit:
+        response = self._make_request(
+            "POST", "/funding/deposits", {
+                'accountNo': account.ref_no,
+                'amount': amount,
+                'currency': 'USD',
+                'type': 'PROMOTION',
+            })
+        entity = DriveWealthDeposit()
+        entity.set_from_response(response)
+        return entity
 
     def get_countries(self, status: str = None):
         get_data = {}

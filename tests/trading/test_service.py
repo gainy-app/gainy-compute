@@ -1,9 +1,14 @@
+from _decimal import Decimal
+
 from gainy.plaid.models import PlaidAccessToken, PlaidAccount
 from gainy.plaid.service import PlaidService
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist
+from gainy.trading.drivewealth.models import DriveWealthDeposit
+from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
 from gainy.trading.service import TradingService
 from gainy.trading.repository import TradingRepository
-from gainy.trading.models import FundingAccount
+from gainy.trading.models import FundingAccount, TradingAccount, TradingMoneyFlow, TradingMoneyFlowStatus, \
+    TradingMoneyFlowType
 
 
 def test_update_funding_accounts_balance(monkeypatch):
@@ -51,3 +56,50 @@ def test_update_funding_accounts_balance(monkeypatch):
 
     assert funding_account in persisted_objects[FundingAccount]
     assert funding_account.balance == balance_current
+
+
+def test_reward_with_cash(monkeypatch):
+    amount = Decimal(1)
+    trading_account_id = 2
+    profile_id = 3
+    money_flow_id = 4
+
+    trading_account = TradingAccount()
+    trading_account.profile_id = profile_id
+    trading_account.id = trading_account_id
+
+    drivewealth_deposit = DriveWealthDeposit()
+
+    trading_repository = TradingRepository(None)
+    persisted_objects = {}
+
+    def custom_mock_persist(*args):
+        mock_persist(persisted_objects)(*args)
+
+        if isinstance(args[0], TradingMoneyFlow):
+            args[0].id = money_flow_id
+
+    monkeypatch.setattr(trading_repository, "persist", custom_mock_persist)
+
+    drivewealth_provider = DriveWealthProvider(None, None, None, None, None)
+
+    def mock_reward_with_cash(_trading_account_id, _amount):
+        assert _trading_account_id == trading_account_id
+        assert _amount == amount
+        return drivewealth_deposit
+
+    monkeypatch.setattr(drivewealth_provider, "reward_with_cash",
+                        mock_reward_with_cash)
+
+    trading_service = TradingService(trading_repository, drivewealth_provider,
+                                     None)
+    money_flow = trading_service.reward_with_cash(trading_account, amount)
+
+    assert money_flow in persisted_objects[TradingMoneyFlow]
+    assert drivewealth_deposit in persisted_objects[DriveWealthDeposit]
+    assert money_flow.profile_id == trading_account.profile_id
+    assert money_flow.status == TradingMoneyFlowStatus.PENDING
+    assert money_flow.type == TradingMoneyFlowType.CASH_REWARD
+    assert money_flow.amount == amount
+    assert money_flow.trading_account_id == trading_account.id
+    assert drivewealth_deposit.money_flow_id == money_flow_id

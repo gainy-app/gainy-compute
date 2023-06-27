@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 
+from _decimal import Decimal
+
 from gainy.trading.drivewealth.models import DriveWealthAccountPositions, DriveWealthPortfolio, DriveWealthAccount, \
-    DriveWealthPortfolioStatus
+    DriveWealthPortfolioStatus, DriveWealthDeposit
 from gainy.trading.models import TradingAccount
 
 
@@ -57,4 +59,9 @@ class DriveWealthProviderInterface(ABC):
             portfolio: DriveWealthPortfolio,
             force: bool = False,
             allow_invalid: bool = False) -> DriveWealthPortfolioStatus:
+        pass
+
+    @abstractmethod
+    def reward_with_cash(self, trading_account_id: int,
+                         amount: Decimal) -> DriveWealthDeposit:
         pass

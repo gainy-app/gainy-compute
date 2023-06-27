@@ -1,7 +1,7 @@
 from gainy.analytics.service import AnalyticsService
 from gainy.tests.mocks.repository_mocks import mock_find, mock_persist, mock_record_calls
 from gainy.trading.drivewealth.models import DriveWealthDeposit
-from gainy.trading.models import TradingMoneyFlow, FundingAccount
+from gainy.trading.models import TradingMoneyFlow, FundingAccount, TradingMoneyFlowType
 from gainy.services.notification import NotificationService
 from gainy.trading.drivewealth.event_handlers import DepositsUpdatedEventHandler
 from gainy.trading.drivewealth.provider.provider import DriveWealthProvider
@@ -29,6 +29,7 @@ def test_exists(monkeypatch):
     money_flow.profile_id = profile_id
     money_flow.funding_account_id = funding_account_id
     money_flow.amount = amount
+    money_flow.type = TradingMoneyFlowType.MANUAL
 
     funding_account = FundingAccount()
     funding_account.mask = account_mask
