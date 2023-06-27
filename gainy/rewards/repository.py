@@ -21,7 +21,7 @@ class RewardRepository(Repository):
             where step1_signed_up
               and step2_brokerate_account_open 
               and step3_deposited_enough 
-              and not is_complete"""
+              and not is_payment_started"""
 
         with self.db_conn.cursor() as cursor:
             cursor.execute(query)
