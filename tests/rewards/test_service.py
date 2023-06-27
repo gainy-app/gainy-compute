@@ -1,8 +1,6 @@
-from _decimal import Decimal
-
 from gainy.models import Invitation
 from gainy.rewards.models import InvitationCashReward
-from gainy.rewards.service import RewardService
+from gainy.rewards.service import RewardService, REWARD_INVITATION_CASH_AMOUNT
 from gainy.tests.mocks.repository_mocks import mock_persist
 from gainy.trading.models import TradingAccount, TradingMoneyFlow
 from gainy.trading.repository import TradingRepository
@@ -12,7 +10,6 @@ from gainy.trading.service import TradingService
 def test(monkeypatch):
     profile_id = 1
     invitation_id = 2
-    amount = Decimal(3)
     money_flow_id = 4
 
     trading_account = TradingAccount()
@@ -27,7 +24,7 @@ def test(monkeypatch):
 
     def mock_reward_with_cash(_trading_account, _amount):
         assert _trading_account == trading_account
-        assert _amount == amount
+        assert _amount == REWARD_INVITATION_CASH_AMOUNT
         return money_flow
 
     monkeypatch.setattr(trading_service, "reward_with_cash",
