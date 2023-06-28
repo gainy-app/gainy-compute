@@ -111,16 +111,6 @@ def batch_iter(ary, batch_size: int = 100) -> Iterable[List[Any]]:
     return np.array_split(ary, n_chunks)
 
 
-def current_version() -> str:
-    import importlib
-
-    try:
-        return importlib.metadata.version("gainy-compute")
-    except importlib.metadata.PackageNotFoundError as e:
-        logging.error(f"Package not found: {str(e)}")
-        return ENV_LOCAL
-
-
 def db_connect() -> connection:
     HOST = os.getenv("PG_HOST")
     PORT = os.getenv("PG_PORT")
@@ -132,4 +122,6 @@ def db_connect() -> connection:
         raise Exception('Missing db connection env variables')
 
     DB_CONN_STRING = f"postgresql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}?options=-csearch_path%3D{PUBLIC_SCHEMA_NAME}"
-    return psycopg2.connect(DB_CONN_STRING)
+    return psycopg2.connect(DB_CONN_STRING,
+                            connect_timeout=2,
+                            tcp_user_timeout=30)
