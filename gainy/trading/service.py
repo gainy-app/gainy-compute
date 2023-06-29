@@ -292,8 +292,18 @@ class TradingService:
 
     def check_enough_withdrawable_cash(self, trading_account_id: int,
                                        needed_amount: Decimal):
-        trading_account = self.get_trading_account(trading_account_id,
-                                                   refresh=True)
+        trading_account = self.get_trading_account(trading_account_id)
+        logger.info('check_enough_withdrawable_cash 0',
+                    extra={
+                        "profile_id": trading_account.profile_id,
+                        "account": trading_account.to_dict(),
+                    })
+        self.sync_balances(trading_account)
+        logger.info('check_enough_withdrawable_cash 1',
+                    extra={
+                        "profile_id": trading_account.profile_id,
+                        "account": trading_account.to_dict(),
+                    })
 
         if Decimal(trading_account.cash_available_for_withdrawal
                    or 0) < needed_amount:
@@ -302,19 +312,13 @@ class TradingService:
     def check_tradeable_symbol(self, symbol: str):
         return self._get_provider_service().check_tradeable_symbol(symbol)
 
-    def get_trading_account(self,
-                            trading_account_id: int,
-                            refresh: bool = False) -> TradingAccount:
+    def get_trading_account(self, trading_account_id: int) -> TradingAccount:
         trading_account = self.trading_repository.find_one(
             TradingAccount, {"id": trading_account_id})
         if not trading_account:
             raise EntityNotFoundException(TradingAccount)
 
-        if not refresh:
-            return trading_account
-
-        self.sync_balances(trading_account)
-        return self.trading_repository.refresh(trading_account)
+        return trading_account
 
     def _get_provider_service(self):
         return self.drivewealth_provider
