@@ -193,7 +193,7 @@ class DriveWealthRepository(Repository):
             select distinct drivewealth_portfolios.ref_id 
             from app.drivewealth_portfolios 
                      join app.drivewealth_deposits on drivewealth_deposits.trading_account_ref_id = drivewealth_portfolios.drivewealth_account_id
-            where ('x' || md5(drivewealth_portfolios.ref_id))::bit(31)::int % %(batch_cnt)s = %(batch_id)s
+            where ('x' || md5(drivewealth_portfolios.ref_id))::bit(31)::int %% %(batch_cnt)s = %(batch_id)s
         """
         params = {
             "batch_id": batch_id,
