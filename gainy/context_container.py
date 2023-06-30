@@ -19,10 +19,12 @@ from gainy.billing.stripe.repository import StripeRepository
 from gainy.data_access.repository import Repository
 from gainy.optimization.collection.repository import CollectionOptimizerRepository
 from gainy.plaid.service import PlaidService
+from gainy.rewards.repository import RewardRepository
 from gainy.queue_processing.aws_message_handler import AwsMessageHandler
 from gainy.queue_processing.dispatcher import QueueMessageDispatcher
 from gainy.recommendation.repository import RecommendationRepository
 from gainy.recommendation.serivce import RecommendationService
+from gainy.rewards.service import RewardService
 from gainy.services.notification import NotificationService
 from gainy.services.sendgrid import SendGridService
 from gainy.trading.drivewealth.provider.transaction_handler import DriveWealthTransactionHandler
@@ -59,6 +61,14 @@ class ContextContainer(AbstractContextManager):
     @cached_property
     def recommendation_repository(self) -> RecommendationRepository:
         return RecommendationRepository(self.db_conn)
+
+    @cached_property
+    def reward_repository(self) -> RewardRepository:
+        return RewardRepository(self.db_conn)
+
+    @cached_property
+    def reward_service(self) -> RewardService:
+        return RewardService(self.trading_service, self.trading_repository)
 
     @cached_property
     def recommendation_service(self) -> RecommendationService:

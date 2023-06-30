@@ -1,7 +1,7 @@
 from gainy.trading.drivewealth.abstract_event_handler import AbstractDriveWealthEventHandler
 from gainy.trading.drivewealth.models import DriveWealthDeposit
 from gainy.trading.exceptions import TradingPausedException
-from gainy.trading.models import TradingMoneyFlowStatus, FundingAccount
+from gainy.trading.models import TradingMoneyFlowStatus, FundingAccount, TradingMoneyFlowType
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -37,7 +37,7 @@ class DepositsUpdatedEventHandler(AbstractDriveWealthEventHandler):
                         "deposit": deposit.to_dict(),
                     })
 
-        if not money_flow:
+        if not money_flow or money_flow.type != TradingMoneyFlowType.MANUAL:
             return
 
         profile_id = money_flow.profile_id

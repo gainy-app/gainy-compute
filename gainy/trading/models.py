@@ -30,6 +30,11 @@ class TradingMoneyFlowStatus(enum.Enum):
     FAILED = "FAILED"
 
 
+class TradingMoneyFlowType(enum.Enum):
+    MANUAL = "MANUAL"
+    CASH_REWARD = "CASH_REWARD"
+
+
 class TradingOrderStatus(enum.Enum):
     PENDING = "PENDING"
     PENDING_EXECUTION = "PENDING_EXECUTION"
@@ -223,6 +228,7 @@ class TradingMoneyFlow(BaseModel):
     id = None
     profile_id = None
     status: TradingMoneyFlowStatus = None
+    type: TradingMoneyFlowType = None
     amount: Decimal = None
     trading_account_id = None
     funding_account_id = None
@@ -244,6 +250,7 @@ class TradingMoneyFlow(BaseModel):
 
         self.status = TradingMoneyFlowStatus[
             row["status"]] if row["status"] else None
+        self.type = TradingMoneyFlowType[row["type"]] if row["type"] else None
         return self
 
     @classproperty
@@ -257,8 +264,8 @@ class TradingMoneyFlow(BaseModel):
     def to_dict(self) -> dict:
         return {
             **super().to_dict(),
-            "status":
-            self.status.name if self.status else None,
+            "status": self.status.name if self.status else None,
+            "type": self.type.name if self.type else None,
         }
 
 

@@ -67,3 +67,23 @@ class AbstractEntityLock(BaseModel, ResourceVersion):
 
     def update_version(self):
         self.version += 1
+
+
+class Invitation(BaseModel):
+    id = None
+    from_profile_id = None
+    to_profile_id = None
+    created_at = None
+
+    key_fields = ["id"]
+
+    db_excluded_fields = ["created_at"]
+    non_persistent_fields = ["id", "created_at"]
+
+    @classproperty
+    def schema_name(self) -> str:
+        return "app"
+
+    @classproperty
+    def table_name(self) -> str:
+        return "invitations"

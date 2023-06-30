@@ -11,7 +11,8 @@ from gainy.data_access.operators import OperatorLte, OperatorIn
 from gainy.data_access.repository import Repository
 from gainy.exceptions import NotFoundException, EntityNotFoundException
 from gainy.trading.exceptions import TradingPausedException
-from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, ProfileKycStatus, KycForm, AbstractTradingOrder
+from gainy.trading.models import TradingOrderStatus, TradingCollectionVersion, TradingOrder, ProfileKycStatus, KycForm, \
+    AbstractTradingOrder, TradingAccount
 from gainy.utils import get_logger
 
 logger = get_logger(__name__)
@@ -353,3 +354,12 @@ class TradingRepository(Repository):
             return
 
         raise TradingPausedException()
+
+    def get_trading_account(self, profile_id: int) -> TradingAccount:
+        trading_account = self.find_one(TradingAccount,
+                                        {"profile_id": profile_id})
+
+        if not trading_account:
+            raise NotFoundException()
+
+        return trading_account
