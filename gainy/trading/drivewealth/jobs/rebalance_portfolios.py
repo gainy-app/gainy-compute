@@ -1,3 +1,5 @@
+import argparse
+
 import os
 
 import psycopg2.errors
@@ -45,7 +47,7 @@ class RebalancePortfoliosJob:
         self.transaction_handler = transaction_handler
         self.trading_service = trading_service
 
-    def run(self):
+    def run(self, batch_id=0, batch_cnt=1):
         # todo thread safety
 
         for profile_id, trading_account_id in self._iterate_accounts_with_pending_trading_collection_versions(
@@ -77,7 +79,8 @@ class RebalancePortfoliosJob:
                 logger.exception(e)
 
         force_rebalance_portfolios = []
-        for portfolio in self.repo.iterate_all(DriveWealthPortfolio):
+        for portfolio in self.drivewealth_repository.iterate_active_portfolios(
+                batch_id, batch_cnt):
             portfolio: DriveWealthPortfolio
             if portfolio.is_artificial:
                 continue
@@ -136,8 +139,6 @@ class RebalancePortfoliosJob:
 
                 self.provider.send_portfolio_to_api(portfolio)
                 force_rebalance_portfolios.append(portfolio)
-
-                self.repo.commit()
             except (psycopg2.errors.OperationalError,
                     DriveWealthApiException) as e:
                 logger.exception(e)
@@ -154,6 +155,8 @@ class RebalancePortfoliosJob:
                 pass
             except Exception as e:
                 logger.exception(e)
+            finally:
+                self.repo.commit()
 
         self._force_rebalance(force_rebalance_portfolios)
 
@@ -511,7 +514,20 @@ class RebalancePortfoliosJob:
         return result
 
 
-def cli():
+def cli(args=None):
+    parser = argparse.ArgumentParser(description='Rebalance DW portfolios.')
+    parser.add_argument('--batch-id',
+                        dest='batch_id',
+                        type=int,
+                        default=0,
+                        required=False)
+    parser.add_argument('--batch-cnt',
+                        dest='batch_cnt',
+                        type=int,
+                        default=1,
+                        required=False)
+    args = parser.parse_args(args)
+
     try:
         with ContextContainer() as context_container:
             job = RebalancePortfoliosJob(
@@ -520,7 +536,7 @@ def cli():
                 context_container.drivewealth_provider,
                 context_container.drivewealth_transaction_handler,
                 context_container.trading_service)
-            job.run()
+            job.run(args.batch_id, args.batch_cnt)
 
     except Exception as e:
         logger.exception(e)

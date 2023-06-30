@@ -1,6 +1,8 @@
+from operator import itemgetter
+
 from psycopg2.extras import RealDictCursor
 
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Iterable
 
 from gainy.data_access.operators import OperatorGt, OperatorIn
 from gainy.data_access.repository import Repository
@@ -182,3 +184,25 @@ class DriveWealthRepository(Repository):
             except EntityNotFoundException:
                 pass
         return [i for i in weights if i["symbol"] in tradeable_symbols]
+
+    def iterate_active_portfolios(self,
+                                  batch_id=0,
+                                  batch_cnt=1
+                                  ) -> Iterable[DriveWealthPortfolio]:
+        query = """
+            select distinct drivewealth_portfolios.ref_id 
+            from app.drivewealth_portfolios 
+                     join app.drivewealth_deposits on drivewealth_deposits.trading_account_ref_id = drivewealth_portfolios.drivewealth_account_id
+            where ('x' || md5(drivewealth_portfolios.ref_id))::bit(31)::int %% %(batch_cnt)s = %(batch_id)s
+        """
+        params = {
+            "batch_id": batch_id,
+            "batch_cnt": batch_cnt,
+        }
+
+        with self.db_conn.cursor() as cursor:
+            cursor.execute(query, params)
+            portfolio_ids = list(map(itemgetter(0), cursor.fetchall()))
+
+        yield from self.iterate_all(DriveWealthPortfolio,
+                                    {"ref_id": OperatorIn(portfolio_ids)})

@@ -29,6 +29,7 @@ logger = get_logger(__name__)
 DRIVE_WEALTH_PORTFOLIO_STATUS_TTL = 300  # in seconds
 DRIVE_WEALTH_ACCOUNT_MONEY_STATUS_TTL = 300  # in seconds
 DRIVE_WEALTH_ACCOUNT_POSITIONS_STATUS_TTL = 300  # in seconds
+DRIVE_WEALTH_PORTFOLIO_REBALANCE_TIME_LAG = 300  # in seconds
 
 
 class DriveWealthProviderBase(DriveWealthProviderInterface):
@@ -128,14 +129,17 @@ class DriveWealthProviderBase(DriveWealthProviderInterface):
 
         profile_id = trading_account.profile_id
 
+        # Sometimes DW returns last_portfolio_rebalance_at that is in the past...
+        pending_execution_to = portfolio_status.last_portfolio_rebalance_at - datetime.timedelta(
+            seconds=DRIVE_WEALTH_PORTFOLIO_REBALANCE_TIME_LAG)
+
         by_collection: Dict[int, list[TradingCollectionVersion]] = {}
         by_symbol: Dict[str, list[TradingOrder]] = {}
         for trading_order in self.trading_repository.iterate_trading_orders(
                 profile_id=trading_account.profile_id,
                 trading_account_id=trading_account.id,
                 status=TradingOrderStatus.PENDING_EXECUTION,
-                pending_execution_to=portfolio_status.
-                last_portfolio_rebalance_at):
+                pending_execution_to=pending_execution_to):
 
             if isinstance(trading_order, TradingCollectionVersion):
                 collection_id = trading_order.collection_id

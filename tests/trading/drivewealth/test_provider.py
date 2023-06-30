@@ -11,6 +11,7 @@ from gainy.tests.mocks.trading.drivewealth.api_mocks import mock_get_user_accoun
     mock_get_account_positions, mock_get_account, PORTFOLIO_STATUS, FUND1_ID, USER_ID, PORTFOLIO, PORTFOLIO_REF_ID, \
     FUND1_TARGET_WEIGHT, FUND2_ID, CASH_ACTUAL_VALUE, PORTFOLIO_STATUS_EQUITY_VALUE, CASH_TARGET_WEIGHT, \
     FUND2_TARGET_WEIGHT
+from gainy.trading.drivewealth.provider.base import DRIVE_WEALTH_PORTFOLIO_REBALANCE_TIME_LAG
 from gainy.trading.drivewealth.provider.misc import normalize_symbol
 from gainy.trading.drivewealth.provider.rebalance_helper import DriveWealthProviderRebalanceHelper
 from gainy.trading.models import TradingAccount, TradingCollectionVersion, TradingOrder, TradingOrderStatus
@@ -776,7 +777,9 @@ def test_update_trading_orders_pending_execution_from_portfolio_status(
         assert kwargs["profile_id"] == profile_id
         assert kwargs["trading_account_id"] == trading_account_id
         assert kwargs["status"] == TradingOrderStatus.PENDING_EXECUTION
-        assert kwargs["pending_execution_to"] == last_portfolio_rebalance_at
+        assert kwargs[
+            "pending_execution_to"] == last_portfolio_rebalance_at - datetime.timedelta(
+                seconds=DRIVE_WEALTH_PORTFOLIO_REBALANCE_TIME_LAG)
         return [trading_order, trading_collection_version]
 
     monkeypatch.setattr(repository, "iterate_trading_orders",

@@ -62,6 +62,8 @@ def test_rebalance_portfolios(monkeypatch):
     repository = DriveWealthRepository(None)
     monkeypatch.setattr(repository, "portfolio_has_pending_orders",
                         lambda p: True)
+    monkeypatch.setattr(repository, "iterate_active_portfolios",
+                        lambda *args: [portfolio1, portfolio2])
 
     provider = DriveWealthProvider(repository, None, None, None, None)
     send_portfolio_to_api_calls = []
@@ -93,9 +95,6 @@ def test_rebalance_portfolios(monkeypatch):
         ))
 
     trading_repository = TradingRepository(None)
-    monkeypatch.setattr(
-        trading_repository, "iterate_all",
-        mock_find([(DriveWealthPortfolio, None, [portfolio1, portfolio2])]))
     monkeypatch.setattr(trading_repository, "commit", mock_noop)
     monkeypatch.setattr(
         trading_repository, "find_one",
