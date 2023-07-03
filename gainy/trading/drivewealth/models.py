@@ -608,18 +608,6 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
     def is_valid(self) -> bool:
         logger_extra = {"portfolio_status": self.data}
 
-        if self.cash_target_weight < 0 or self.cash_target_weight > 1:
-            logger.info(f'is_valid: cash_target_weight is invalid (%.6f)',
-                        self.cash_target_weight,
-                        extra=logger_extra)
-            return False
-
-        if self.cash_actual_weight < 0 or self.cash_actual_weight > 1:
-            logger.info(f'is_valid: cash_actual_weight is invalid (%.6f)',
-                        self.cash_actual_weight,
-                        extra=logger_extra)
-            return False
-
         if self.cash_value < 0:
             logger.info(f'is_valid: cash_value is invalid (%.6f)',
                         self.cash_value,
@@ -638,6 +626,19 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
     def is_valid_weights(self) -> bool:
         logger_extra = {"portfolio_status": self.data}
+
+        if self.cash_target_weight < 0 or self.cash_target_weight > 1:
+            logger.info(f'is_valid: cash_target_weight is invalid (%.6f)',
+                        self.cash_target_weight,
+                        extra=logger_extra)
+            return False
+
+        if self.cash_actual_weight < 0 or self.cash_actual_weight > 1:
+            logger.info(f'is_valid: cash_actual_weight is invalid (%.6f)',
+                        self.cash_actual_weight,
+                        extra=logger_extra)
+            return False
+
         weight_sum = Decimal(self.cash_actual_weight)
         for holding_id, holding in self.holdings.items():
             if not holding.is_valid_weights():
