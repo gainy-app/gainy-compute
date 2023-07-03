@@ -473,8 +473,20 @@ class DriveWealthPortfolioStatusHolding:
 
     def is_valid(self) -> bool:
         logger_extra = {"holding": self.data}
+
+        if self.value < 0:
+            logger.info(f'is_valid: value is invalid (%.6f)',
+                        self.value,
+                        extra=logger_extra)
+            return False
+
         value_sum = Decimal(0)
         for holding in self.holdings:
+            if holding.value < 0:
+                logger.info(f'is_valid: value is invalid (%.6f)',
+                            self.value,
+                            extra=logger_extra)
+                return False
             value_sum += holding.value
 
         diff = abs(value_sum - self.value)
@@ -488,6 +500,32 @@ class DriveWealthPortfolioStatusHolding:
 
     def is_valid_weights(self) -> bool:
         logger_extra = {"holding": self.data}
+
+        if self.target_weight < 0 or self.target_weight > 1:
+            logger.info(f'is_valid: target_weight is invalid (%.6f)',
+                        self.target_weight,
+                        extra=logger_extra)
+            return False
+
+        if self.actual_weight < 0 or self.actual_weight > 1:
+            logger.info(f'is_valid: actual_weight is invalid (%.6f)',
+                        self.actual_weight,
+                        extra=logger_extra)
+            return False
+
+        for holding in self.holdings:
+            if holding.target_weight < 0 or holding.target_weight > 1:
+                logger.info(f'is_valid: target_weight is invalid (%.6f)',
+                            self.target_weight,
+                            extra=logger_extra)
+                return False
+
+            if holding.actual_weight < 0 or holding.actual_weight > 1:
+                logger.info(f'is_valid: actual_weight is invalid (%.6f)',
+                            self.actual_weight,
+                            extra=logger_extra)
+                return False
+
         try:
             weight_sum = sum(holding.actual_weight
                              for holding in self.holdings)
@@ -569,6 +607,25 @@ class DriveWealthPortfolioStatus(BaseDriveWealthModel):
 
     def is_valid(self) -> bool:
         logger_extra = {"portfolio_status": self.data}
+
+        if self.cash_target_weight < 0 or self.cash_target_weight > 1:
+            logger.info(f'is_valid: cash_target_weight is invalid (%.6f)',
+                        self.cash_target_weight,
+                        extra=logger_extra)
+            return False
+
+        if self.cash_actual_weight < 0 or self.cash_actual_weight > 1:
+            logger.info(f'is_valid: cash_actual_weight is invalid (%.6f)',
+                        self.cash_actual_weight,
+                        extra=logger_extra)
+            return False
+
+        if self.cash_value < 0:
+            logger.info(f'is_valid: cash_value is invalid (%.6f)',
+                        self.cash_value,
+                        extra=logger_extra)
+            return False
+
         for holding_id, holding in self.holdings.items():
             if holding.is_valid():
                 continue

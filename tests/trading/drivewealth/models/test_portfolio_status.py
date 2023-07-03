@@ -1,3 +1,5 @@
+import logging
+
 import copy
 
 import pytest
@@ -18,45 +20,75 @@ def test_set_from_response(monkeypatch):
     assert portfolio_status.is_valid()
 
 
-def get_test_invalid_t():
-    return range(9)
-
-
-def get_test_invalid_sign():
-    return [-1, 1]
-
-
-@pytest.mark.parametrize("t", get_test_invalid_t())
-@pytest.mark.parametrize("sign", get_test_invalid_sign())
-def test_invalid(monkeypatch, t, sign):
-    portfolio_status = DriveWealthPortfolioStatus()
-    data = copy.deepcopy(PORTFOLIO_STATUS)
-
-    if t == 0:
-        # data["equity"] += Decimal(1.01) * sign
-        return
-    elif t == 1:
+def get_test_invalid_data():
+    for sign in [-1, 1]:
+        data = copy.deepcopy(PORTFOLIO_STATUS)
         data["holdings"][0]["actual"] += (WEIGHT_ERROR_THRESHOLD +
                                           Decimal(1e-3)) * sign
-    elif t == 2:
-        # data["holdings"][0]["value"] += Decimal(1.01) * sign
-        return
-    elif t == 3:
+        yield data
+
+        data = copy.deepcopy(PORTFOLIO_STATUS)
         data["holdings"][1]["actual"] += (WEIGHT_ERROR_THRESHOLD +
                                           Decimal(1e-3)) * sign
-    elif t == 4:
-        # data["holdings"][1]["target"] += Decimal(0.01) * sign
-        return
-    elif t == 5:
+        yield data
+
+        data = copy.deepcopy(PORTFOLIO_STATUS)
         data["holdings"][1]["value"] += Decimal(1.01) * sign
-    elif t == 6:
+        yield data
+
+        data = copy.deepcopy(PORTFOLIO_STATUS)
         data["holdings"][1]["holdings"][0]["actual"] += float(
             WEIGHT_ERROR_THRESHOLD + Decimal(1e-3)) * sign
-    elif t == 7:
-        # data["holdings"][1]["holdings"][0]["target"] += 0.01 * sign
-        return
-    elif t == 8:
-        data["holdings"][1]["holdings"][0]["value"] += Decimal(1.01 * sign)
+        yield data
 
+        data = copy.deepcopy(PORTFOLIO_STATUS)
+        data["holdings"][1]["holdings"][0]["value"] += Decimal(1.01 * sign)
+        yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][0]["value"] = Decimal(-1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][0]["target"] = Decimal(-1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][0]["target"] = Decimal(1 + 1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][0]["actual"] = Decimal(-1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][0]["actual"] = Decimal(1 + 1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][1]["holdings"][0]["value"] = Decimal(-1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][1]["holdings"][0]["target"] = Decimal(-1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][1]["holdings"][0]["target"] = Decimal(1 + 1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][1]["holdings"][0]["actual"] = Decimal(-1e-2)
+    yield data
+
+    data = copy.deepcopy(PORTFOLIO_STATUS)
+    data["holdings"][1]["holdings"][0]["actual"] = Decimal(1 + 1e-2)
+    yield data
+
+
+@pytest.mark.parametrize("data", get_test_invalid_data())
+def test_invalid(monkeypatch, data):
+    portfolio_status = DriveWealthPortfolioStatus()
     portfolio_status.set_from_response(data)
+    logging.info(data)
     assert not portfolio_status.is_valid()
