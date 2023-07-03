@@ -237,6 +237,9 @@ class RebalancePortfoliosJob:
         profile_id = portfolio.profile_id
         if BILLING_AUTOSELL_ENABLED_PROFILES is not None and profile_id not in BILLING_AUTOSELL_ENABLED_PROFILES:
             return False
+        
+        if not portfolio.holdings:
+            return False
 
         if self._pending_sell_orders_exist(profile_id):
             return False
