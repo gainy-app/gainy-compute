@@ -237,7 +237,7 @@ class RebalancePortfoliosJob:
         profile_id = portfolio.profile_id
         if BILLING_AUTOSELL_ENABLED_PROFILES is not None and profile_id not in BILLING_AUTOSELL_ENABLED_PROFILES:
             return False
-        
+
         if not portfolio.holdings:
             return False
 

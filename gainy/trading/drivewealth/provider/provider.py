@@ -107,7 +107,8 @@ class DriveWealthProvider(DriveWealthProviderBase):
         chosen_fund = helper.ensure_fund(profile_id, trading_order)
         helper.handle_cash_amount_change(trading_order, portfolio, chosen_fund)
         trading_order.status = TradingOrderStatus.PENDING_EXECUTION
-        trading_order.pending_execution_since = datetime.datetime.now()
+        if trading_order.pending_execution_since is None:
+            trading_order.pending_execution_since = datetime.datetime.now()
         self.repository.persist(trading_order)
         self.repository.persist(portfolio)
 
