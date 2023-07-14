@@ -779,6 +779,7 @@ class DriveWealthFund(BaseDriveWealthModel):
 
         logger.info('DriveWealthFund normalize_weights pre',
                     extra={
+                        "fund_ref_id": self.ref_id,
                         "weight_sum": weight_sum,
                         "holdings": self.holdings,
                     })
@@ -803,13 +804,18 @@ class DriveWealthFund(BaseDriveWealthModel):
 
         logger.info('DriveWealthFund normalize_weights post',
                     extra={
-                        "weight_threshold": DW_WEIGHT_THRESHOLD,
+                        "fund_ref_id": self.ref_id,
                         "weight_sum": weight_sum,
                         "holdings": self.holdings,
                     })
 
     def set_target_weights_from_status_actual_weights(
             self, portfolio_status: DriveWealthPortfolioStatus):
+
+        if self.symbol:
+            # we don't update weights of funds containing one symbol
+            return
+
         holdings = portfolio_status.get_fund(self.ref_id)
         if not holdings:
             raise Exception("Fund not found in portfolio status.")
